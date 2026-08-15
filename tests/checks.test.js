@@ -258,6 +258,38 @@ test("updates: rpm-ostree with no update available is up to date", async () => {
   assert.match(findings[0].title, /up to date/i);
 });
 
+test("updates: openSUSE (zypper) counts pending updates", async () => {
+  const ctx = {
+    osRelease: { id: "opensuse-tumbleweed", id_like: "suse" },
+    run: async (cmd) => {
+      if (cmd.startsWith("zypper -q lu")) {
+        return { ok: true, code: 0, stdout: "4\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /4 update/i);
+  assert.match(findings[0].fix, /zypper update/);
+});
+
+test("updates: Alpine (apk) counts upgradable packages", async () => {
+  const ctx = {
+    osRelease: { id: "alpine", id_like: "" },
+    run: async (cmd) => {
+      if (cmd.startsWith("apk info -u")) {
+        return { ok: true, code: 0, stdout: "musl\nopenssl\nbusybox\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /3 update/i);
+  assert.match(findings[0].fix, /apk upgrade/);
+});
+
 test("security: active firewall and SELinux enforcing are reported", async () => {
   const ctx = stubCtx({
     "systemctl is-active firewalld 2>/dev/null": "active\n",
@@ -279,12 +311,29 @@ test("security: no firewall detected → medium finding", async () => {
     "systemctl is-active ufw 2>/dev/null": "inactive\n",
     "nft list ruleset 2>/dev/null | head -5": "",
     "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
     "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
   });
   const findings = await security.run(ctx);
   const med = findings.find((f) => f.severity === "medium");
   assert.ok(med, "expected a medium finding");
   assert.match(med.title, /No active firewall/);
+});
+
+test("security: AppArmor is reported on Debian-family systems", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "active\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "nft list ruleset 2>/dev/null | head -5": "",
+    "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "docker-default (enforce)\nsnap.discord.discord (enforce)\n",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  const aa = findings.find((f) => f.title.includes("AppArmor"));
+  assert.ok(aa, "expected an AppArmor finding");
+  assert.equal(aa.severity, "info");
+  assert.match(aa.evidence, /docker-default/);
 });
 
 test("processes: a single app over 20% of RAM is flagged medium", async () => {
@@ -373,4 +422,20 @@ test("battery: desktop with no battery is skipped with info", async () => {
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /No battery detected/);
+});
+
+test("services: non-systemd system explains why the check is skipped", async () => {
+  const ctx = {
+    osRelease: { id: "alpine", id_like: "" },
+    run: async (cmd) => {
+      if (cmd.startsWith("systemctl")) return { ok: false, code: -1, stdout: "", stderr: "", missing: true };
+      if (cmd.startsWith("ps -p 1")) return { ok: true, code: 0, stdout: "openrc\n", stderr: "" };
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await services.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /Non-systemd/);
+  assert.match(findings[0].detail, /openrc/);
 });

@@ -28,6 +28,18 @@ export const services = {
         fix: `Inspect one with \`systemctl status ${failed[0].name}\` (or \`systemctl --user status ${failed[0].name}\` for user services). If it is not something you need, disable it with \`systemctl disable ${failed[0].name}\`.`,
         confidence: "high",
       });
+    } else if (sys.missing && user.missing) {
+      // Non-systemd distros (Alpine/OpenRC, Void/runit, Gentoo/OpenRC) have no
+      // systemctl; say so instead of silently skipping.
+      const init = await ctx.run("ps -p 1 -o comm= 2>/dev/null");
+      findings.push({
+        severity: "info",
+        title: "Non-systemd system — services check skipped",
+        detail: `This system does not run systemd (init: ${init.stdout.trim() || "unknown"}), so the failed-services check does not apply.`,
+        evidence: init.stdout.trim() || "init unknown",
+        fix: null,
+        confidence: "high",
+      });
     }
     return findings;
   },

@@ -45,6 +45,19 @@ export const security = {
       });
     }
 
+    // Debian/Ubuntu/Arch use AppArmor instead of SELinux — report it when active.
+    const apparmor = await ctx.run("cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3");
+    if (apparmor.ok && apparmor.stdout.trim().length > 0) {
+      findings.push({
+        severity: "info",
+        title: "AppArmor is active",
+        detail: "AppArmor is enforcing application confinement, the standard hardening on Debian/Ubuntu-family systems.",
+        evidence: apparmor.stdout.trim().split("\n").slice(0, 2).join("\n"),
+        fix: null,
+        confidence: "high",
+      });
+    }
+
     const upRes = await ctx.run("systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null");
     // Updates are checked by the dedicated "updates" check; here we just report
     // whether an automatic update service is active.

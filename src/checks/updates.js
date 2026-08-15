@@ -28,6 +28,12 @@ export const updates = {
     } else if (family.includes("debian") || family.includes("ubuntu")) {
       cmd = "apt-get -s upgrade 2>/dev/null | grep -c '^Inst ' || true";
       label = "apt";
+    } else if (family.includes("suse") || family.includes("opensuse")) {
+      cmd = "zypper -q lu 2>/dev/null | awk 'NR>4 && NF' | wc -l";
+      label = "zypper";
+    } else if (family.includes("alpine")) {
+      cmd = "apk info -u 2>/dev/null";
+      label = "apk";
     } else if (family.includes("arch")) {
       cmd = "checkupdates 2>/dev/null || pacman -Qu 2>/dev/null";
       label = "pacman";
@@ -58,8 +64,8 @@ export const updates = {
     if (!ok) return findings;
 
     let count;
-    if (label === "apt") {
-      // `grep -c` prints a single number, not one line per package.
+    if (label === "apt" || label === "zypper") {
+      // These commands print a single count number, not one line per package.
       count = num(lines(res.stdout)[0]);
     } else if (label === "rpm-ostree") {
       // Image updates are atomic: either a new image is available or not.
@@ -68,7 +74,7 @@ export const updates = {
       count = lines(res.stdout).filter((l) => l !== "0").length;
     }
 
-    const fixCmd = label === "apt" ? "apt upgrade" : label === "pacman" ? "pacman -Syu" : label === "rpm-ostree" ? "rpm-ostree upgrade" : "dnf upgrade";
+    const fixCmd = label === "apt" ? "apt upgrade" : label === "pacman" ? "pacman -Syu" : label === "rpm-ostree" ? "rpm-ostree upgrade" : label === "zypper" ? "zypper update" : label === "apk" ? "apk upgrade" : "dnf upgrade";
     const rebootNote = label === "rpm-ostree" ? " Reboot to activate it." : "";
 
     if (count === 0) {
