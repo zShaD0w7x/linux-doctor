@@ -14,6 +14,7 @@ import { gpu } from "./checks/gpu.js";
 import { systemInfo } from "./checks/system.js";
 import { renderReport, renderJson } from "./report.js";
 import { aiSummary } from "./llm.js";
+import { pushReport } from "./fleet.js";
 import { startWeb } from "./web.js";
 
 const require = createRequire(import.meta.url);
@@ -31,6 +32,7 @@ OPTIONS
   --json         print findings as JSON (machine-readable)
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
+  --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
   --help         show this help
   --version      show the version
 
@@ -61,6 +63,12 @@ export async function main(argv) {
     return 2;
   }
 
+  const pushUrl = args.includes("--push") ? args[args.indexOf("--push") + 1] : null;
+  if (args.includes("--push") && !pushUrl) {
+    console.error("--push requires a URL, e.g. --push https://your-server/reports");
+    return 2;
+  }
+
   const collect = async () => {
     const system = await systemInfo();
     const cctx = { run, osRelease: system.osRelease };
@@ -85,6 +93,16 @@ export async function main(argv) {
   let summary = null;
   if (useAi) {
     summary = await aiSummary(findings);
+  }
+
+  if (pushUrl) {
+    try {
+      await pushReport(pushUrl, { system, findings, summary }, { apiKey: process.env.FLEET_API_KEY });
+      console.error(`📡 Report sent to ${pushUrl}`);
+    } catch (err) {
+      console.error(`⚠️  Could not send report to fleet server: ${err.message}`);
+      return 2;
+    }
   }
 
   if (jsonOut) {

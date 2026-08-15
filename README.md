@@ -1,5 +1,7 @@
 # 🩺 Linux Doctor
 
+[![Sponsor](https://img.shields.io/github/sponsors/zShaD0w7x)](https://github.com/sponsors/zShaD0w7x)
+
 **Plain-English health checks for your Linux system.**
 
 Linux Doctor runs a battery of read-only checks (memory, CPU, disk, services, logs, suspend/resume, security, updates, processes, battery), finds the problems that actually matter, explains them in clear **American English**, and tells you exactly how to fix them.
@@ -42,6 +44,7 @@ npm install -g . && linux-doctor
 --json         machine-readable JSON output (great for scripting)
 --web          open the visual dashboard in your browser (recommended)
 --ai           add an AI summary in plain English (needs LLM_API_KEY)
+--push <url>   post the report to a fleet server (FLEET_API_KEY optional)
 --help         usage
 --version      version
 ```
@@ -80,6 +83,20 @@ LLM_API_KEY=sk-... linux-doctor --ai
 
 Works with any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`). If the AI is unreachable, Linux Doctor silently falls back to the plain report — the AI is a bonus, never a dependency.
 
+## Fleet reporting (enterprise)
+
+```bash
+linux-doctor --push https://your-server/reports
+```
+
+Sends the report as JSON to a central endpoint, tagged with the machine's hostname, so a company can collect health data from every machine in one place. Optional auth via `FLEET_API_KEY` (sent as a `Bearer` token). Pairs well with cron:
+
+```bash
+0 9 * * * linux-doctor --push https://your-server/reports --check memory
+```
+
+The client is free and open-source. The hosted fleet dashboard — one place to see every machine's issues, with alerting — is the paid enterprise service. The open-source [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) explains the licensing options for companies that want to embed Linux Doctor in their own products.
+
 ## Roadmap
 
 - GUI (GTK/Tauri) with a one-click report
@@ -89,4 +106,9 @@ Works with any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`). If the 
 
 ## License
 
-[GPL-3.0-or-later](LICENSE) — free software: you may redistribute it and/or modify it, but any derivative work must stay open-source under the same terms.
+**Dual-licensed.**
+
+- [GPL-3.0-or-later](LICENSE) — free for individuals and open-source projects: you may redistribute it and/or modify it, but any derivative work must stay open-source under the same terms.
+- [Commercial license](COMMERCIAL-LICENSE.md) — for companies that need to use Linux Doctor inside proprietary products.
+
+By contributing, you agree your contributions are offered under both licenses (see [CONTRIBUTING.md](CONTRIBUTING.md)).
