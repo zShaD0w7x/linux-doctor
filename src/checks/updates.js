@@ -1,4 +1,4 @@
-import { lines } from "../utils.js";
+import { lines, num } from "../utils.js";
 
 /**
  * Counts pending updates using the distro's package manager.
@@ -39,8 +39,20 @@ export const updates = {
     }
 
     const res = await ctx.run(cmd, { timeoutMs: 20000 });
-    if (!res.ok && res.missing) return findings;
-    const count = lines(res.stdout).filter((l) => l !== "0").length;
+    if (res.missing) return findings;
+    // dnf exits with 100 when updates are available (0 = up to date). Any other
+    // failure means we could not determine the state, so stay silent instead
+    // of falsely reporting "up to date".
+    const ok = res.ok || (label === "dnf" && res.code === 100);
+    if (!ok) return findings;
+
+    let count;
+    if (label === "apt") {
+      // `grep -c` prints a single number, not one line per package.
+      count = num(lines(res.stdout)[0]);
+    } else {
+      count = lines(res.stdout).filter((l) => l !== "0").length;
+    }
 
     if (count === 0) {
       findings.push({

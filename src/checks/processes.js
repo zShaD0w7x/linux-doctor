@@ -34,11 +34,21 @@ export const processes = {
     const memLine = lines(memRes.stdout || "").find((l) => l.startsWith("Mem:"));
     const total = memLine ? num(memLine.split(/\s+/)[1]) : 0;
     const top = rows[0];
+    const ratio = total > 0 ? top.rss / total : 0;
 
-    if (top.rss > 0 && total > 0 && top.rss / total > 0.2) {
+    if (top.rss > 0 && ratio > 0.4) {
+      findings.push({
+        severity: "high",
+        title: "A single app is using a huge amount of memory",
+        detail: `${FRIENDLY[top.name] || `The \`${top.name}\` process`} is using ${fmtBytes(top.rss)}, which is more than 40% of your total RAM. This is very likely why the system feels slow.`,
+        evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
+        fix: "Close unused tabs or quit that app now, then re-run this check.",
+        confidence: "high",
+      });
+    } else if (top.rss > 0 && ratio > 0.2) {
       findings.push({
         severity: "medium",
-        title: `A single app is using a lot of memory`,
+        title: "A single app is using a lot of memory",
         detail: `${FRIENDLY[top.name] || `The \`${top.name}\` process`} is using ${fmtBytes(top.rss)}, which is more than 20% of your total RAM. This is the most likely reason the system feels slow.`,
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
         fix: "Close unused tabs or quit that app and re-run this check.",

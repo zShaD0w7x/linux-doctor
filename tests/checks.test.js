@@ -6,6 +6,11 @@ import { disk } from "../src/checks/disk.js";
 import { services } from "../src/checks/services.js";
 import { journal } from "../src/checks/journal.js";
 import { gpu } from "../src/checks/gpu.js";
+import { updates } from "../src/checks/updates.js";
+import { security } from "../src/checks/security.js";
+import { processes } from "../src/checks/processes.js";
+import { suspend } from "../src/checks/suspend.js";
+import { battery } from "../src/checks/battery.js";
 import { countBySeverity } from "../src/report.js";
 
 /** Build a stub ctx.run from a map of command → stdout string. */
@@ -179,4 +184,164 @@ test("countBySeverity buckets findings", () => {
     { severity: "medium", count: 1 },
     { severity: "info", count: 1 },
   ]);
+});
+
+test("updates: apt counts pending updates correctly (grep -c output)", async () => {
+  const ctx = stubCtx({
+    "apt-get -s upgrade 2>/dev/null | grep -c '^Inst ' || true": "3\n",
+  });
+  ctx.osRelease = { id: "debian", id_like: "" };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /3 update/i);
+  assert.match(findings[0].fix, /apt upgrade/);
+});
+
+test("updates: dnf exit code 100 (updates available) is counted", async () => {
+  const ctx = {
+    osRelease: { id: "fedora", id_like: "fedora" },
+    run: async (cmd) => {
+      if (cmd.startsWith("dnf check-update")) {
+        return { ok: false, code: 100, stdout: "kernel.x86_64 6.9.0-1 fedora\nfirefox.x86_64 130.0-1 fedora\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /2 update/i);
+});
+
+test("updates: a failed check stays silent instead of claiming up to date", async () => {
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    run: async () => ({ ok: false, code: 100, stdout: "", stderr: "" }),
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 0);
+});
+
+test("updates: unknown distro family is skipped with info", async () => {
+  const ctx = stubCtx({});
+  ctx.osRelease = { id: "void", id_like: "" };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /skipped/i);
+});
+
+test("security: active firewall and SELinux enforcing are reported", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "active\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "nft list ruleset 2>/dev/null | head -5": "",
+    "getenforce 2>/dev/null": "Enforcing\n",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  const titles = findings.map((f) => f.title).join(" ");
+  assert.match(titles, /Firewall is active/);
+  assert.match(titles, /SELinux is enforcing/);
+  assert.ok(!findings.some((f) => f.severity === "medium"), "no medium finding when the firewall is up");
+});
+
+test("security: no firewall detected → medium finding", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "inactive\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "nft list ruleset 2>/dev/null | head -5": "",
+    "getenforce 2>/dev/null": "",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  const med = findings.find((f) => f.severity === "medium");
+  assert.ok(med, "expected a medium finding");
+  assert.match(med.title, /No active firewall/);
+});
+
+test("processes: a single app over 20% of RAM is flagged medium", async () => {
+  const ctx = stubCtx({
+    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nbrave       4000000000\nfirefox      800000000\nplasma       500000000\n`,
+    "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 12000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
+  });
+  const findings = await processes.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].title, /using a lot of memory/);
+});
+
+test("processes: a single app over 40% of RAM is flagged high", async () => {
+  const ctx = stubCtx({
+    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nbrave       8000000000\nfirefox      800000000\nplasma       500000000\n`,
+    "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 14000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
+  });
+  const findings = await processes.run(ctx);
+  assert.equal(findings[0].severity, "high");
+  assert.match(findings[0].title, /huge amount of memory/);
+});
+
+test("processes: healthy memory usage produces an info finding", async () => {
+  const ctx = stubCtx({
+    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nplasma       500000000\nfirefox      400000000\nbrave        300000000\n`,
+    "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360  5000000000 1000000000  300000000  7000000000  11000000000\nSwap:   8267812045         0 8267812045`,
+  });
+  const findings = await processes.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /Top memory consumers/);
+});
+
+test("suspend: failing system-sleep hooks are surfaced as medium", async () => {
+  const ctx = stubCtx({
+    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null": `Aug 10 22:11:03 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.\nAug 11 07:30:12 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.`,
+  });
+  const findings = await suspend.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].evidence, /fw-fanctrl-suspend/);
+});
+
+test("suspend: clean log produces no finding", async () => {
+  const ctx = stubCtx({
+    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null": "",
+  });
+  const findings = await suspend.run(ctx);
+  assert.equal(findings.length, 0);
+});
+
+test("battery: low battery is flagged medium", async () => {
+  const ctx = stubCtx({
+    "ls /sys/class/power_supply/ 2>/dev/null": "AC\nBAT0\n",
+    "cat /sys/class/power_supply/BAT0/type 2>/dev/null": "Battery\n",
+    "cat /sys/class/power_supply/BAT0/capacity 2>/dev/null": "12\n",
+    "cat /sys/class/power_supply/BAT0/status 2>/dev/null": "Discharging\n",
+  });
+  const findings = await battery.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].title, /very low/);
+});
+
+test("battery: healthy battery is informational", async () => {
+  const ctx = stubCtx({
+    "ls /sys/class/power_supply/ 2>/dev/null": "AC\nBAT0\n",
+    "cat /sys/class/power_supply/BAT0/type 2>/dev/null": "Battery\n",
+    "cat /sys/class/power_supply/BAT0/capacity 2>/dev/null": "87\n",
+    "cat /sys/class/power_supply/BAT0/status 2>/dev/null": "Charging\n",
+  });
+  const findings = await battery.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].detail, /87%/);
+});
+
+test("battery: desktop with no battery is skipped with info", async () => {
+  const ctx = stubCtx({
+    "ls /sys/class/power_supply/ 2>/dev/null": "AC\n",
+  });
+  const findings = await battery.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /No battery detected/);
 });

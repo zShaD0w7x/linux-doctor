@@ -9,36 +9,50 @@ export const battery = {
     if (!res.ok) return findings;
 
     const supplies = lines(res.stdout).filter((s) => !s.startsWith("AC") && !s.startsWith("ADP"));
-    let found = false;
-    for (const s of supplies) {
-      const type = await ctx.run(`cat /sys/class/power_supply/${s}/type 2>/dev/null`);
-      if (type.ok && type.stdout.trim() === "Battery") {
-        found = true;
-        const capacity = await ctx.run(`cat /sys/class/power_supply/${s}/capacity 2>/dev/null`);
-        const status = await ctx.run(`cat /sys/class/power_supply/${s}/status 2>/dev/null`);
-        const cap = num(capacity.stdout);
-        if (cap < 20) {
-          findings.push({
-            severity: "medium",
-            title: "Battery level is very low",
-            detail: `The battery is at ${cap}%. Plug in the charger to avoid losing work.`,
-            evidence: `${s}: capacity=${cap}% status=${status.stdout.trim() || "unknown"}`,
-            fix: null,
-            confidence: "high",
-          });
-        } else {
-          findings.push({
-            severity: "info",
-            title: "Battery status",
-            detail: `The battery is at ${cap}% and ${(status.stdout || "").trim().toLowerCase() || "idle"}.`,
-            evidence: `${s}: capacity=${cap}% status=${status.stdout.trim() || "unknown"}`,
-            fix: null,
-            confidence: "high",
-          });
-        }
+
+    // Two parallel phases: identify batteries first, then read capacity and
+    // status only for the supplies that are actually batteries.
+    const types = await Promise.all(
+      supplies.map(async (s) => ({
+        s,
+        type: (await ctx.run(`cat /sys/class/power_supply/${s}/type 2>/dev/null`)).stdout.trim(),
+      }))
+    );
+    const batteries = types.filter((t) => t.type === "Battery");
+
+    const states = await Promise.all(
+      batteries.map(async ({ s }) => {
+        const [capacity, status] = await Promise.all([
+          ctx.run(`cat /sys/class/power_supply/${s}/capacity 2>/dev/null`),
+          ctx.run(`cat /sys/class/power_supply/${s}/status 2>/dev/null`),
+        ]);
+        return { s, cap: num(capacity.stdout), status: status.stdout.trim() };
+      })
+    );
+
+    for (const { s, cap, status } of states) {
+      if (cap < 20) {
+        findings.push({
+          severity: "medium",
+          title: "Battery level is very low",
+          detail: `The battery is at ${cap}%. Plug in the charger to avoid losing work.`,
+          evidence: `${s}: capacity=${cap}% status=${status || "unknown"}`,
+          fix: null,
+          confidence: "high",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          title: "Battery status",
+          detail: `The battery is at ${cap}% and ${status.toLowerCase() || "idle"}.`,
+          evidence: `${s}: capacity=${cap}% status=${status || "unknown"}`,
+          fix: null,
+          confidence: "high",
+        });
       }
     }
-    if (!found) {
+
+    if (batteries.length === 0) {
       findings.push({
         severity: "info",
         title: "No battery detected",

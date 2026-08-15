@@ -106,7 +106,7 @@ export async function main(argv) {
   }
 
   if (jsonOut) {
-    console.log(renderJson(findings));
+    console.log(renderJson(findings, system));
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 

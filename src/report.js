@@ -69,7 +69,9 @@ export async function renderReport(findings, { aiSummary, system } = {}) {
   return out.join("\n");
 }
 
-/** Render findings as JSON (machine-readable). */
-export function renderJson(findings) {
-  return JSON.stringify({ generatedAt: new Date().toISOString(), findings }, null, 2);
+/** Render findings as JSON (machine-readable), with system info when available. */
+export function renderJson(findings, system = null) {
+  const payload = { generatedAt: new Date().toISOString(), findings };
+  if (system) payload.system = system;
+  return JSON.stringify(payload, null, 2);
 }
