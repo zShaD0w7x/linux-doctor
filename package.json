@@ -6,12 +6,27 @@
   "bin": {
     "linux-doctor": "bin/doctor.js"
   },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test"
   },
   "engines": {
     "node": ">=20"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zShaD0w7x/linux-doctor-cli.git"
+  },
+  "homepage": "https://github.com/zShaD0w7x/linux-doctor-cli#readme",
+  "bugs": {
+    "url": "https://github.com/zShaD0w7x/linux-doctor-cli/issues"
+  },
+  "author": "zShaD0w7x",
   "keywords": [
     "linux",
     "diagnostics",

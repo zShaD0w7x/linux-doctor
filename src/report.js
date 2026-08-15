@@ -12,8 +12,8 @@ export function countBySeverity(findings) {
 }
 
 /** Render the full terminal report in American English. */
-export async function renderReport(findings, { aiSummary } = {}) {
-  const info = await systemInfo();
+export async function renderReport(findings, { aiSummary, system } = {}) {
+  const info = system ?? (await systemInfo());
   const out = [];
 
   out.push("🩺 Linux Doctor");
@@ -65,7 +65,7 @@ export async function renderReport(findings, { aiSummary } = {}) {
 
   out.push("──────────────────────────────");
   out.push("Linux Doctor only reads system information — it never modifies anything.");
-  out.push("Report bugs or request checks at: github.com/your-name/linux-doctor");
+  out.push("Report bugs or request checks at: github.com/zShaD0w7x/linux-doctor-cli");
   return out.join("\n");
 }
 

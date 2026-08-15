@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { run } from "./utils.js";
 import { memory } from "./checks/memory.js";
 import { load } from "./checks/load.js";
@@ -14,6 +15,9 @@ import { systemInfo } from "./checks/system.js";
 import { renderReport, renderJson } from "./report.js";
 import { aiSummary } from "./llm.js";
 import { startWeb } from "./web.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
 
 const CHECKS = [memory, load, disk, services, journal, suspend, security, updates, processes, battery, gpu];
 
@@ -44,7 +48,7 @@ export async function main(argv) {
     return 0;
   }
   if (args.includes("--version")) {
-    console.log("linux-doctor 0.1.0");
+    console.log(`${pkg.name} ${pkg.version}`);
     return 0;
   }
 
@@ -56,9 +60,6 @@ export async function main(argv) {
     console.error(`Unknown check "${checkFlag}". Run with --help to list checks.`);
     return 2;
   }
-
-  const info = await systemInfo();
-  const ctx = { run, osRelease: info.osRelease };
 
   const collect = async () => {
     const system = await systemInfo();
@@ -79,7 +80,7 @@ export async function main(argv) {
     return 0;
   }
 
-  const findings = (await collect()).findings;
+  const { findings, system } = await collect();
 
   let summary = null;
   if (useAi) {
@@ -91,6 +92,6 @@ export async function main(argv) {
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
-  console.log(await renderReport(findings, { aiSummary: summary }));
+  console.log(await renderReport(findings, { aiSummary: summary, system }));
   return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
 }
