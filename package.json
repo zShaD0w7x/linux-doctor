@@ -1,0 +1,23 @@
+{
+  "name": "linux-doctor",
+  "version": "0.1.0",
+  "description": "Linux Doctor — plain-English health checks for your Linux system. Finds real problems, explains them in American English, and tells you exactly how to fix them.",
+  "type": "module",
+  "bin": {
+    "linux-doctor": "bin/doctor.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "linux",
+    "diagnostics",
+    "health",
+    "system",
+    "cli"
+  ],
+  "license": "MIT"
+}
