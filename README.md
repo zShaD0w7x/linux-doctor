@@ -12,6 +12,12 @@ being pushed to swap. This is the most common cause of a sluggish desktop.
 How to fix: close unused browser tabs, then re-run this check.
 ```
 
+## Screenshots
+
+![Linux Doctor dashboard](docs/screenshots/dashboard.png)
+
+The `--web` dashboard: a green/red status banner, severity chips, one card per finding with collapsible **Evidence** blocks, and a **Copy** button next to every fix.
+
 ## Why it exists
 
 Linux diagnostics are cryptic. `journalctl` speaks in hieroglyphics, and most users end up running commands a stranger on Reddit told them to run. Linux Doctor is the difference between *"SELinux denied access on /proc/swaps"* and *"your system is slow because Brave is using 41% of your CPU."*
