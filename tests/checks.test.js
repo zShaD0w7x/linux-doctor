@@ -231,6 +231,33 @@ test("updates: unknown distro family is skipped with info", async () => {
   assert.match(findings[0].title, /skipped/i);
 });
 
+test("updates: rpm-ostree (Bazzite) reports an available image update", async () => {
+  const ctx = {
+    osRelease: { id: "bazzite", id_like: "fedora" },
+    run: async (cmd) => {
+      if (cmd.startsWith("rpm-ostree upgrade --check")) {
+        return { ok: true, code: 0, stdout: "Note: --check and --preview may be unreliable.\nAvailable update: 42.20260815.0 (checksum 1a2b3c)\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /1 update/i);
+  assert.match(findings[0].fix, /rpm-ostree upgrade/);
+  assert.match(findings[0].fix, /Reboot/);
+});
+
+test("updates: rpm-ostree with no update available is up to date", async () => {
+  const ctx = {
+    osRelease: { id: "bazzite", id_like: "fedora" },
+    run: async (cmd) => ({ ok: true, code: 0, stdout: "No updates available.\n", stderr: "" }),
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /up to date/i);
+});
+
 test("security: active firewall and SELinux enforcing are reported", async () => {
   const ctx = stubCtx({
     "systemctl is-active firewalld 2>/dev/null": "active\n",
@@ -262,7 +289,8 @@ test("security: no firewall detected → medium finding", async () => {
 
 test("processes: a single app over 20% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
-    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nbrave       4000000000\nfirefox      800000000\nplasma       500000000\n`,
+    // ps -o rss reports KiB: 4000000 KiB ≈ 3.8 GB of 15 GB (~25%).
+    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nbrave       4000000\nfirefox       800000\nplasma        500000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 12000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -273,7 +301,8 @@ test("processes: a single app over 20% of RAM is flagged medium", async () => {
 
 test("processes: a single app over 40% of RAM is flagged high", async () => {
   const ctx = stubCtx({
-    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nbrave       8000000000\nfirefox      800000000\nplasma       500000000\n`,
+    // 8000000 KiB ≈ 7.6 GB of 15 GB (~50%).
+    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nbrave       8000000\nfirefox       800000\nplasma        500000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 14000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -283,7 +312,7 @@ test("processes: a single app over 40% of RAM is flagged high", async () => {
 
 test("processes: healthy memory usage produces an info finding", async () => {
   const ctx = stubCtx({
-    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nplasma       500000000\nfirefox      400000000\nbrave        300000000\n`,
+    "ps -eo comm,rss --sort=-rss 2>/dev/null | head -8": `COMMAND          RSS\nplasma        500000\nfirefox       400000\nbrave         300000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360  5000000000 1000000000  300000000  7000000000  11000000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);

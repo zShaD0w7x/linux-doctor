@@ -27,7 +27,9 @@ export const processes = {
 
     const rows = lines(psRes.stdout).slice(1).slice(0, 3).map((l) => {
       const [name, rss] = l.split(/\s+/);
-      return { name: name || "unknown", rss: num(rss) };
+      // `ps -o rss` reports KiB; convert to bytes so the ratio vs `free -b`
+      // (bytes) is correct and fmtBytes displays real units.
+      return { name: name || "unknown", rss: num(rss) * 1024 };
     });
     if (rows.length === 0) return findings;
 
