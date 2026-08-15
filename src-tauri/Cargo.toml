@@ -1,0 +1,19 @@
+[package]
+name = "linux-doctor"
+version = "0.1.0"
+description = "Linux Doctor desktop app — plain-English health checks for your Linux system"
+edition = "2021"
+
+# The Rust side is intentionally a thin shell: all check logic lives in the
+# Node CLI (bin/doctor.js), which the app runs and renders. No duplication.
+[lib]
+name = "linux_doctor_lib"
+crate-type = ["lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["custom-protocol", "devtools"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

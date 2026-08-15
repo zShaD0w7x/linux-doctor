@@ -13,7 +13,12 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "gui:dev": "tauri dev",
+    "gui:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
   },
   "engines": {
     "node": ">=20"

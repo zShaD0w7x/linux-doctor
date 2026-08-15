@@ -59,6 +59,34 @@ Opens a dark, card-based dashboard in your browser at `127.0.0.1`: a green/red s
 
 Exit code: `0` if nothing serious was found, `1` if there are high/medium findings, `2` on errors — so you can use it in scripts and cron jobs.
 
+## Desktop app (GUI)
+
+The same dashboard, as a native desktop window — launch it, and one click on **Re-run checks** gives you a fresh report. Built with Tauri v2: the window is a thin Rust shell that runs the exact same Node checks (`bin/doctor.js --json`), so there is **zero duplication** between the CLI and the GUI — the checks are the single source of truth.
+
+**Prerequisites:** Node.js ≥ 20 (the checks run through Node), Rust, and the Tauri system libraries:
+
+```bash
+# Fedora / Bazzite (immutable) — layering applies live, no reboot needed
+sudo rpm-ostree install --apply-live webkit2gtk4.1-devel dbus-devel librsvg2-devel libxdo-devel
+# Debian / Ubuntu
+sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libxdo-dev librsvg2-dev
+```
+
+**Run in development:**
+
+```bash
+npm install
+npm run gui:dev
+```
+
+**Build installers (.deb / .rpm / AppImage):**
+
+```bash
+npm run gui:build
+```
+
+The bundled app needs `node` on PATH to run the checks. Set `LINUX_DOCTOR_ROOT` to point at a Linux Doctor checkout if the bundled resources are unavailable.
+
 ## Checks
 
 | ID | What it checks |
@@ -99,8 +127,8 @@ The client is free and open-source. The hosted fleet dashboard — one place to 
 
 ## Roadmap
 
-- GUI (GTK/Tauri) with a one-click report
-- More checks: GPU/NVIDIA, Bluetooth, firmware (fwupd), Wayland issues
+- ~~GUI with a one-click report~~ — shipped: a Tauri desktop app (see above). Next: a `.desktop` launcher and signed store installers
+- More checks: Bluetooth, firmware (fwupd), Wayland issues
 - Report history and change detection ("new since last check")
 - Auto-generated, distro-specific fix instructions
 
