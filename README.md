@@ -89,4 +89,4 @@ Works with any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`). If the 
 
 ## License
 
-MIT
+[GPL-3.0-or-later](LICENSE) — free software: you may redistribute it and/or modify it, but any derivative work must stay open-source under the same terms.
