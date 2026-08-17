@@ -1,8 +1,11 @@
 import { lines } from "../utils.js";
 
-export const security = {
+import { defineCheck } from "./define.js";
+
+export const security = defineCheck({
   id: "security",
   title: "Basic security posture",
+  category: "security",
   async run(ctx) {
     const findings = [];
 
@@ -73,4 +76,4 @@ export const security = {
     }
     return findings;
   },
-};
+});

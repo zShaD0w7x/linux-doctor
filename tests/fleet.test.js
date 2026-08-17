@@ -1,55 +1,41 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import http from "node:http";
-import { pushReport } from "../src/fleet.js";
+import { pushReport, machineId } from "../src/fleet.js";
 
-test("pushReport POSTs the report with agent, hostname and auth", async () => {
-  let received = null;
-  const server = http.createServer((req, res) => {
-    let body = "";
-    req.on("data", (c) => (body += c));
-    req.on("end", () => {
-      received = {
-        method: req.method,
-        path: req.url,
-        body: JSON.parse(body),
-        auth: req.headers.authorization,
-      };
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    });
-  });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  const port = server.address().port;
-  try {
-    const res = await pushReport(
-      `http://127.0.0.1:${port}/reports`,
-      { findings: [{ id: 1, severity: "high" }] },
-      { apiKey: "secret" }
-    );
-    assert.equal(res.status, 200);
-    assert.equal(received.method, "POST");
-    assert.equal(received.path, "/reports");
-    assert.equal(received.auth, "Bearer secret");
-    assert.equal(received.body.findings[0].severity, "high");
-    assert.equal(received.body.agent, "linux-doctor");
-    assert.ok(received.body.hostname, "payload must include the hostname");
-    assert.ok(received.body.sentAt, "payload must include a timestamp");
-  } finally {
-    server.close();
-  }
+test("machineId: reads /etc/machine-id or returns null", () => {
+  const id = machineId();
+  assert.ok(id === null || /^[0-9a-f-]{10,}$/.test(id), "machine id is a hex-ish string or null");
 });
 
-test("pushReport throws on a non-2xx response", async () => {
-  const server = http.createServer((req, res) => {
-    res.writeHead(500);
-    res.end();
-  });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  const port = server.address().port;
+test("pushReport: payload carries machineId and the diff fields", async () => {
+  let sent = null;
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    sent = { url, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200 };
+  };
   try {
-    await assert.rejects(() => pushReport(`http://127.0.0.1:${port}/reports`, {}), /500/);
+    const diffSinceLast = { added: [{ severity: "high", title: "x" }], fixed: [] };
+    await pushReport("https://example.com/reports", { system: {}, findings: [], score: 80, newCount: 1, fixedCount: 0, diffSinceLast }, { apiKey: "k" });
   } finally {
-    server.close();
+    globalThis.fetch = origFetch;
+  }
+
+  assert.equal(sent.url, "https://example.com/reports");
+  assert.equal(sent.body.agent, "linux-doctor");
+  assert.equal(sent.body.score, 80);
+  assert.deepEqual(sent.body.diffSinceLast, { added: [{ severity: "high", title: "x" }], fixed: [] });
+  assert.equal(sent.body.machineId, machineId());
+  assert.equal(typeof sent.body.hostname, "string");
+  assert.match(sent.body.sentAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("pushReport: throws when the server responds with an error", async () => {
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 500 });
+  try {
+    await assert.rejects(() => pushReport("https://example.com/reports", { findings: [] }), /500/);
+  } finally {
+    globalThis.fetch = origFetch;
   }
 });

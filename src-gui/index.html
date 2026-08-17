@@ -10,7 +10,15 @@
     --bg: #0f1115; --card: #1a1d24; --card2: #21252e; --border: #2a2f3a;
     --text: #e6e9ef; --muted: #9aa3b2;
     --red: #ff5c5c; --yellow: #ffc94d; --green: #3ddc84; --blue: #7aa2f7;
+    --accent: #2d5bff; --hover: #2a2f3a; --evidence-bg: #10131a;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  /* Light theme: follows the system by default, overridable with the 🌓 button. */
+  :root[data-theme="light"] {
+    --bg: #f5f6f8; --card: #ffffff; --card2: #edf0f4; --border: #d8dde5;
+    --text: #1b212b; --muted: #5a6472;
+    --red: #c13b3b; --yellow: #9a7500; --green: #14814a; --blue: #3a63c9;
+    --hover: #e2e6ec; --evidence-bg: #f2f4f7;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 32px 20px 64px; }
@@ -24,36 +32,63 @@
     background: var(--card2); color: var(--text); border: 1px solid var(--border);
     padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: background .15s;
   }
-  button:hover { background: #2a2f3a; }
-  button.primary { background: #2d5bff; border-color: #2d5bff; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); border-color: var(--accent); }
   button.primary:hover { background: #3a68ff; }
+  button:disabled { opacity: .55; cursor: default; }
   .banner { border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; font-size: 15px; border: 1px solid var(--border); }
   .banner.ok { background: rgba(61,220,132,.08); border-color: rgba(61,220,132,.35); color: var(--green); }
   .banner.warn { background: rgba(255,92,92,.08); border-color: rgba(255,92,92,.35); color: var(--red); }
+  .banner.running { background: var(--card); color: var(--muted); }
+  .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .chips { display: flex; gap: 8px; margin-bottom: 26px; flex-wrap: wrap; }
   .chip { padding: 6px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); background: var(--card); }
   .chip b { font-weight: 700; }
   .chip.red { color: var(--red); } .chip.yellow { color: var(--yellow); } .chip.blue { color: var(--blue); }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 26px 0 12px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--muted); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; }
+  .chip.new { color: #c792ea; border-color: rgba(199,146,234,.4); }
+  .newbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #16131c; background: #c792ea; border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
+  .lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
+  .checkid { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+  .group { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .group summary::-webkit-details-marker { display: none; }
+  .group summary b { color: var(--text); }
+  .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .15s; }
+  .group[open] summary .chev { transform: rotate(90deg); }
+  .group-body { padding: 0 10px 10px; }
+  .group .card { border: none; background: var(--card2); margin-bottom: 8px; }
+  .group .card:last-child { margin-bottom: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
   .card.high { border-left-color: var(--red); }
   .card.medium { border-left-color: var(--yellow); }
   .card.info { border-left-color: var(--blue); }
-  .card-head { display: flex; align-items: baseline; gap: 10px; }
+  .card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
+  .card summary::-webkit-details-marker { display: none; }
+  .card summary h3 { font-size: 14.5px; font-weight: 600; flex: 1; }
+  .card summary .chev { color: var(--muted); font-size: 12px; transition: transform .15s; }
+  .card[open] summary .chev { transform: rotate(90deg); }
+  .card-body { padding: 0 14px 14px; }
   .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 6px; }
   .badge.high { background: rgba(255,92,92,.15); color: var(--red); }
   .badge.medium { background: rgba(255,201,77,.15); color: var(--yellow); }
   .badge.info { background: rgba(122,162,247,.15); color: var(--blue); }
-  .card h3 { font-size: 15px; font-weight: 600; }
   .card .detail { color: var(--text); margin-top: 8px; font-size: 14px; }
-  .evidence { margin-top: 10px; background: #10131a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  .evidence { margin-top: 10px; background: var(--evidence-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  /* Keyboard navigation: the focused finding card gets a visible outline. */
+  .card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--card2); }
   details.ev { margin-top: 10px; }
-  summary { cursor: pointer; color: var(--blue); font-size: 13px; user-select: none; }
+  details.ev summary { cursor: pointer; color: var(--blue); font-size: 13px; user-select: none; }
   .fix { margin-top: 10px; display: flex; gap: 8px; align-items: flex-start; }
   .fix .fixtext { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; flex: 1; color: var(--text); }
   .fix button { flex-shrink: 0; }
   footer { margin-top: 40px; color: var(--muted); font-size: 12.5px; text-align: center; }
   .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  #trend { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; }
+  .trendtitle { font-size: 13px; color: var(--muted); }
+  .trendtitle b { color: var(--text); }
+  #trend svg { flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -65,13 +100,16 @@
       <div class="sysinfo" id="sysinfo">Loading system info…</div>
     </div>
     <div class="actions">
+      <button id="theme" title="Theme">🌓</button>
+      <button id="expandall">⊞ Expand all</button>
       <button id="rerun" class="primary">↻ Re-run checks</button>
     </div>
   </header>
   <div id="banner" class="banner">Running checks…</div>
   <div class="chips" id="chips"></div>
+  <div id="trend" hidden></div>
   <div id="report"><div class="empty">Running checks…</div></div>
-  <footer>Linux Doctor only reads system information — it never modifies anything.</footer>
+  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate findings · <kbd>Enter</kbd> open/close</footer>
 </div>
 <script>
 // The desktop app fetches its report over loopback HTTP — see
@@ -79,6 +117,30 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
+const expandBtn = $("#expandall");
+const themeBtn = $("#theme");
+// The last fetched report, kept so the Ignore button can re-render locally
+// (filtering one finding out) instead of re-running all checks.
+let lastData = null;
+
+// Theme: follows the system (prefers-color-scheme) by default; the 🌓 button
+// cycles light → dark → auto. The choice is remembered in localStorage.
+const THEME_ORDER = ["light", "dark", "auto"];
+function currentTheme() { try { return localStorage.getItem("ld-theme") || "auto"; } catch { return "auto"; } }
+function applyTheme() {
+  const t = currentTheme();
+  const dark = t === "dark" || (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  themeBtn.textContent = t === "light" ? "☀️" : t === "dark" ? "🌙" : "🌓";
+  themeBtn.title = "Theme: " + t + " — click to change";
+}
+themeBtn.addEventListener("click", () => {
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(currentTheme()) + 1) % THEME_ORDER.length];
+  try { localStorage.setItem("ld-theme", next); } catch { /* private mode */ }
+  applyTheme();
+});
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+applyTheme();
 
 async function fetchReport() {
   // Desktop app: the Rust shell serves the report over loopback HTTP.
@@ -97,21 +159,69 @@ async function fetchReport() {
 async function load() {
   const banner = $("#banner");
   const report = $("#report");
-  banner.className = "banner";
-  banner.textContent = "Running checks…";
-  report.innerHTML = '<div class="empty">Running checks…</div>';
+  const rerun = $("#rerun");
+  banner.className = "banner running";
+  banner.innerHTML = '<span class="spinner"></span>Running checks…';
+  expandBtn.textContent = "⊞ Expand all";
+  report.innerHTML = '<div class="empty"><span class="spinner"></span>Running checks…</div>';
+  rerun.disabled = true;
+  rerun.textContent = "↻ Running…";
   try {
     render(await fetchReport());
   } catch (err) {
     banner.className = "banner warn";
+    banner.innerHTML = "";
     banner.textContent = "⚠️ Could not run checks: " + (err && err.message ? err.message : err);
     report.innerHTML = '<div class="empty">Run failed — see the message above. Make sure Node.js ≥ 20 is installed and on PATH.</div>';
+  } finally {
+    rerun.disabled = false;
+    rerun.textContent = "↻ Re-run checks";
   }
 }
 
+// Sparkline of the health score from local history (last N runs). Hidden when
+// there are fewer than two runs. Tries the desktop server, then the web one.
+async function renderTrend() {
+  const trend = $("#trend");
+  let runs = [];
+  try {
+    const res = await fetch("http://127.0.0.1:17321/history", { cache: "no-store" });
+    if (res.ok) runs = (await res.json()).runs || [];
+  } catch { /* not inside the desktop app */ }
+  if (!runs.length) {
+    try {
+      const res = await fetch("/api/history", { cache: "no-store" });
+      if (res.ok) runs = (await res.json()).runs || [];
+    } catch { /* no history endpoint */ }
+  }
+  const scores = runs.map((r) => r.score).filter((s) => typeof s === "number");
+  trend.hidden = scores.length < 2;
+  if (trend.hidden) return;
+
+  const W = 240, H = 40, pad = 4;
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const span = Math.max(1, max - min);
+  const pts = scores.map((s, i) => {
+    const x = pad + (i * (W - 2 * pad)) / (scores.length - 1);
+    const y = H - pad - ((s - min) / span) * (H - 2 * pad);
+    return x.toFixed(1) + "," + y.toFixed(1);
+  });
+  const last = scores[scores.length - 1];
+  const color = last >= 80 ? "var(--green)" : last >= 50 ? "var(--yellow)" : "var(--red)";
+  const end = pts[pts.length - 1].split(",");
+  trend.innerHTML =
+    '<div class="trendtitle">Health score · last ' + scores.length + ' run(s): <b>' + last + '/100</b></div>' +
+    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Health score trend">' +
+    '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="' + end[0] + '" cy="' + end[1] + '" r="3" fill="' + color + '"/>' +
+    '</svg>';
+}
+
 function render(data) {
+  lastData = data;
   const { findings = [], system = {} } = data;
-  $(".sysinfo").textContent = system.distro + " · " + system.kernel + " · " + (system.cores || "?") + " core(s) · up " + system.uptime;
+  $(".sysinfo").textContent = system.distro + " · " + system.kernel + " · " + (system.cores || "?") + " core(s) · up " + system.uptime +
+    (typeof data.score === "number" ? " · Health " + data.score + "/100" : "");
   const count = (s) => findings.filter((f) => f.severity === s).length;
   const high = count("high"), med = count("medium"), inf = count("info");
 
@@ -121,14 +231,17 @@ function render(data) {
     banner.textContent = "✅ Your system looks healthy. No high or medium issues found.";
   } else {
     banner.className = "banner warn";
-    banner.textContent = "🩺 Found " + high + " high-severity and " + med + " medium-severity issue(s). " +
-      (high > 0 ? "Start with the red ones." : "Worth taking a look.");
+    banner.textContent = "⚠️ Found " + high + " high-severity and " + med + " medium-severity issue(s). " +
+      (high > 0 ? "Start with the HIGH ones." : "Worth taking a look.");
   }
 
+  // Icons on the chips (not just color) so the report reads fine for
+  // color-blind users: 🔴 red circle, 🟡 yellow circle, 🔵 blue circle.
   $("#chips").innerHTML =
-    '<span class="chip red"><b>' + high + '</b> high</span>' +
-    '<span class="chip yellow"><b>' + med + '</b> medium</span>' +
-    '<span class="chip blue"><b>' + inf + '</b> info</span>';
+    '<span class="chip red">🔴 <b>' + high + '</b> high</span>' +
+    '<span class="chip yellow">🟡 <b>' + med + '</b> medium</span>' +
+    '<span class="chip blue">🔵 <b>' + inf + '</b> info</span>' +
+    (data.newCount > 0 ? '<span class="chip new">✨ <b>' + data.newCount + '</b> new</span>' : "");
 
   const order = ["high", "medium", "info"];
   const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
@@ -136,21 +249,36 @@ function render(data) {
   for (const sev of order) {
     const group = findings.filter((f) => f.severity === sev);
     if (!group.length) continue;
-    html += "<h2>" + names[sev] + "</h2>";
+    // One collapsible group per severity: High is open by default (the
+    // actionable stuff), Medium/Info stay closed so the whole report fits on
+    // one screen. Each card inside is its own accordion.
+    const open = sev === "high" ? " open" : "";
+    html += '<details class="group ' + SEV[sev].cls + '"' + open + ">";
+    html += "<summary>" + names[sev] + " <b>" + group.length + '</b><span class="chev">▸</span></summary>';
+    html += '<div class="group-body">';
     for (const f of group) {
-      html += '<div class="card ' + SEV[sev].cls + '">';
-      html += '<div class="card-head"><span class="badge ' + SEV[sev].cls + '">' + SEV[sev].label + "</span><h3>" + esc(f.title) + "</h3></div>";
+      html += '<details class="card ' + SEV[sev].cls + '" tabindex="0">';
+      html += '<summary><span class="badge ' + SEV[sev].cls + '">' + SEV[sev].label + '</span><h3>' + esc(f.title) + '</h3>' +
+        (f.isNew ? '<span class="newbadge">NEW</span>' : "") +
+        (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
+        (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "") +
+        '<span class="chev">▸</span></summary>';
+      html += '<div class="card-body">';
       if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
       if (f.evidence) {
         html += '<details class="ev"><summary>Evidence</summary><div class="evidence">' + esc(f.evidence) + "</div></details>";
       }
-      if (f.fix) {
-        html += '<div class="fix"><div class="fixtext">' + esc(f.fix) + '</div><button data-copy="' + esc(f.fix) + '">Copy</button></div>';
-      }
-      html += "</div>";
+      html += '<div class="fix">';
+      if (f.fix) html += '<div class="fixtext">' + esc(f.fix) + '</div>';
+      html += '<button data-copy="' + esc(f.fix || f.detail || f.title) + '">Copy</button>';
+      html += '<button data-ignore="' + esc(f.title) + '" title="Never report this finding again (saved to ~/.config/linux-doctor/config.json)">Ignore</button>';
+      html += '</div>';
+      html += "</div></details>";
     }
+    html += "</div></details>";
   }
   $("#report").innerHTML = html || '<div class="empty">No findings.</div>';
+  renderTrend();
 }
 
 async function copyText(text) {
@@ -172,6 +300,28 @@ async function copyText(text) {
   }
 }
 
+// POST an ignore pattern. Tries the desktop app's loopback server first, then
+// the web dashboard server. Both write to the same config file.
+async function ignoreFinding(title, btn) {
+  const payload = JSON.stringify({ pattern: title });
+  const tryPost = async (url) => {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+    return res.ok;
+  };
+  let ok = false;
+  try { ok = await tryPost("http://127.0.0.1:17321/api/ignore"); } catch { ok = false; }
+  if (!ok) { try { ok = await tryPost("/api/ignore"); } catch { ok = false; } }
+  btn.disabled = true;
+  btn.textContent = ok ? "✓ Ignored" : "✗ Could not save";
+  if (ok && lastData) {
+    // Re-render locally with the finding filtered out — no need to re-run
+    // all checks just to hide one finding (the pattern is persisted
+    // server-side, so a future "Re-run checks" stays consistent).
+    lastData.findings = lastData.findings.filter((f) => f.title !== title);
+    render(lastData);
+  }
+}
+
 document.addEventListener("click", async (e) => {
   if (e.target.dataset.copy !== undefined) {
     await copyText(e.target.dataset.copy);
@@ -179,6 +329,43 @@ document.addEventListener("click", async (e) => {
     e.target.textContent = "✓ Copied";
     setTimeout(() => (e.target.textContent = old), 1200);
   }
+  if (e.target.dataset.ignore !== undefined) {
+    await ignoreFinding(e.target.dataset.ignore, e.target);
+  }
+});
+
+// Keyboard navigation: ↑/↓ move between finding cards, Enter/Space toggles the
+// focused card. Cards are focusable <details> elements (tabindex="0").
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const cards = [...document.querySelectorAll("#report .card")];
+    if (!cards.length) return;
+    let idx = cards.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") idx = idx < 0 ? 0 : Math.min(cards.length - 1, idx + 1);
+    else idx = idx < 0 ? 0 : Math.max(0, idx - 1);
+    e.preventDefault();
+    cards[idx].focus({ preventScroll: true });
+    cards[idx].scrollIntoView({ block: "nearest" });
+  } else if ((e.key === "Enter" || e.key === " ") && document.activeElement && document.activeElement.classList.contains("card")) {
+    const el = document.activeElement;
+    if (el.open) el.removeAttribute("open");
+    else el.setAttribute("open", "");
+    e.preventDefault();
+  }
+});
+
+// Expand/collapse every finding card at once. Clicking opens all when any is
+// closed, and collapses all when everything is already open.
+function setAllOpen(open) {
+  document.querySelectorAll("#report .group, #report .card").forEach((el) => {
+    if (open) el.setAttribute("open", "");
+    else el.removeAttribute("open");
+  });
+  expandBtn.textContent = open ? "⊟ Collapse all" : "⊞ Expand all";
+}
+expandBtn.addEventListener("click", () => {
+  const anyClosed = [...document.querySelectorAll("#report .group, #report .card")].some((el) => !el.open);
+  setAllOpen(anyClosed);
 });
 
 $("#rerun").addEventListener("click", load);

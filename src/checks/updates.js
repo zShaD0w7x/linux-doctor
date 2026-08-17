@@ -1,40 +1,53 @@
-import { lines, num } from "../utils.js";
+import { lines, num, plural } from "../utils.js";
+import { readCache, writeCache } from "../cache.js";
 
 /**
  * Counts pending updates using the distro's package manager.
  * Only read-only commands are used (check-update / simulation).
+ * The distro → package-manager mapping lives in src/distro.js; this check
+ * only picks the command for the profile it is given.
+ *
+ * Refreshing dnf metadata is the single slowest thing in a full run (~5s), so
+ * the result is cached for 30 minutes (override LINUX_DOCTOR_UPDATES_TTL_MS;
+ * 0 disables the cache). The TTL is read at call time so tests can control it.
  */
-export const updates = {
+import { defineCheck } from "./define.js";
+
+const UPDATES_CACHE_MS = 30 * 60 * 1000;
+
+export const updates = defineCheck({
   id: "updates",
   title: "Pending updates",
+  category: "updates",
   async run(ctx) {
     const findings = [];
-    // os-release keys are uppercase (ID, ID_LIKE); accept either case so the
-    // check works against both real /etc/os-release output and stubs.
-    const id = (ctx.osRelease.id || ctx.osRelease.ID || "").toLowerCase();
-    const idLike = (ctx.osRelease.id_like || ctx.osRelease.ID_LIKE || "").toLowerCase();
-    const family = `${id} ${idLike}`;
+    const { pkg, id: distroId, family } = ctx.dist;
+
+    const ttlMs = Number(process.env.LINUX_DOCTOR_UPDATES_TTL_MS || UPDATES_CACHE_MS);
+    const useCache = Number.isFinite(ttlMs) && ttlMs > 0;
+    if (useCache) {
+      const cached = readCache("updates", ttlMs);
+      if (cached) return cached;
+    }
 
     let cmd = null;
     let label = "";
-    // Image-based (ostree) distros like Bazzite/Silverblue update atomically via
-    // rpm-ostree, not dnf. Must be checked before the plain fedora branch.
-    if (family.includes("bazzite") || family.includes("ostree") || family.includes("silverblue") || family.includes("kinoite") || family.includes("atomic")) {
+    if (pkg === "rpm-ostree") {
       cmd = "rpm-ostree upgrade --check 2>&1";
       label = "rpm-ostree";
-    } else if (family.includes("fedora") || family.includes("rhel") || family.includes("centos")) {
+    } else if (pkg === "dnf") {
       cmd = "dnf check-update --quiet 2>/dev/null";
       label = "dnf";
-    } else if (family.includes("debian") || family.includes("ubuntu")) {
+    } else if (pkg === "apt") {
       cmd = "apt-get -s upgrade 2>/dev/null | grep -c '^Inst ' || true";
       label = "apt";
-    } else if (family.includes("suse") || family.includes("opensuse")) {
+    } else if (pkg === "zypper") {
       cmd = "zypper -q lu 2>/dev/null | awk 'NR>4 && NF' | wc -l";
       label = "zypper";
-    } else if (family.includes("alpine")) {
+    } else if (pkg === "apk") {
       cmd = "apk info -u 2>/dev/null";
       label = "apk";
-    } else if (family.includes("arch")) {
+    } else if (pkg === "pacman") {
       cmd = "checkupdates 2>/dev/null || pacman -Qu 2>/dev/null";
       label = "pacman";
     }
@@ -43,11 +56,12 @@ export const updates = {
       findings.push({
         severity: "info",
         title: "Update check skipped",
-        detail: `We do not have an update check for this distro family ("${family.trim()}" or unknown).`,
+        detail: `No update check exists for this distro family ("${distroId || "unknown"}", family "${family}").`,
         evidence: null,
         fix: null,
         confidence: "medium",
       });
+      if (useCache) writeCache("updates", findings);
       return findings;
     }
 
@@ -61,6 +75,8 @@ export const updates = {
       res.ok ||
       (label === "dnf" && res.code === 100) ||
       (label === "rpm-ostree" && /Available update:|No updates available\./.test(res.stdout));
+    // Only cache a *successful* determination. A failed command is not
+    // cached, so the next run retries instead of repeating a stale result.
     if (!ok) return findings;
 
     let count;
@@ -89,7 +105,7 @@ export const updates = {
     } else if (count <= 10) {
       findings.push({
         severity: "info",
-        title: `${count} update(s) available`,
+        title: `${plural(count, "update")} available`,
         detail: `There ${count === 1 ? "is" : "are"} ${count} package update${count > 1 ? "s" : ""} waiting. Updating regularly keeps security fixes current.`,
         evidence: `${label}: ${count} pending`,
         fix: `Apply ${count === 1 ? "it" : "them"} with: \`sudo ${fixCmd}\`${rebootNote}`,
@@ -105,6 +121,7 @@ export const updates = {
         confidence: "high",
       });
     }
+    if (useCache) writeCache("updates", findings);
     return findings;
   },
-};
+});

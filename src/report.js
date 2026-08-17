@@ -1,4 +1,7 @@
-import { systemInfo } from "./checks/system.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
 
 export const SEV_ORDER = ["high", "medium", "info"];
 export const SEV_LABEL = {
@@ -12,8 +15,10 @@ export function countBySeverity(findings) {
 }
 
 /** Render the full terminal report in American English. */
-export async function renderReport(findings, { aiSummary, system } = {}) {
-  const info = system ?? (await systemInfo());
+export async function renderReport(findings, { aiSummary, system, score, newCount, fixedCount, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped } = {}) {
+  // system is required — the caller (cli.js) always has it; re-running
+  // systemInfo() here would waste a handful of subprocess spawns.
+  const info = system;
   const out = [];
 
   out.push("🩺 Linux Doctor");
@@ -37,6 +42,27 @@ export async function renderReport(findings, { aiSummary, system } = {}) {
   } else {
     out.push(`Found ${high} high-severity, ${med} medium-severity, and ${inf} informational finding(s).`);
   }
+  if (typeof score === "number") {
+    out.push(`Health score: ${score}/100`);
+  }
+  if (newCount > 0) {
+    out.push(`${newCount} new issue(s) since the last check.`);
+  }
+  if (fixedCount > 0) {
+    out.push(`${fixedCount} issue(s) fixed since the last check — nice work.`);
+  }
+  if (ignoredCount > 0) {
+    out.push(`${ignoredCount} finding(s) hidden by your ignore patterns.`);
+  }
+  if (checkErrors.length > 0) {
+    out.push(`⚠ ${checkErrors.length} check(s) failed to run: ${checkErrors.map((e) => e.check).join(", ")}.`);
+  }
+  if (typeof checksRun === "number") {
+    const bits = [`Ran ${checksRun} check(s)`];
+    if (checksSkipped > 0) bits.push(`${checksSkipped} skipped`);
+    if (checkErrors.length > 0) bits.push(`${checkErrors.length} failed`);
+    out.push(bits.length > 1 ? `${bits[0]} (${bits.slice(1).join(", ")}).` : `${bits[0]}.`);
+  }
   out.push("");
 
   let n = 0;
@@ -48,7 +74,8 @@ export async function renderReport(findings, { aiSummary, system } = {}) {
     for (const f of group) {
       n += 1;
       out.push("");
-      out.push(`${n}. ${f.title}`);
+      out.push(`${n}. ${f.title}${f.isNew ? "  (new)" : ""}`);
+      if (f.confidence === "low") out.push("   ⚠ Low confidence — this finding may be a false positive.");
       if (f.detail) out.push(`   ${f.detail}`);
       if (f.evidence) {
         out.push("");
@@ -69,9 +96,58 @@ export async function renderReport(findings, { aiSummary, system } = {}) {
   return out.join("\n");
 }
 
-/** Render findings as JSON (machine-readable), with system info when available. */
-export function renderJson(findings, system = null) {
-  const payload = { generatedAt: new Date().toISOString(), findings };
+/**
+ * Render findings as plain, tab-separated lines — no colors, no emoji, no
+ * box drawing — so the output plays well with grep/awk and dumb terminals.
+ * Metadata goes to `#` comment lines; each finding is one row of
+ * `severity<TAB>number<TAB>title`, with `detail`/`fix` rows right after it.
+ */
+export function renderPlain(findings, { system, score, newCount, fixedCount, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped } = {}) {
+  const flat = (s) => String(s ?? "").replace(/\t/g, " ").replace(/\s*\n\s*/g, " | ").trim();
+  const out = [];
+  out.push("# linux-doctor");
+  if (system) out.push(`# system: ${system.distro} · kernel ${system.kernel} · ${system.cores} core(s) · up ${system.uptime}`);
+  if (typeof score === "number") out.push(`# score: ${score}/100`);
+  if (newCount > 0) out.push(`# new: ${newCount}`);
+  if (fixedCount > 0) out.push(`# fixed: ${fixedCount}`);
+  if (ignoredCount > 0) out.push(`# ignored: ${ignoredCount}`);
+  if (typeof checksRun === "number") out.push(`# checks: ${checksRun}${checksSkipped > 0 ? ` (${checksSkipped} skipped)` : ""}`);
+  for (const e of checkErrors) out.push(`# failed: ${e.check} — ${flat(e.error)}`);
+  const counts = countBySeverity(findings);
+  const high = counts.find((c) => c.severity === "high").count;
+  const med = counts.find((c) => c.severity === "medium").count;
+  const inf = counts.find((c) => c.severity === "info").count;
+  out.push(`# summary: ${high} high, ${med} medium, ${inf} info`);
+  out.push("");
+
+  let n = 0;
+  for (const sev of SEV_ORDER) {
+    for (const f of findings.filter((x) => x.severity === sev)) {
+      n += 1;
+      out.push(`${sev}\t${n}\t${flat(f.title)}${f.isNew ? " (new)" : ""}`);
+      if (f.detail) out.push(`detail\t${n}\t${flat(f.detail)}`);
+      if (f.fix) out.push(`fix\t${n}\t${flat(f.fix)}`);
+    }
+  }
+  return out.join("\n");
+}
+
+/**
+ * Render findings as JSON (machine-readable), with system info when
+ * available. The payload is versioned (schemaVersion) so scripts can rely on
+ * its shape; if the shape ever changes incompatibly the version is bumped.
+ * `extra` may carry generatedAt (from the run), score, newCount, counts and
+ * durationMs — cli.js passes them all.
+ */
+export function renderJson(findings, system = null, extra = {}) {
+  const payload = {
+    schemaVersion: 1,
+    tool: "linux-doctor",
+    version: pkg.version,
+    generatedAt: new Date().toISOString(),
+    findings,
+    ...extra,
+  };
   if (system) payload.system = system;
   return JSON.stringify(payload, null, 2);
 }

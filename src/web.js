@@ -5,19 +5,49 @@
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { exec } from "node:child_process";
+import { addIgnore } from "./ignore.js";
 
-/** Start the dashboard. `collect` must return { system, findings, generatedAt }. */
-export async function startWeb({ collect, port = 0, open = true }) {
+/**
+ * Start the dashboard. `collect` must return { system, findings, generatedAt }.
+ * `render` post-processes the report before it is served at /api/report — pass
+ * one to make the endpoint emit the same versioned envelope as --json.
+ * `quiet` suppresses the URL banner on stdout — needed when embedding the
+ * server in tests, where stdout must stay a clean TAP stream.
+ */
+export async function startWeb({ collect, history = () => [], port = 0, open = true, quiet = false, render = (d) => d }) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/report") {
       try {
         const data = await collect();
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-        res.end(JSON.stringify(data));
+        // render lets the caller serve the same versioned envelope as --json
+        // (schemaVersion, tool, version) instead of the raw internal shape.
+        // renderJson returns a string, so pass it through as-is.
+        const out = render(data);
+        res.end(typeof out === "string" ? out : JSON.stringify(out));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+    if (url.pathname === "/api/history" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ runs: history() }));
+      return;
+    }
+    if (url.pathname === "/api/ignore" && req.method === "POST") {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      try {
+        const pattern = JSON.parse(body || "{}").pattern;
+        const ok = addIgnore(pattern);
+        res.writeHead(ok ? 200 : 400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok }));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
       }
       return;
     }
@@ -40,7 +70,7 @@ export async function startWeb({ collect, port = 0, open = true }) {
       /* browser may not exist; the printed URL is enough */
     }
   }
-  console.log(`🩺 Linux Doctor dashboard: ${url}  (Ctrl+C to stop)`);
+  if (!quiet) console.log(`🩺 Linux Doctor dashboard: ${url}  (Ctrl+C to stop)`);
   return server;
 }
 

@@ -52,3 +52,41 @@ export function fmtBytes(bytes) {
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes} B`;
 }
+
+/** "1 update" / "3 updates" — picks the plural form from a count. */
+export function plural(n, word) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+/** "System is low on usable memory" → "system-is-low-on-usable-memory". */
+export function slugify(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Run `worker(item)` over `items` with at most `limit` workers in flight.
+ * Results come back in input order. Used to bound how many checks (and thus
+ * subprocesses) run at once — a full run would otherwise spawn dozens of
+ * commands simultaneously.
+ */
+export async function runPool(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  const take = () => {
+    const i = next;
+    next += 1;
+    return i;
+  };
+  const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (;;) {
+      const i = take();
+      if (i >= items.length) return;
+      results[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}

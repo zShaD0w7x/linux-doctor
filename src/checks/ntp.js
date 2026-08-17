@@ -1,0 +1,62 @@
+import { lines } from "../utils.js";
+
+/**
+ * Time synchronization. A drifting clock silently breaks HTTPS, cron jobs,
+ * and time-based tokens — and "no NTP daemon" is one of the most common
+ * causes. Reads only; skipped on systems without timedatectl (non-systemd).
+ */
+import { defineCheck } from "./define.js";
+
+export const ntp = defineCheck({
+  id: "ntp",
+  title: "Time synchronization",
+  category: "network",
+  async run(ctx) {
+    const findings = [];
+
+    const td = await ctx.run("timedatectl show -p NTPSynchronized 2>/dev/null");
+    if (td.missing || !td.ok || td.stdout.trim() === "") return findings;
+
+    const synced = /^NTPSynchronized=yes$/im.test(td.stdout);
+
+    if (synced) {
+      findings.push({
+        severity: "info",
+        title: "Time is synchronized",
+        detail: "The system clock is kept in sync over the network (NTP).",
+        evidence: td.stdout.trim(),
+        fix: null,
+        confidence: "high",
+      });
+      return findings;
+    }
+
+    // Not synchronized: is any NTP daemon even running? (is-active with
+    // multiple units prints one line per unit; any "active" means one is.)
+    const daemon = await ctx.run("systemctl is-active systemd-timesyncd chronyd ntpd 2>/dev/null || true");
+    const daemonActive = daemon.ok && /^active$/m.test(daemon.stdout);
+
+    if (!daemonActive) {
+      findings.push({
+        severity: "medium",
+        title: "Clock is not kept in sync",
+        detail:
+          "No NTP client (systemd-timesyncd, chronyd, or ntpd) is running, so the clock will drift. A wrong clock breaks HTTPS, cron jobs, and time-based tokens.",
+        evidence: "no active NTP daemon",
+        fix: "Enable one: `sudo systemctl enable --now systemd-timesyncd` (most systems) or `sudo systemctl enable --now chronyd` (Fedora/RHEL).",
+        confidence: "high",
+      });
+    } else {
+      findings.push({
+        severity: "medium",
+        title: "NTP daemon is running but time is not synchronized yet",
+        detail:
+          "An NTP client is active, but the clock has not synchronized yet — it may need a few minutes after boot, or the NTP servers may be unreachable.",
+        evidence: td.stdout.trim(),
+        fix: "Check `timedatectl timesync-status` and `timedatectl status`. If it stays unsynchronized, check DNS and that UDP/123 is not blocked.",
+        confidence: "medium",
+      });
+    }
+    return findings;
+  },
+});

@@ -1,6 +1,6 @@
 {
   "name": "linux-doctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Linux Doctor — plain-English health checks for your Linux system. Finds real problems, explains them in American English, and tells you exactly how to fix them.",
   "type": "module",
   "bin": {
@@ -9,6 +9,7 @@
   "files": [
     "bin",
     "src",
+    "src-gui/index.html",
     "README.md",
     "LICENSE"
   ],

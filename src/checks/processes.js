@@ -16,20 +16,28 @@ const FRIENDLY = {
   gnome: "the GNOME desktop shell",
 };
 
-export const processes = {
+import { defineCheck } from "./define.js";
+
+export const processes = defineCheck({
   id: "processes",
   title: "Top memory consumers",
+  category: "system",
   async run(ctx) {
     const findings = [];
-    const [psRes, memRes] = await Promise.all([ctx.run(`ps -eo comm,rss --sort=-rss 2>/dev/null | head -8`), ctx.run(`free -b`),
+    const t = ctx.thresholds;
+    const [psRes, memRes] = await Promise.all([ctx.run(`ps -eo args=,rss --sort=-rss 2>/dev/null | head -8`), ctx.run(`free -b`),
     ]);
     if (!psRes.ok) return findings;
 
-    const rows = lines(psRes.stdout).slice(1).slice(0, 3).map((l) => {
-      const [name, rss] = l.split(/\s+/);
+    const rows = lines(psRes.stdout).slice(0, 3).map((l) => {
+      const parts = l.trim().split(/\s+/);
       // `ps -o rss` reports KiB; convert to bytes so the ratio vs `free -b`
       // (bytes) is correct and fmtBytes displays real units.
-      return { name: name || "unknown", rss: num(rss) * 1024 };
+      const rss = num(parts[parts.length - 1]) * 1024;
+      // args= gives the full path and is NOT truncated at 15 chars the way
+      // `comm` is ("QtWebEngineProcess" would arrive as "QtWebEngineProc").
+      const bin = parts[0] ? parts[0].split("/").pop() : "unknown";
+      return { name: bin || "unknown", rss };
     });
     if (rows.length === 0) return findings;
 
@@ -38,7 +46,7 @@ export const processes = {
     const top = rows[0];
     const ratio = total > 0 ? top.rss / total : 0;
 
-    if (top.rss > 0 && ratio > 0.4) {
+    if (top.rss > 0 && ratio > t.procHighRatio) {
       findings.push({
         severity: "high",
         title: "A single app is using a huge amount of memory",
@@ -47,7 +55,7 @@ export const processes = {
         fix: "Close unused tabs or quit that app now, then re-run this check.",
         confidence: "high",
       });
-    } else if (top.rss > 0 && ratio > 0.2) {
+    } else if (top.rss > 0 && ratio > t.procWarnRatio) {
       findings.push({
         severity: "medium",
         title: "A single app is using a lot of memory",
@@ -68,4 +76,4 @@ export const processes = {
     }
     return findings;
   },
-};
+});

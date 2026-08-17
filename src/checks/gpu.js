@@ -1,15 +1,19 @@
 import { lines } from "../utils.js";
+import { detectSoftwareRenderer } from "./shared.js";
 
-export const gpu = {
+import { defineCheck } from "./define.js";
+
+export const gpu = defineCheck({
   id: "gpu",
   title: "Graphics / GPU",
+  category: "hardware",
+  appliesTo: ["desktop", "laptop"],
   async run(ctx) {
     const findings = [];
-    const [lspci, lsmod, dri, glx] = await Promise.all([
+    const [lspci, lsmod, dri] = await Promise.all([
       ctx.run("lspci -nn 2>/dev/null | grep -iE 'vga|3d|display'"),
       ctx.run("lsmod 2>/dev/null | awk '{print $1}' | grep -iE '^(nvidia|nouveau|amdgpu|i915|xe)$'"),
       ctx.run("ls /dev/dri/ 2>/dev/null"),
-      ctx.run("glxinfo -B 2>/dev/null | grep -i 'renderer string'"),
     ]);
 
     const hardware = lines(lspci.stdout).join("\n");
@@ -100,17 +104,20 @@ export const gpu = {
     }
 
     // Software rendering is the silent killer: the desktop "works" but is very slow.
-    const renderer = glx.stdout.toLowerCase();
-    if (renderer && /llvmpipe|softpipe|swrast|software/i.test(renderer)) {
+    const swRenderer = await detectSoftwareRenderer(ctx);
+    if (swRenderer) {
       findings.push({
         severity: "high",
         title: "GPU acceleration is not active (software rendering)",
         detail: "Graphics are being rendered in software (llvmpipe), not by your GPU. Everything visual will feel slow — video playback, scrolling, games. This usually means the GPU driver is missing or misconfigured.",
-        evidence: "renderer: " + glx.stdout.trim(),
+        evidence: "renderer: " + swRenderer,
         fix: "Install the correct driver for your GPU (see the other GPU findings), then reboot.",
         confidence: "high",
+        // The wayland check detects the same root cause; dedupe() keeps this
+        // one (gpu is the authoritative check and runs first).
+        dedupeKey: "software-rendering",
       });
     }
     return findings;
   },
-};
+});

@@ -1,4 +1,5 @@
 import { run, lines } from "../utils.js";
+import { detectDistro } from "../distro.js";
 
 export async function systemInfo() {
   const [os, kernel, uptime, nproc] = await Promise.all([
@@ -24,9 +25,15 @@ export async function systemInfo() {
   const rootFs = await run(`findmnt -no FSTYPE -T / 2>/dev/null`);
   const immutable = /composefs|ostree/i.test(rootFs.stdout || "");
 
+  // Normalized distro profile (family, package manager, image-based) so
+  // checks and JSON consumers have one place to learn what system this is.
+  const dist = detectDistro(osRelease);
+
   return {
     osRelease,
     distro: `${osRelease.NAME || "Linux"} ${osRelease.VERSION_ID || ""}`.trim(),
+    family: dist.family,
+    imageBased: dist.imageBased,
     kernel: kernel.stdout.trim() || "unknown",
     uptime: `${hours}h ${minutes}m`,
     cores: nproc.stdout.trim() || "unknown",

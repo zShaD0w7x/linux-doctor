@@ -1,10 +1,14 @@
 import { lines, num, fmtBytes } from "../utils.js";
 
-export const memory = {
+import { defineCheck } from "./define.js";
+
+export const memory = defineCheck({
   id: "memory",
   title: "Memory pressure",
+  category: "system",
   async run(ctx) {
     const findings = [];
+    const t = ctx.thresholds;
     const mem = await ctx.run("free -b");
     if (!mem.ok) return findings;
 
@@ -18,8 +22,8 @@ export const memory = {
 
     const availRatio = available / total;
     let severity = null;
-    if (availRatio < 0.15) severity = "high";
-    else if (availRatio < 0.25) severity = "medium";
+    if (availRatio < t.memLowRatio) severity = "high";
+    else if (availRatio < t.memWarnRatio) severity = "medium";
 
     const swap = await ctx.run("swapon --show --bytes");
     let swapUsed = 0;
@@ -54,4 +58,4 @@ export const memory = {
     }
     return findings;
   },
-};
+});

@@ -1,4 +1,4 @@
-import { lines } from "../utils.js";
+import { lines, plural } from "../utils.js";
 
 /**
  * Messages that look scary but are routine noise on most distros.
@@ -19,8 +19,18 @@ const NOISE_PATTERNS = [
   /TDX not supported by the host platform/i,
 ];
 
+/**
+ * Entries that have their own dedicated check. Reporting them here too would
+ * show the same root cause twice (and double the health-score penalty), so
+ * they are filtered out entirely and left to the specialized check.
+ */
+const DEFERRED_PATTERNS = [
+  /system-sleep.*failed/i, // → suspend check
+  /mce|machine check/i, // → hardware check
+  /edac|corrected error|ECC error/i, // → hardware check
+];
+
 const MEANINGFUL_PATTERNS = [
-  /system-sleep.*failed/i,
   /pam_unix\([^)]*\):.*could not identify/i,
   /Authentication attempt too soon/i,
   /oom/i,
@@ -32,17 +42,26 @@ const MEANINGFUL_PATTERNS = [
   /kernel panic/i,
 ];
 
-export const journal = {
+import { defineCheck } from "./define.js";
+
+export const journal = defineCheck({
   id: "journal",
   title: "System log errors (last 24 hours)",
+  category: "software",
   async run(ctx) {
     const findings = [];
-    const res = await ctx.run(`journalctl -p err --since "-24 hours" --no-pager -o short 2>/dev/null`);
+    // Strip journalctl's "-- Boot ... --" separators: they appear once per
+    // boot even when there are no errors, and counting them would inflate the
+    // error count on systems that rebooted within the window.
+    const res = await ctx.run(`journalctl -p err --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- "`);
     if (!res.ok || !res.stdout.trim()) return findings;
 
     const noise = [];
     const meaningful = [];
     for (const l of lines(res.stdout)) {
+      if (DEFERRED_PATTERNS.some((re) => re.test(l))) {
+        continue; // owned by a dedicated check (suspend, hardware)
+      }
       if (NOISE_PATTERNS.some((re) => re.test(l))) {
         noise.push(l);
         continue;
@@ -68,10 +87,10 @@ export const journal = {
         .map(([msg, count]) => `${msg}  (×${count})`);
       findings.push({
         severity: meaningful.length > 3 ? "medium" : "info",
-        title: `${meaningful.length} noteworthy error(s) in the last 24 hours (${counts.size} unique)`,
+        title: `${plural(meaningful.length, "noteworthy error")} in the last 24 hours (${counts.size} unique)`,
         detail: "These log entries are not routine noise and may point to a real problem. The most common ones are listed below; use `journalctl -p err -b` to investigate.",
         evidence: top.join("\n"),
-        fix: "Look up the exact message on your distro's docs or forums. For `system-sleep` failures, check the named suspend hook.",
+        fix: "Look up the exact message on your distro's docs or forums. For suspend/resume failures, see the 'Suspend hooks are failing' finding.",
         confidence: "medium",
       });
     }
@@ -88,4 +107,4 @@ export const journal = {
     }
     return findings;
   },
-};
+});

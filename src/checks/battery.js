@@ -1,14 +1,20 @@
 import { lines, num } from "../utils.js";
 
-export const battery = {
+import { defineCheck } from "./define.js";
+
+export const battery = defineCheck({
   id: "battery",
   title: "Battery",
+  category: "hardware",
+  appliesTo: ["laptop"],
   async run(ctx) {
     const findings = [];
     const res = await ctx.run(`ls /sys/class/power_supply/ 2>/dev/null`);
     if (!res.ok) return findings;
 
-    const supplies = lines(res.stdout).filter((s) => !s.startsWith("AC") && !s.startsWith("ADP"));
+    // Wireless-device "batteries" (Logitech receivers, game controllers)
+    // show up here with type Battery but are not laptop batteries.
+    const supplies = lines(res.stdout).filter((s) => !s.startsWith("AC") && !s.startsWith("ADP") && !/hidpp|controller/i.test(s));
 
     // Two parallel phases: identify batteries first, then read capacity and
     // status only for the supplies that are actually batteries.
@@ -22,15 +28,25 @@ export const battery = {
 
     const states = await Promise.all(
       batteries.map(async ({ s }) => {
-        const [capacity, status] = await Promise.all([
+        const [capacity, status, full, fullDesign] = await Promise.all([
           ctx.run(`cat /sys/class/power_supply/${s}/capacity 2>/dev/null`),
           ctx.run(`cat /sys/class/power_supply/${s}/status 2>/dev/null`),
+          ctx.run(`cat /sys/class/power_supply/${s}/charge_full 2>/dev/null`),
+          ctx.run(`cat /sys/class/power_supply/${s}/charge_full_design 2>/dev/null`),
         ]);
-        return { s, cap: num(capacity.stdout), status: status.stdout.trim() };
+        const design = num(fullDesign.stdout);
+        return {
+          s,
+          cap: num(capacity.stdout),
+          status: status.stdout.trim(),
+          // Capacity lost to wear, e.g. 30 = the battery now holds 30% less
+          // than it did when new (0 when the values are unavailable).
+          wear: design > 0 ? Math.round((1 - num(full.stdout) / design) * 100) : null,
+        };
       })
     );
 
-    for (const { s, cap, status } of states) {
+    for (const { s, cap, status, wear } of states) {
       if (cap < 20) {
         findings.push({
           severity: "medium",
@@ -50,6 +66,26 @@ export const battery = {
           confidence: "high",
         });
       }
+
+      if (wear !== null && wear >= 40) {
+        findings.push({
+          severity: "medium",
+          title: "Battery has lost a lot of capacity",
+          detail: `The battery now holds ${100 - wear}% of its design capacity (${wear}% wear). It may start shutting down unexpectedly under load.`,
+          evidence: `${s}: ${wear}% wear`,
+          fix: "If it shuts down before reaching 0%, consider replacing the battery. Until then, keep it charged and avoid draining it to empty.",
+          confidence: "high",
+        });
+      } else if (wear !== null && wear >= 20) {
+        findings.push({
+          severity: "info",
+          title: "Battery is showing wear",
+          detail: `The battery now holds ${100 - wear}% of its design capacity (${wear}% wear). This is normal aging, but worth monitoring.`,
+          evidence: `${s}: ${wear}% wear`,
+          fix: null,
+          confidence: "high",
+        });
+      }
     }
 
     if (batteries.length === 0) {
@@ -64,4 +100,4 @@ export const battery = {
     }
     return findings;
   },
-};
+});
