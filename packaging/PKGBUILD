@@ -1,0 +1,21 @@
+# Maintainer: Linux Doctor <maintainer@example.com>
+# Arch Linux package for linux-doctor.
+# Build from the npm tarball produced by `npm pack` at a release tag:
+#   VERSION=0.1.0; npm pack && mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
+pkgname=linux-doctor
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Plain-English health checks for your Linux system — finds real problems, explains them, and tells you how to fix them"
+arch=('any')
+url="https://github.com/zShaD0w7x/linux-doctor-cli"
+license=('GPL-3.0-or-later')
+depends=('nodejs>=20')
+source=("${pkgname}-${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  install -d "${pkgdir}/usr/lib/linux-doctor" "${pkgdir}/usr/bin"
+  cp -r bin src src-gui/index.html package.json README.md LICENSE "${pkgdir}/usr/lib/linux-doctor/"
+  ln -s /usr/lib/linux-doctor/bin/doctor.js "${pkgdir}/usr/bin/linux-doctor"
+  chmod 0755 "${pkgdir}/usr/lib/linux-doctor/bin/doctor.js"
+}

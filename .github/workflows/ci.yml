@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # The runtime has zero dependencies; installing only prod deps installs
+      # nothing at all and still runs the full suite (dev-only tauri CLI is
+      # not needed for tests).
+      - run: npm ci --omit=dev
+      - run: npm test
+      # Packaging gate: the tarball must ship every file the runtime reads.
+      # src/web.js imports ../src-gui/index.html at load time — if it is
+      # missing from the published package, the CLI crashes on every run.
+      - name: Packaging gate
+        run: npm pack --dry-run 2>&1 | grep -q "src-gui/index.html"
+
+  # A second, closer-to-real system: Node on Fedora, running the same suite
+  # (the CLI tests spawn the real binary against the container's /proc, free,
+  # df, ...). Catches distro-specific regressions the ubuntu job cannot.
+  test-fedora:
+    name: Tests (Fedora container)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Node.js
+        run: dnf install -y --setopt=install_weak_deps=False nodejs npm
+      - run: npm test

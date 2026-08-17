@@ -19,10 +19,18 @@ project — keep it that way.
 
 ## Adding a check
 
-1. Create `src/checks/<id>.js` exporting `{ id, title, run(ctx) }`.
-   `ctx.run(cmd)` runs a read-only command; return `{ severity, title, detail,
-   evidence, fix, confidence }` findings (severity: `high` | `medium` | `info`).
-2. Register it in the `CHECKS` list in `src/cli.js`.
+1. Create `src/checks/<id>.js` exporting `export const <id> = defineCheck({...})`
+   (see `src/checks/define.js`): `id`, `title`, `category` (system / software /
+   security / network / updates / hardware / data), optional `appliesTo`
+   (`desktop` | `laptop` | `server` — set it when the check only makes sense
+   on some systems, e.g. `battery: ["laptop"]`), and `async run(ctx)`.
+   `ctx.run(cmd)` runs a read-only command; `ctx.dist` is the normalized distro
+   profile and `ctx.thresholds` the tunable thresholds. Return
+   `{ severity, title, detail, evidence, fix, confidence }` findings
+   (severity: `high` | `medium` | `info`).
+2. Register it in `src/checks/index.js` (the registry; order there = `--list`
+   order, so keep categories contiguous and specialized checks before
+   aggregators).
 3. Add a test in `tests/checks.test.js` using `stubCtx` — never run real
    system commands in tests.
 4. Run `npm test`, update the README checks table if needed.
