@@ -66,9 +66,9 @@
   button.primary { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; box-shadow: 0 1px 2px rgba(51,98,240,.4), 0 4px 14px rgba(51,98,240,.28); }
   button.primary:hover { background: linear-gradient(180deg, #5a88ff, #3b6dff); }
   button:disabled { opacity: .55; cursor: default; transform: none; }
-  .banner { border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px; border: 1px solid var(--border); box-shadow: var(--shadow); }
-  .banner.ok { background: linear-gradient(180deg, color-mix(in srgb, var(--green) 12%, var(--card)), var(--card)); border-color: color-mix(in srgb, var(--green) 40%, var(--border)); color: var(--green); }
-  .banner.warn { background: linear-gradient(180deg, color-mix(in srgb, var(--red) 12%, var(--card)), var(--card)); border-color: color-mix(in srgb, var(--red) 40%, var(--border)); color: var(--red); }
+  .banner { border-radius: var(--radius); padding: 6px 14px; margin-bottom: 10px; font-size: 13px; border: 1px solid var(--border); }
+  .banner.ok { background: color-mix(in srgb, var(--green) 8%, var(--card)); border-color: color-mix(in srgb, var(--green) 30%, var(--border)); color: var(--green); }
+  .banner.warn { background: color-mix(in srgb, var(--red) 8%, var(--card)); border-color: color-mix(in srgb, var(--red) 30%, var(--border)); color: var(--red); }
   .banner.running { background: var(--card); color: var(--muted); }
   .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -111,7 +111,10 @@
   #report { display: flex; flex-direction: column; gap: 10px; max-width: 720px; margin: 0 auto; }
   #report > .empty { text-align: center; color: var(--muted); padding: 40px 0; }
   .group { background: linear-gradient(180deg, var(--card), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
-  .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 13px; cursor: pointer; user-select: none; font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 13px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
+  .group.high summary { color: var(--red); }
+  .group.medium summary { color: var(--yellow); }
+  .group.info summary { color: var(--blue); }
   .group summary::-webkit-details-marker { display: none; }
   .group summary b { color: var(--text); }
   .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .18s ease; color: var(--muted); }
@@ -195,10 +198,10 @@
     <summary>✅ Fixed since last check <b id="fixed-count"></b><span class="chev">▸</span></summary>
     <div class="group-body" id="fixed-body"></div>
   </details>
-  <div id="skipped" class="group" hidden>
-    <summary>Checks that were skipped on this system <b id="skipped-count"></b><span class="chev">▸</span></summary>
+  <details id="skipped" class="group" hidden>
+    <summary>Skipped checks <b id="skipped-count"></b><span class="chev">▸</span></summary>
     <div class="group-body" id="skipped-body"></div>
-  </div>
+  </details>
   <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate findings · <kbd>Enter</kbd> open/close</footer>
 </div>
 <script>
@@ -497,11 +500,13 @@ function render(data) {
   const banner = $("#banner");
   if (high + med === 0) {
     banner.className = "banner ok";
-    banner.textContent = "✅ Your system looks healthy. No high or medium issues found.";
+    banner.textContent = "All checks passed — system looks healthy.";
   } else {
+    const parts = [];
+    if (high) parts.push(high + " high-severity " + (high === 1 ? "issue" : "issues"));
+    if (med) parts.push(med + " medium-severity " + (med === 1 ? "issue" : "issues"));
     banner.className = "banner warn";
-    banner.textContent = "⚠️ Found " + high + " high-severity and " + med + " medium-severity issue(s). " +
-      (high > 0 ? "Start with the HIGH ones." : "Worth taking a look.");
+    banner.textContent = parts.join(" and ") + " need attention — see below.";
   }
 
   // Icons on the hero stats (not just color) so the report reads fine for
@@ -556,7 +561,7 @@ function render(data) {
     html += '<div class="group-body">';
     for (const f of group) {
       html += '<details class="card ' + SEV[sev].cls + '" tabindex="0">';
-      html += '<summary><span class="badge ' + SEV[sev].cls + '">' + SEV[sev].label + '</span><h3>' + esc(f.title) + '</h3>' +
+      html += '<summary><h3>' + esc(f.title) + '</h3>' +
         (f.isNew ? '<span class="newbadge">NEW</span>' : "") +
         (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
         (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "") +
