@@ -25,6 +25,7 @@ export const services = defineCheck({
     if (failed.length > 0) {
       findings.push({
         severity: failed.length > 2 ? "high" : "medium",
+        code: "services/failed",
         title: `${failed.length} service${failed.length > 1 ? "s" : ""} failed to start`,
         detail: `These ${plural(failed.length, "service")} are in a failed state: ${failed.map((f) => `\`${f.name}\` (${f.scope})`).join(", ")}. A failed service usually means a broken package, a bad configuration, or a hook that errored.`,
         evidence: failed.map((f) => `${f.name}\t${f.scope}`).join("\n"),

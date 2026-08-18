@@ -27,6 +27,7 @@ export const flatpak = defineCheck({
     if (count === 0) {
       findings.push({
         severity: "info",
+        code: "flatpak/none",
         title: "Flatpak apps are up to date",
         detail: "No pending Flatpak updates were found.",
         evidence: "flatpak: 0 updates",
@@ -36,6 +37,7 @@ export const flatpak = defineCheck({
     } else if (count <= 10) {
       findings.push({
         severity: "info",
+        code: "flatpak/pending",
         title: `${plural(count, "Flatpak update")} available`,
         detail: `There ${count === 1 ? "is" : "are"} ${plural(count, "Flatpak app update")} waiting. Updating keeps apps current with security fixes.`,
         evidence: `flatpak: ${count} pending`,
@@ -45,6 +47,7 @@ export const flatpak = defineCheck({
     } else {
       findings.push({
         severity: "medium",
+        code: "flatpak/pending",
         title: `${count} Flatpak updates available`,
         detail: `There are ${count} Flatpak app updates waiting. A large backlog means security fixes are also pending.`,
         evidence: `flatpak: ${count} pending`,

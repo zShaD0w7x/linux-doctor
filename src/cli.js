@@ -229,10 +229,12 @@ export async function main(argv) {
         at: new Date().toISOString(),
         score: sc,
         counts,
-        findings: data.findings.map((f) => ({ severity: f.severity, title: f.title })),
+        findings: data.findings.map((f) => ({ code: f.code, severity: f.severity, title: f.title })),
       });
     }
-    const addedTitles = new Set(diff.added.map((f) => f.title));
+    // Match by stable code, not title — volatile titles ("3 services failed"
+    // vs "2 services failed") must not churn the new/fixed markers.
+    const addedKeys = new Set(diff.added.map((f) => f.code));
     return {
       ...data,
       score: sc,
@@ -240,7 +242,7 @@ export async function main(argv) {
       newCount: diff.added.length,
       fixedCount: diff.fixed.length,
       diffSinceLast: diff,
-      findings: data.findings.map((f) => ({ ...f, isNew: addedTitles.has(f.title) })),
+      findings: data.findings.map((f) => ({ ...f, isNew: addedKeys.has(f.code) })),
     };
   };
 

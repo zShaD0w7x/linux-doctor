@@ -37,15 +37,33 @@ test("newFindings: no previous run means nothing is new", () => {
   assert.deepEqual(newFindings([{ title: "X" }], []), []);
 });
 
-test("diffSinceLast: reports added and fixed findings by title", () => {
+test("diffSinceLast: reports added and fixed findings (title fallback when no code)", () => {
   const runs = [{ findings: [{ severity: "medium", title: "Old issue" }, { severity: "info", title: "Still here" }] }];
   const current = [
     { severity: "high", title: "Still here" },
     { severity: "medium", title: "Brand new" },
   ];
   const diff = diffSinceLast(current, runs);
-  assert.deepEqual(diff.added, [{ severity: "medium", title: "Brand new" }]);
-  assert.deepEqual(diff.fixed, [{ severity: "medium", title: "Old issue" }]);
+  assert.deepEqual(diff.added, [{ code: "Brand new", severity: "medium", title: "Brand new" }]);
+  assert.deepEqual(diff.fixed, [{ code: "Old issue", severity: "medium", title: "Old issue" }]);
+});
+
+test("diffSinceLast: matches by stable code, so a volatile count in the title does not churn", () => {
+  const runs = [{ findings: [{ severity: "medium", code: "services/failed", title: "3 services failed to start" }] }];
+  const current = [{ severity: "medium", code: "services/failed", title: "2 services failed to start" }];
+  const diff = diffSinceLast(current, runs);
+  assert.deepEqual(diff.added, []);
+  assert.deepEqual(diff.fixed, []);
+});
+
+test("newFindings: matches by code when present, so volatile titles do not churn", () => {
+  const runs = [{ findings: [{ code: "updates/pending", title: "5 updates available" }] }];
+  const current = [
+    { code: "updates/pending", title: "7 updates available" },
+    { code: "services/failed", title: "1 service failed to start" },
+  ];
+  const fresh = newFindings(current, runs);
+  assert.deepEqual(fresh.map((f) => f.title), ["1 service failed to start"]);
 });
 
 test("diffSinceLast: no previous run means nothing changed", () => {

@@ -65,28 +65,40 @@ export function saveRun(run, file = historyFile()) {
 }
 
 /**
- * Findings whose title did not appear in the most recent previous run.
+ * Stable identity of a finding for history diffing: its explicit `code` when
+ * one exists, otherwise the title. Matching by code matters because many
+ * titles embed a volatile count ("3 services failed" → "2 services failed")
+ * — comparing titles alone would mark the same issue as new + fixed on every
+ * run. Older history entries predate `code`, so title stays as the fallback.
+ */
+function findingKey(f) {
+  return f && typeof f.code === "string" && f.code !== "" ? f.code : f.title;
+}
+
+/**
+ * Findings whose identity did not appear in the most recent previous run.
  * Returns the full finding objects so callers can badge them.
  */
 export function newFindings(findings, runs) {
   const prev = runs[runs.length - 1];
   if (!prev || !Array.isArray(prev.findings)) return [];
-  const prevTitles = new Set(prev.findings.map((f) => f.title));
-  return findings.filter((f) => !prevTitles.has(f.title));
+  const prevKeys = new Set(prev.findings.map(findingKey));
+  return findings.filter((f) => !prevKeys.has(findingKey(f)));
 }
 
 /**
- * What changed since the most recent previous run, compared by title:
- * `added` = findings present now but not before, `fixed` = findings present
- * before but gone now (the title's own severity is kept for both sides).
+ * What changed since the most recent previous run, compared by stable key
+ * (code when present, else title): `added` = findings present now but not
+ * before, `fixed` = findings present before but gone now. The key is kept in
+ * the result so callers can badge current findings without recomputing it.
  */
 export function diffSinceLast(findings, runs) {
   const prev = runs[runs.length - 1];
   if (!prev || !Array.isArray(prev.findings)) return { added: [], fixed: [] };
-  const prevTitles = new Set(prev.findings.map((f) => f.title));
-  const curTitles = new Set(findings.map((f) => f.title));
+  const prevKeys = new Set(prev.findings.map(findingKey));
+  const curKeys = new Set(findings.map(findingKey));
   return {
-    added: findings.filter((f) => !prevTitles.has(f.title)).map((f) => ({ severity: f.severity, title: f.title })),
-    fixed: prev.findings.filter((f) => !curTitles.has(f.title)).map((f) => ({ severity: f.severity, title: f.title })),
+    added: findings.filter((f) => !prevKeys.has(findingKey(f))).map((f) => ({ code: findingKey(f), severity: f.severity, title: f.title })),
+    fixed: prev.findings.filter((f) => !curKeys.has(findingKey(f))).map((f) => ({ code: findingKey(f), severity: f.severity, title: f.title })),
   };
 }

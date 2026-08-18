@@ -15,13 +15,26 @@ export const ntp = defineCheck({
     const findings = [];
 
     const td = await ctx.run("timedatectl show -p NTPSynchronized 2>/dev/null");
-    if (td.missing || !td.ok || td.stdout.trim() === "") return findings;
+    if (td.missing) {
+      findings.push({
+        severity: "info",
+        code: "ntp/skipped",
+        title: "Time sync check skipped",
+        detail: "`timedatectl` is not available on this system (non-systemd), so clock synchronization could not be checked.",
+        evidence: "timedatectl: not found",
+        fix: null,
+        confidence: "high",
+      });
+      return findings;
+    }
+    if (!td.ok || td.stdout.trim() === "") return findings;
 
     const synced = /^NTPSynchronized=yes$/im.test(td.stdout);
 
     if (synced) {
       findings.push({
         severity: "info",
+        code: "ntp/ok",
         title: "Time is synchronized",
         detail: "The system clock is kept in sync over the network (NTP).",
         evidence: td.stdout.trim(),
@@ -39,6 +52,7 @@ export const ntp = defineCheck({
     if (!daemonActive) {
       findings.push({
         severity: "medium",
+        code: "ntp/unsynced",
         title: "Clock is not kept in sync",
         detail:
           "No NTP client (systemd-timesyncd, chronyd, or ntpd) is running, so the clock will drift. A wrong clock breaks HTTPS, cron jobs, and time-based tokens.",
@@ -49,6 +63,7 @@ export const ntp = defineCheck({
     } else {
       findings.push({
         severity: "medium",
+        code: "ntp/pending",
         title: "NTP daemon is running but time is not synchronized yet",
         detail:
           "An NTP client is active, but the clock has not synchronized yet — it may need a few minutes after boot, or the NTP servers may be unreachable.",

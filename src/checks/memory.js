@@ -10,6 +10,18 @@ export const memory = defineCheck({
     const findings = [];
     const t = ctx.thresholds;
     const mem = await ctx.run("free -b");
+    if (mem.missing) {
+      findings.push({
+        severity: "info",
+        code: "memory/skipped",
+        title: "Memory check skipped",
+        detail: "`free` is not available on this system, so memory pressure could not be checked.",
+        evidence: "free: not found",
+        fix: "Install procps (`sudo dnf install procps-ng` or `sudo apt install procps`) and re-run.",
+        confidence: "high",
+      });
+      return findings;
+    }
     if (!mem.ok) return findings;
 
     const memLine = lines(mem.stdout).find((l) => l.startsWith("Mem:"));
@@ -40,6 +52,7 @@ export const memory = defineCheck({
     if (severity) {
       findings.push({
         severity,
+        code: "memory/low",
         title: "System is low on usable memory",
         detail: `Your system has ${fmtBytes(total)} of RAM, but only ${fmtBytes(available)} is usable right now (${fmtBytes(used)} in use${swapped}). Low memory is the most common cause of a sluggish Linux desktop.`,
         evidence: lines(mem.stdout).slice(0, 2).join("\n"),
@@ -49,6 +62,7 @@ export const memory = defineCheck({
     } else if (swapUsed > 0) {
       findings.push({
         severity: "info",
+        code: "memory/swap",
         title: "Swap is in use",
         detail: `${fmtBytes(swapUsed)} of ${fmtBytes(swapTotal)} swap is in use. Some swap activity is normal, but sustained swapping means the system is tight on memory.`,
         evidence: lines(swap.stdout).join("\n"),

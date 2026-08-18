@@ -28,6 +28,7 @@ const DEFERRED_PATTERNS = [
   /system-sleep.*failed/i, // → suspend check
   /mce|machine check/i, // → hardware check
   /edac|corrected error|ECC error/i, // → hardware check
+  /failed to start|failed with result|entered failed state/i, // → services check
 ];
 
 const MEANINGFUL_PATTERNS = [
@@ -54,6 +55,18 @@ export const journal = defineCheck({
     // boot even when there are no errors, and counting them would inflate the
     // error count on systems that rebooted within the window.
     const res = await ctx.run(`journalctl -p err --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- "`);
+    if (res.missing) {
+      findings.push({
+        severity: "info",
+        code: "journal/skipped",
+        title: "System log check skipped",
+        detail: "`journalctl` is not available on this system (no systemd journal), so log errors could not be inspected.",
+        evidence: "journalctl: not found",
+        fix: null,
+        confidence: "high",
+      });
+      return findings;
+    }
     if (!res.ok || !res.stdout.trim()) return findings;
 
     const noise = [];
@@ -87,17 +100,19 @@ export const journal = defineCheck({
         .map(([msg, count]) => `${msg}  (×${count})`);
       findings.push({
         severity: meaningful.length > 3 ? "medium" : "info",
+        code: "journal/errors",
         title: `${plural(meaningful.length, "noteworthy error")} in the last 24 hours (${counts.size} unique)`,
         detail: "These log entries are not routine noise and may point to a real problem. The most common ones are listed below; use `journalctl -p err -b` to investigate.",
         evidence: top.join("\n"),
         fix: "Look up the exact message on your distro's docs or forums. For suspend/resume failures, see the 'Suspend hooks are failing' finding.",
-        confidence: "medium",
+        confidence: "low",
       });
     }
 
     if (noise.length > 0 && meaningful.length === 0) {
       findings.push({
         severity: "info",
+        code: "journal/no-noise",
         title: "No significant errors — only routine noise",
         detail: `The last 24 hours of the error log contain only messages we recognize as normal on most systems (SELinux noise, udev messages, printer discovery, and similar). Nothing to worry about.`,
         evidence: `Filtered out ${noise.length} known-benign entries.`,

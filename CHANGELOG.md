@@ -6,6 +6,39 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Stable finding codes**: every count-bearing finding (services, journal,
+  updates, flatpak, firmware, timers, disk, memory, network, ntp, audio,
+  thermal, smart, journald) now carries an explicit stable `code`, and the
+  history diff matches findings by code (falling back to title for older
+  history). "New/fixed since last check" no longer churns when a count in a
+  title changes between runs.
+- **Explicit skips**: checks that cannot run because a tool is missing
+  (`free`, `journalctl`, `smartctl`, `timedatectl`, `ip`, `pactl`, a package
+  manager, thermal zones) now report an informational "check skipped"
+  finding instead of silently returning "all clear".
+- **Dedupe**: disk findings share one `dedupeKey` per backing device, so
+  btrfs/ZFS subvolumes of the same pool are scored once; the journal check
+  defers unit-failure lines to the services check (one problem, one finding).
+
+### Added
+
+- Dashboard: a **Report wrong** button on every finding opens a pre-filled
+  GitHub issue (title, code, check, version) — the false-positive feedback
+  loop.
+- CI: a **real-run** job executes the full `--json` report on a live ubuntu
+  runner and asserts valid JSON with zero `checkErrors`; the Fedora container
+  job runs the same smoke test against its real `/proc` and `/sys`.
+- Journal findings are flagged `low` confidence (heuristic log matching may
+  produce false positives).
+
+### Fixed
+
+- Packaging: the PKGBUILD and RPM spec now build from the real `npm pack`
+  tarball layout (`package/`), which previously failed at `%setup`/`cp` time;
+  `diffSinceLast` entries expose the stable `code` in the v1 JSON schema.
+
 ## [0.2.0] - 2026-08-18
 
 ### Added

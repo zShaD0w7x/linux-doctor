@@ -89,6 +89,7 @@ export const reportSchema = {
       properties: {
         severity: { enum: ["high", "medium", "info"] },
         title: { type: "string" },
+        code: { type: "string", description: "stable identity used for new/fixed change detection" },
       },
     },
   },

@@ -1,7 +1,13 @@
 # Maintainer: Linux Doctor <maintainer@example.com>
 # Arch Linux package for linux-doctor.
 # Build from the npm tarball produced by `npm pack` at a release tag:
-#   VERSION=0.1.0; npm pack && mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
+#   VERSION=0.2.0; npm pack && mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
+# NOTE: npm pack extracts its tarball under `package/`, so package() must
+# look there (see below) — a plain project-root tar also works.
+#
+# IMPORTANT: sha256sums=('SKIP') is only a build-time placeholder. AUR
+# rejects SKIP for a fixed tarball — replace it with the real sha256sum of
+# linux-doctor-$pkgver.tar.gz before submitting/updating the package.
 pkgname=linux-doctor
 pkgver=0.2.0
 pkgrel=1
@@ -14,8 +20,12 @@ source=("${pkgname}-${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
 package() {
+  # npm pack tarballs extract to $srcdir/package/; fall back to a plain
+  # project-root tar for manual builds.
+  local src="${srcdir}/package"
+  [ -d "${src}" ] || src="${srcdir}/${pkgname}-${pkgver}"
   install -d "${pkgdir}/usr/lib/linux-doctor" "${pkgdir}/usr/bin"
-  cp -r bin src src-gui/index.html package.json README.md LICENSE "${pkgdir}/usr/lib/linux-doctor/"
+  cp -r "${src}/bin" "${src}/src" "${src}/src-gui/index.html" "${src}/package.json" "${src}/README.md" "${src}/LICENSE" "${pkgdir}/usr/lib/linux-doctor/"
   ln -s /usr/lib/linux-doctor/bin/doctor.js "${pkgdir}/usr/bin/linux-doctor"
   chmod 0755 "${pkgdir}/usr/lib/linux-doctor/bin/doctor.js"
 }

@@ -42,3 +42,45 @@ jobs:
       - name: Install Node.js
         run: dnf install -y --setopt=install_weak_deps=False nodejs npm
       - run: npm test
+      # The real binary against the container's actual /proc and /sys — a
+      # smoke test that every check degrades gracefully instead of throwing.
+      - name: Real run must not crash or error
+        run: node bin/doctor.js --json > /tmp/report.json || true; node -e '
+          const fs = require("fs");
+          const r = JSON.parse(fs.readFileSync("/tmp/report.json", "utf8"));
+          if (!r.schemaVersion || !Array.isArray(r.findings)) throw new Error("bad report shape");
+          if (r.checkErrors && r.checkErrors.length) throw new Error("checkErrors: " + JSON.stringify(r.checkErrors));
+          console.log("ok: " + r.checksRun + " checks ran, " + r.findings.length + " findings");
+        '
+
+  # The real binary on a real system: a full run must parse as valid JSON
+  # with zero check errors, and --list/--schema must stay healthy. Guards
+  # against checks that throw on live systems (missing tools, odd hardware).
+  real-run:
+    name: Real run (ubuntu runner)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Full run → valid JSON, no check errors
+        run: |
+          node bin/doctor.js --json > /tmp/report.json || true
+          node -e '
+            const fs = require("fs");
+            const r = JSON.parse(fs.readFileSync("/tmp/report.json", "utf8"));
+            if (!r.schemaVersion || !Array.isArray(r.findings)) throw new Error("bad report shape");
+            if (r.checkErrors && r.checkErrors.length) throw new Error("checkErrors: " + JSON.stringify(r.checkErrors));
+            console.log("ok: " + r.checksRun + " checks ran, " + r.findings.length + " findings, score " + r.score);
+          '
+      - name: --list and --schema stay healthy
+        run: |
+          node bin/doctor.js --list > /dev/null
+          node bin/doctor.js --schema | node -e '
+            const s = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            if (s.title !== "linux-doctor report") throw new Error("schema changed");
+            console.log("ok: schema v" + s.properties.schemaVersion.const);
+          '

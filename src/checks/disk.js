@@ -12,13 +12,20 @@ const EXCLUDED_FS = new Set([
   "bpf", "pstore", "hugetlbfs",
 ]);
 
-/** Build the high/medium finding for one mount point, or null when it is fine. */
-function diskFinding({ mount, use, avail, evidence, root = false, t }) {
+/**
+ * Build the high/medium finding for one mount point, or null when it is fine.
+ * `device` is the backing filesystem (the df source column): on btrfs and ZFS
+ * several mounts share one pool, so findings for the same device are collapsed
+ * by dedupe — one pool, one penalty, not one per subvolume/dataset.
+ */
+function diskFinding({ mount, use, avail, evidence, root = false, t, device }) {
   const label = root ? "Root partition" : `Partition ${mount}`;
   const free = `${Math.round(avail / 1024 ** 3)} GB free`;
   if (use >= t.diskFullPct) {
     return {
       severity: "high",
+      code: "disk/full",
+      dedupeKey: `disk:${device}`,
       title: `${label} is nearly full`,
       detail: `${root ? "The root partition (/) " : `The partition mounted at ${mount} `}is ${use}% full with only ${free}. A full disk can slow the system and break updates.`,
       evidence,
@@ -31,6 +38,8 @@ function diskFinding({ mount, use, avail, evidence, root = false, t }) {
   if (use >= t.diskWarnPct) {
     return {
       severity: "medium",
+      code: "disk/full",
+      dedupeKey: `disk:${device}`,
       title: `${label} is getting full`,
       detail: `${root ? "The root partition (/) " : `The partition mounted at ${mount} `}is ${use}% full (${free}). It is not urgent yet, but it is worth cleaning up.`,
       evidence,
@@ -60,7 +69,7 @@ export const disk = defineCheck({
       const use = pct(p[4]);
       const avail = num(p[3]);
       if (use <= 0 || mount === "/") continue; // root handled separately below
-      const f = diskFinding({ mount, use, avail, evidence: l, t });
+      const f = diskFinding({ mount, use, avail, evidence: l, t, device: p[0] });
       if (f) findings.push(f);
     }
 
@@ -71,7 +80,7 @@ export const disk = defineCheck({
       const fs = p[0];
       const isVirtualRoot = fs.includes("composefs") || fs.includes("ostree") || EXCLUDED_FS.has(fs);
       if (!isVirtualRoot) {
-        const f = diskFinding({ mount: "/", use: pct(p[4]), avail: num(p[3]), evidence: rootLine, root: true, t });
+        const f = diskFinding({ mount: "/", use: pct(p[4]), avail: num(p[3]), evidence: rootLine, root: true, t, device: p[0] });
         if (f) findings.push(f);
       }
     }

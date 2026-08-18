@@ -8,10 +8,19 @@ dashboard needs at load time).
 
 ## Build the tarball
 
+`npm pack` produces a `.tgz` whose contents live under a `package/` directory
+(it does not extract to `linux-doctor-$VERSION/`). Both the PKGBUILD and the
+RPM spec in this directory already account for that layout — `-n package` in
+%setup, `$srcdir/package` in `package()`. If you prefer a plain root tar
+instead, repack it:
+
 ```bash
 VERSION=0.2.0
 npm pack
-mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
+tar -xzf linux-doctor-$VERSION.tgz
+mv package linux-doctor-$VERSION
+tar -czf linux-doctor-$VERSION.tar.gz linux-doctor-$VERSION
+rm -rf linux-doctor-$VERSION
 ```
 
 ## Arch Linux (AUR)

@@ -17,7 +17,19 @@ export const thermal = defineCheck({
     const zones = await ctx.run(
       'for z in /sys/class/thermal/thermal_zone*; do [ -f "$z/type" ] && [ -f "$z/temp" ] && echo "$(cat "$z/type"):$(cat "$z/temp")"; done 2>/dev/null'
     );
-    if (zones.ok && zones.stdout.trim() !== "") {
+    if (!zones.ok || zones.stdout.trim() === "") {
+      // No thermal zones (containers, VMs, minimal installs) — say so instead
+      // of silently reporting nothing.
+      findings.push({
+        severity: "info",
+        code: "thermal/skipped",
+        title: "Temperature check skipped",
+        detail: "No CPU thermal zones were found under /sys/class/thermal, so temperatures could not be checked. This is normal in containers and virtual machines.",
+        evidence: "no thermal zones",
+        fix: null,
+        confidence: "high",
+      });
+    } else {
       // Values are in millidegrees Celsius; take the hottest zone as the
       // headline number (duplicate zones like x86_pkg_temp vs acpitz are
       // harmless — the max is the one that matters).
@@ -32,6 +44,7 @@ export const thermal = defineCheck({
       if (hottest.c >= t.tempHotC) {
         findings.push({
           severity: "high",
+          code: "thermal/hot",
           title: "CPU is running very hot",
           detail: `The hottest thermal zone (${hottest.type}) is at ${hottest.c.toFixed(0)}°C. Prolonged operation above 95°C risks throttling and long-term damage.`,
           evidence: `${hottest.type}: ${hottest.c.toFixed(0)}°C`,
@@ -41,6 +54,7 @@ export const thermal = defineCheck({
       } else if (hottest.c >= t.tempWarnC) {
         findings.push({
           severity: "medium",
+          code: "thermal/warm",
           title: "CPU is running hot",
           detail: `The hottest thermal zone (${hottest.type}) is at ${hottest.c.toFixed(0)}°C. This is warm enough to trigger throttling under sustained load.`,
           evidence: `${hottest.type}: ${hottest.c.toFixed(0)}°C`,
@@ -50,6 +64,7 @@ export const thermal = defineCheck({
       } else {
         findings.push({
           severity: "info",
+          code: "thermal/ok",
           title: "Temperatures look fine",
           detail: `The hottest thermal zone (${hottest.type}) is at ${hottest.c.toFixed(0)}°C, which is well within normal range.`,
           evidence: `${hottest.type}: ${hottest.c.toFixed(0)}°C`,
@@ -65,6 +80,7 @@ export const thermal = defineCheck({
     if (throttle.ok && throttle.stdout.trim() !== "") {
       findings.push({
         severity: "medium",
+        code: "thermal/throttle",
         title: "CPU throttling events in the log",
         detail: "The kernel reported thermal throttling in the last 24 hours, meaning the CPU had to slow down to cool off. This can cause stutter and slow builds.",
         evidence: throttle.stdout.trim().split("\n").slice(0, 2).join("\n"),

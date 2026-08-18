@@ -30,6 +30,7 @@ export const firmware = defineCheck({
     if (!(daemon.ok && daemon.stdout.trim() === "active")) {
       findings.push({
         severity: "info",
+        code: "firmware/not-checked",
         title: "Firmware updates not checked",
         detail: "The fwupd service is not running, so we could not look for firmware updates.",
         evidence: daemon.stdout.trim() || "fwupd inactive",
@@ -45,6 +46,7 @@ export const firmware = defineCheck({
     if (/no updates? available/i.test(text) || /no updatable devices/i.test(text)) {
       findings.push({
         severity: "info",
+        code: "firmware/none",
         title: "Firmware is up to date",
         detail: "No pending firmware updates were found.",
         evidence: lines(text).slice(0, 2).join("\n"),
@@ -59,6 +61,7 @@ export const firmware = defineCheck({
     if (pending.length > 0) {
       findings.push({
         severity: "medium",
+        code: "firmware/pending",
         title: `${plural(pending.length, "firmware update")} available`,
         detail: "Firmware updates fix hardware bugs and security issues that packages cannot. They are applied in the firmware tool and need a reboot.",
         evidence: pending.slice(0, 4).join("\n"),

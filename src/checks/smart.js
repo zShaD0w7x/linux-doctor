@@ -16,8 +16,20 @@ export const smart = defineCheck({
     const findings = [];
 
     const scan = await ctx.run("smartctl --scan 2>/dev/null");
-    if (scan.missing || !scan.ok || scan.stdout.trim() === "") {
-      // smartmontools not installed, or no SMART-capable devices.
+    if (scan.missing) {
+      findings.push({
+        severity: "info",
+        code: "smart/skipped",
+        title: "SMART disk health not checked (smartmontools missing)",
+        detail: "`smartctl` is not installed, so disk SMART health could not be checked.",
+        evidence: "smartctl: not found",
+        fix: "Install smartmontools (e.g. `sudo dnf install smartmontools` or `sudo apt install smartmontools`) and re-run.",
+        confidence: "high",
+      });
+      return findings;
+    }
+    if (!scan.ok || scan.stdout.trim() === "") {
+      // smartctl present but no SMART-capable devices — nothing to check.
       return findings;
     }
 
@@ -36,6 +48,7 @@ export const smart = defineCheck({
       if (/FAILING_NOW|FAILED/.test(text)) {
         findings.push({
           severity: "high",
+          code: "smart/failing",
           title: `${dev} reports failing SMART health`,
           detail:
             "The disk's self-assessment reports a failing or failing-now status. This is a strong warning that the drive may fail soon.",
@@ -51,6 +64,7 @@ export const smart = defineCheck({
     if (findings.length === 0 && checked > 0) {
       findings.push({
         severity: "info",
+        code: "smart/good",
         title: "Disk health is good",
         detail: `SMART reports healthy status for ${plural(checked, "disk")}.`,
         evidence: `${plural(checked, "device")} passed`,
@@ -60,6 +74,7 @@ export const smart = defineCheck({
     } else if (findings.length === 0 && blocked && checked === 0) {
       findings.push({
         severity: "info",
+        code: "smart/needs-root",
         title: "SMART disk health not checked (needs root)",
         detail:
           "smartctl is installed, but reading SMART status requires root. Re-run with `sudo linux-doctor` to enable disk health checks.",

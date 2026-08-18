@@ -44,13 +44,25 @@ export const audio = defineCheck({
     // A sound server is up. Is there a real output device? (auto_null is the
     // dummy sink PipeWire creates when nothing else exists.)
     const pactl = await ctx.run("command -v pactl >/dev/null 2>&1 && echo yes || echo no");
-    if (!/^yes\s*$/.test(pactl.stdout)) return findings; // cannot verify — stay silent
+    if (!/^yes\s*$/.test(pactl.stdout)) {
+      findings.push({
+        severity: "info",
+        code: "audio/sinks-skipped",
+        title: "Audio output devices not checked",
+        detail: "A sound server is running, but `pactl` is not installed, so we could not verify there is a real output device.",
+        evidence: "pactl: not found",
+        fix: "Install pulseaudio-utils (or pipewire-utils) if you want this check to verify output devices.",
+        confidence: "high",
+      });
+      return findings;
+    }
 
     const sinks = await ctx.run("pactl list sinks short 2>/dev/null");
     const real = lines(sinks.stdout).filter((l) => !/auto_null/.test(l));
     if (real.length === 0) {
       findings.push({
         severity: "medium",
+        code: "audio/no-output",
         title: "No audio output device detected",
         detail: "A sound server is running, but there is no real output device — only the dummy auto_null sink. Sound is broken even though the daemon is up.",
         evidence: `sinks:\n${sinks.stdout.trim() || "(none)"}`,
@@ -60,6 +72,7 @@ export const audio = defineCheck({
     } else {
       findings.push({
         severity: "info",
+        code: "audio/ok",
         title: "Audio is working",
         detail: "A sound server is running and at least one real output device is available.",
         evidence: `sinks:\n${real.join("\n")}`,

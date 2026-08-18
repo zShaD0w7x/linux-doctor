@@ -136,6 +136,15 @@ test("disk: a real partition at 95% is reported as high", async () => {
   assert.match(findings[0].title, /nearly full/i);
 });
 
+test("disk: two mounts on the same device (btrfs subvolumes) share one dedupeKey", async () => {
+  const ctx = stubCtx({
+    "df -P -B1 --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2": `Filesystem     1024-blocks        Used   Available Capacity Mounted on\n/dev/sda2     100000000000  95000000000   5000000000    95% /\n/dev/sda2     100000000000  95000000000   5000000000    95% /home`,
+  });
+  const findings = await disk.run(ctx);
+  assert.equal(findings.length, 2, "both mounts are reported...");
+  assert.ok(findings.every((f) => f.dedupeKey === "disk:/dev/sda2"), "same device → same dedupeKey, so dedupe collapses them into one");
+});
+
 test("services: failed units are surfaced", async () => {
   const ctx = stubCtx({
     "systemctl --failed --no-legend --plain": `homebrew.clamav.service loaded failed failed`,
@@ -171,6 +180,23 @@ test("journal: MCE lines are deferred to the hardware check", async () => {
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 0, "the hardware check owns MCE lines");
+});
+
+test("journal: unit failures are deferred to the services check", async () => {
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 16:02:11 bazzite systemd[1]: homebrew.clamav.service: Failed with result 'exit-code'.\nAug 15 16:02:11 bazzite systemd[1]: Failed to start Homebrew ClamAV.`,
+  });
+  const findings = await journal.run(ctx);
+  assert.equal(findings.length, 0, "the services check owns unit failures — one problem, one finding");
+});
+
+test("journal: missing journalctl (non-systemd) is explained, not silent", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true });
+  const findings = await journal.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /log check skipped/i);
 });
 
 test("gpu: NVIDIA present but no driver loaded → high", async () => {
@@ -715,12 +741,13 @@ test("thermal: normal temperature is informational", async () => {
 
 test("thermal: throttling events in the journal are medium", async () => {
   const ctx = stubCtx({
+    'for z in /sys/class/thermal/thermal_zone*; do [ -f "$z/type" ] && [ -f "$z/temp" ] && echo "$(cat "$z/type"):$(cat "$z/temp")"; done 2>/dev/null': "x86_pkg_temp:45000\n",
     'journalctl -g "throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "Aug 15 10:00:00 bazzite kernel: CPU3: Core temperature above threshold, cpu clock throttled\n",
   });
   const findings = await thermal.run(ctx);
-  assert.equal(findings.length, 1);
-  assert.equal(findings[0].severity, "medium");
-  assert.match(findings[0].title, /throttling/);
+  const throttle = findings.find((f) => /throttling/i.test(f.title));
+  assert.ok(throttle, "expected a throttling finding");
+  assert.equal(throttle.severity, "medium");
 });
 
 test("thermal: journalctl boot separators alone are NOT throttling", async () => {
@@ -1030,14 +1057,16 @@ test("network: route + working DNS is informational", async () => {
   assert.match(findings[0].title, /Network and DNS look healthy/);
 });
 
-test("network: missing iproute2 stays silent", async () => {
+test("network: missing iproute2 is an explicit skip, not silence", async () => {
   const ctx = {
     osRelease: { id: "bazzite", id_like: "fedora" },
     dist: detectDistro({ id: "bazzite", id_like: "fedora" }),
     run: async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true }),
   };
   const findings = await network.run(ctx);
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /network check skipped/i);
 });
 
 test("reboot: newer installed kernel than booted is medium", async () => {
@@ -1114,14 +1143,16 @@ test("journald: small journal is informational", async () => {
   assert.match(findings[0].title, /Journal size is fine/);
 });
 
-test("journald: no systemd journal stays silent", async () => {
+test("journald: no systemd journal is an explicit skip, not silence", async () => {
   const ctx = {
     osRelease: { id: "bazzite", id_like: "fedora" },
     dist: detectDistro({ id: "bazzite", id_like: "fedora" }),
     run: async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true }),
   };
   const findings = await journald.run(ctx);
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /journal size check skipped/i);
 });
 
 test("journald: parseSize handles units", () => {
@@ -1156,14 +1187,16 @@ test("smart: healthy drives are informational", async () => {
   assert.match(findings[0].detail, /2 disk/);
 });
 
-test("smart: smartctl not installed stays silent", async () => {
+test("smart: smartctl not installed is an explicit skip, not silence", async () => {
   const ctx = {
     osRelease: { id: "bazzite", id_like: "fedora" },
     dist: detectDistro({ id: "bazzite", id_like: "fedora" }),
     run: async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true }),
   };
   const findings = await smart.run(ctx);
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /smartmontools missing/i);
 });
 
 // systemd pads header and rows to the same fixed columns, so the parser
@@ -1257,7 +1290,7 @@ test("ntp: daemon active but unsynchronized is medium", async () => {
   assert.match(findings[0].title, /not synchronized yet/);
 });
 
-test("ntp: no timedatectl stays silent", async () => {
+test("ntp: no timedatectl (non-systemd) is an explicit skip, not silence", async () => {
   const ctx = {
     osRelease: { id: "alpine", id_like: "" },
     dist: detectDistro({ id: "alpine", id_like: "" }),
@@ -1265,7 +1298,9 @@ test("ntp: no timedatectl stays silent", async () => {
     run: async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true }),
   };
   const findings = await ntp.run(ctx);
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /time sync check skipped/i);
 });
 
 test("battery: heavy wear is medium", async () => {
@@ -1325,6 +1360,51 @@ test("smart: unreadable devices without root are explained, not silent", async (
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /needs root/);
+});
+
+test("memory: missing free is an explicit skip, not a silent all-clear", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true });
+  const findings = await memory.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /memory check skipped/i);
+});
+
+test("ntp: missing timedatectl (non-systemd) is an explicit skip", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true });
+  const findings = await ntp.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /time sync check skipped/i);
+});
+
+test("updates: package manager missing is an explicit skip, not silence", async () => {
+  const ctx = stubCtx({});
+  ctx.osRelease = { id: "debian", id_like: "" };
+  ctx.dist = detectDistro(ctx.osRelease);
+  ctx.run = async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true });
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /update check skipped/i);
+});
+
+test("smart: missing smartctl is an explicit skip with an install hint", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true });
+  const findings = await smart.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /smartmontools missing/i);
+  assert.match(findings[0].fix, /smartmontools/);
+});
+
+test("thermal: no thermal zones is an explicit skip", async () => {
+  const ctx = stubCtx({});
+  const findings = await thermal.run(ctx);
+  assert.ok(findings.some((f) => /temperature check skipped/i.test(f.title)), "explains why temperatures are unknown");
 });
 
 test("audio: no sound server running is a medium finding with a distro-aware fix", async () => {

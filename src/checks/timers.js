@@ -47,6 +47,7 @@ export const timers = defineCheck({
     if (broken.length > 0) {
       findings.push({
         severity: "medium",
+        code: "timers/broken",
         title: `${plural(broken.length, "scheduled task")} enabled but never running`,
         detail: `These timers are enabled but have never fired and are not scheduled to run: ${broken.map((u) => `\`${u}\``).join(", ")}. A timer in this state silently never runs — a common reason backups \"just stop\".`,
         evidence: broken.join("\n"),
@@ -56,6 +57,7 @@ export const timers = defineCheck({
     } else {
       findings.push({
         severity: "info",
+        code: "timers/ok",
         title: "Scheduled tasks look healthy",
         detail: "All enabled timers are scheduled to run.",
         evidence: `${plural(raw.length - 2, "timer")} listed`,

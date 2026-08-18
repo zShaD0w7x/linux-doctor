@@ -24,8 +24,20 @@ export const journald = defineCheck({
     const findings = [];
 
     const res = await ctx.run("journalctl --disk-usage 2>/dev/null", { timeoutMs: 15000 });
-    if (res.missing || !res.ok) {
-      // No systemd journal (or it is not active) — nothing to check.
+    if (res.missing) {
+      findings.push({
+        severity: "info",
+        code: "journald/skipped",
+        title: "Journal size check skipped",
+        detail: "`journalctl` is not available on this system (no systemd journal), so log disk usage could not be checked.",
+        evidence: "journalctl: not found",
+        fix: null,
+        confidence: "high",
+      });
+      return findings;
+    }
+    if (!res.ok) {
+      // Journal exists but the command failed — nothing we can say.
       return findings;
     }
 
@@ -36,6 +48,7 @@ export const journald = defineCheck({
     if (size >= ctx.thresholds.journalWarnBytes) {
       findings.push({
         severity: "medium",
+        code: "journald/large",
         title: "System journal is large",
         detail: `The systemd journal is using ${friendly}. It grows until it hits its size limit, and a runaway journal is a common cause of full disks.`,
         evidence: res.stdout.trim(),
@@ -45,6 +58,7 @@ export const journald = defineCheck({
     } else {
       findings.push({
         severity: "info",
+        code: "journald/ok",
         title: "Journal size is fine",
         detail: `The systemd journal is using ${friendly}, which is well within normal range.`,
         evidence: res.stdout.trim(),

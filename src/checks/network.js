@@ -20,7 +20,15 @@ export const network = defineCheck({
       ctx.run("ip route show default 2>/dev/null"),
     ]);
     if (addr.missing && route.missing) {
-      // No iproute2 — cannot inspect the network; stay silent.
+      findings.push({
+        severity: "info",
+        code: "network/skipped",
+        title: "Network check skipped",
+        detail: "`ip` (iproute2) is not available on this system, so network connectivity could not be checked.",
+        evidence: "ip: not found",
+        fix: "Install iproute2 (`sudo dnf install iproute` or `sudo apt install iproute2`) and re-run.",
+        confidence: "high",
+      });
       return findings;
     }
 
@@ -30,6 +38,7 @@ export const network = defineCheck({
     if (!route.ok || route.stdout.trim() === "") {
       findings.push({
         severity: "medium",
+        code: "network/no-route",
         title: "No default network route",
         detail:
           "The system has no default gateway, so it cannot reach the internet. " +
@@ -50,6 +59,7 @@ export const network = defineCheck({
     if (!dns.ok || dns.stdout.trim() === "") {
       findings.push({
         severity: "medium",
+        code: "network/dns",
         title: "DNS resolution is failing",
         detail:
           "There is a default route, but the system resolver could not look up kernel.org. " +
@@ -63,6 +73,7 @@ export const network = defineCheck({
 
     findings.push({
       severity: "info",
+      code: "network/ok",
       title: "Network and DNS look healthy",
       detail: "There is a default route and the system resolver works (kernel.org resolved).",
       evidence: route.stdout.trim().split("\n")[0],

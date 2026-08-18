@@ -55,6 +55,7 @@ export const updates = defineCheck({
     if (!cmd) {
       findings.push({
         severity: "info",
+        code: "updates/skipped",
         title: "Update check skipped",
         detail: `No update check exists for this distro family ("${distroId || "unknown"}", family "${family}").`,
         evidence: null,
@@ -66,7 +67,19 @@ export const updates = defineCheck({
     }
 
     const res = await ctx.run(cmd, { timeoutMs: label === "rpm-ostree" ? 30000 : 20000 });
-    if (res.missing) return findings;
+    if (res.missing) {
+      findings.push({
+        severity: "info",
+        code: "updates/skipped",
+        title: "Update check skipped",
+        detail: `The package manager (${label}) is not installed on this system, so pending updates could not be checked.`,
+        evidence: `${label}: not found`,
+        fix: null,
+        confidence: "high",
+      });
+      if (useCache) writeCache("updates", findings);
+      return findings;
+    }
     // dnf exits with 100 when updates are available (0 = up to date);
     // rpm-ostree exits 77 even on a successful check. Any other failure means
     // we could not determine the state, so stay silent instead of falsely
@@ -96,6 +109,7 @@ export const updates = defineCheck({
     if (count === 0) {
       findings.push({
         severity: "info",
+        code: "updates/none",
         title: "System is up to date",
         detail: `No pending updates found via ${label}.`,
         evidence: `${label}: 0 updates`,
@@ -105,6 +119,7 @@ export const updates = defineCheck({
     } else if (count <= 10) {
       findings.push({
         severity: "info",
+        code: "updates/pending",
         title: `${plural(count, "update")} available`,
         detail: `There ${count === 1 ? "is" : "are"} ${count} package update${count > 1 ? "s" : ""} waiting. Updating regularly keeps security fixes current.`,
         evidence: `${label}: ${count} pending`,
@@ -114,6 +129,7 @@ export const updates = defineCheck({
     } else {
       findings.push({
         severity: "medium",
+        code: "updates/pending",
         title: `${count} updates available`,
         detail: `There are ${count} package updates waiting. A large backlog means security fixes are also pending.`,
         evidence: `${label}: ${count} pending`,

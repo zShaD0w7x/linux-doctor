@@ -1,6 +1,7 @@
 # RPM spec for linux-doctor (Fedora / RHEL / COPR).
 # Build from the npm tarball produced by `npm pack` at a release tag:
-#   VERSION=0.1.0; npm pack && mv linux-doctor-*.tgz ~/rpmbuild/SOURCES/linux-doctor-$VERSION.tar.gz
+#   VERSION=0.2.0; npm pack && mv linux-doctor-*.tgz ~/rpmbuild/SOURCES/linux-doctor-$VERSION.tar.gz
+# npm pack tarballs extract to a `package/` directory, hence -n package.
 Name:           linux-doctor
 Version:        0.2.0
 Release:        1%{?dist}
@@ -18,7 +19,7 @@ disk, services, security, updates, GPU, network, backups and more — with a
 health score, history, and a web dashboard.
 
 %prep
-%setup -q -n %{name}-%{version}
+%setup -q -n package
 
 %install
 mkdir -p %{buildroot}%{_libdir}/linux-doctor %{buildroot}%{_bindir}
