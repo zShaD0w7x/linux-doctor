@@ -111,6 +111,9 @@
   #report > .empty { text-align: center; color: var(--muted); padding: 40px 0; }
   #nomatch { text-align: center; color: var(--muted); padding: 24px 0; font-size: 13px; }
   #drillhint { text-align: center; color: var(--muted); padding: 32px 0; font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 10px; }
+  .filterbar { display: flex; align-items: center; gap: 10px; max-width: 720px; margin: 0 auto 10px; font-size: 12.5px; color: var(--muted); }
+  .filterbar b { color: var(--text); font-weight: 700; }
+  .filterbar button { padding: 2px 10px; font-size: 11.5px; border-radius: 7px; }
   .group { background: linear-gradient(180deg, var(--card), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
   .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 13px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
   .group.high summary { color: var(--red); }
@@ -123,6 +126,16 @@
   .group-body { padding: 0 8px 8px; }
   .group .card { border: none; background: var(--card2); margin-bottom: 6px; }
   .group .card:last-child { margin-bottom: 0; }
+  .crow { border-left: 3px solid var(--blue); border-radius: 6px; margin-bottom: 3px; background: transparent; transition: background .15s ease; }
+  .crow:hover { background: var(--card); }
+  .crow summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px 9px; cursor: pointer; user-select: none; }
+  .crow summary::-webkit-details-marker { display: none; }
+  .crow summary h3 { font-size: 12.5px; font-weight: 550; flex: 1; letter-spacing: -0.01em; color: var(--text); }
+  .crow summary .chev { color: var(--muted); font-size: 11px; transition: transform .18s ease; }
+  .crow[open] summary .chev { transform: rotate(90deg); }
+  .crow[open] { background: var(--card); }
+  .crow .card-body { padding: 0 10px 9px 12px; }
+  .crow .fix .fixtext { font-size: 11.5px; }
   .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 10px; margin-bottom: 8px; overflow: hidden; transition: border-color .15s ease, transform .12s ease; }
   .card:hover { border-color: color-mix(in srgb, var(--border) 55%, var(--text) 45%); }
   .card.high { border-left-color: var(--red); }
@@ -193,6 +206,7 @@
     <div class="filters" id="filters"></div>
     <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false">
   </div>
+  <div id="filterbar" class="filterbar" hidden><span id="filterbar-txt"></span><button id="filterbar-clear" type="button">Clear</button></div>
   <div id="trend" hidden></div>
   <div id="drillhint" class="empty" hidden></div>
   <div id="report"><div class="empty">Running checks…</div></div>
@@ -395,13 +409,23 @@ function applyFilters() {
   } else {
     hint.textContent = "Select a severity to see findings.";
   }
+  // Filter status line: only when a specific severity is active.
+  const filterbar = $("#filterbar");
+  const fbTxt = $("#filterbar-txt");
+  if (activeFilter && activeFilter !== "all") {
+    filterbar.hidden = false;
+    fbTxt.textContent = "Showing " + { high: "High", medium: "Medium", info: "Info" }[activeFilter] + " only";
+  } else {
+    filterbar.hidden = true;
+    fbTxt.textContent = "";
+  }
   const q = $("#search").value.trim().toLowerCase();
   let visible = 0;
   document.querySelectorAll("#report .group").forEach((g) => {
     const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
     const sevOk = activeFilter === "all" || sev === activeFilter;
     let any = false;
-    g.querySelectorAll(".card").forEach((c) => {
+    g.querySelectorAll(".card, .crow").forEach((c) => {
       const match = !q || c.textContent.toLowerCase().includes(q);
       c.style.display = match ? "" : "none";
       if (match) any = true;
@@ -415,11 +439,14 @@ function applyFilters() {
   if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
 }
 
-$("#filters").addEventListener("click", (e) => {
-  const btn = e.target.closest(".fpill");
-  if (!btn) return;
-  activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
+$("#filterbar-clear").addEventListener("click", () => {
+  activeFilter = "all";
   document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
+  syncGroupsOpen();
+  applyFilters();
+});
+
+function syncGroupsOpen() {
   // Filtering reveals the group — open it so findings are visible right away.
   // On "All", only High opens (progressive disclosure: Informational can hold
   // dozens of items); a specific severity opens its own group.
@@ -427,6 +454,14 @@ $("#filters").addEventListener("click", (e) => {
     const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
     g.open = activeFilter === sev || (activeFilter === "all" && sev === "high");
   });
+}
+
+$("#filters").addEventListener("click", (e) => {
+  const btn = e.target.closest(".fpill");
+  if (!btn) return;
+  activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
+  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
+  syncGroupsOpen();
   applyFilters();
 });
 $("#search").addEventListener("input", applyFilters);
@@ -577,18 +612,26 @@ function render(data) {
     if (!group.length) continue;
     // One collapsible group per severity: High is open by default (the
     // actionable stuff), Medium/Info stay closed so the whole report fits on
-    // one screen. Each card inside is its own accordion.
+    // one screen. High/Medium render as full cards (each its own accordion);
+    // Informational renders as compact one-line rows so long lists stay
+    // skimmable, with detail/fix revealed on expand.
     const open = sev === "high" ? " open" : "";
+    const compact = sev === "info";
     html += '<details class="group ' + SEV[sev].cls + '"' + open + ">";
     html += "<summary>" + names[sev] + " <b>" + group.length + '</b><span class="chev">▸</span></summary>';
     html += '<div class="group-body">';
     for (const f of group) {
-      html += '<details class="card ' + SEV[sev].cls + '" tabindex="0">';
-      html += '<summary><h3>' + esc(f.title) + '</h3>' +
-        (f.isNew ? '<span class="newbadge">NEW</span>' : "") +
+      const badges =
+        (f.isNew ? '<span class="newbadge" title="Appeared since your last check">NEW</span>' : "") +
         (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
-        (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "") +
-        '<span class="chev">▸</span></summary>';
+        (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "");
+      if (compact) {
+        html += '<details class="crow" tabindex="0">';
+        html += '<summary><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
+      } else {
+        html += '<details class="card ' + SEV[sev].cls + '" tabindex="0">';
+        html += '<summary><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
+      }
       html += '<div class="card-body">';
       if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
       if (f.evidence) {
@@ -704,14 +747,14 @@ document.addEventListener("keydown", (e) => {
 // Expand/collapse every finding card at once. Clicking opens all when any is
 // closed, and collapses all when everything is already open.
 function setAllOpen(open) {
-  document.querySelectorAll("#report .group, #report .card").forEach((el) => {
+  document.querySelectorAll("#report .group, #report .card, #report .crow").forEach((el) => {
     if (open) el.setAttribute("open", "");
     else el.removeAttribute("open");
   });
   expandBtn.textContent = open ? "⊟ Collapse all" : "⊞ Expand all";
 }
 expandBtn.addEventListener("click", () => {
-  const anyClosed = [...document.querySelectorAll("#report .group, #report .card")].some((el) => !el.open);
+  const anyClosed = [...document.querySelectorAll("#report .group, #report .card, #report .crow")].some((el) => !el.open);
   setAllOpen(anyClosed);
 });
 
