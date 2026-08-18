@@ -29,19 +29,26 @@ page.on("pageerror", (err) => pageErrors.push(err.message));
 
 try {
   await page.goto(url, { waitUntil: "networkidle" });
-  await page.waitForSelector("#report .card", { timeout: 30000 });
+  await page.waitForSelector("#filters .fpill", { timeout: 30000 });
   await page.waitForTimeout(500);
 
   const banner = await page.textContent("#banner");
-  const cards = await page.locator("#report .card").count();
   const stats = await page.locator("#summary .stat").count();
-  const filters = await page.locator("#filters .fpill").count();
+  const pills = await page.locator("#filters .fpill").count();
   const score = await page.textContent("#scorenum");
   const sysinfo = await page.textContent("#sysinfo");
+  const reportHiddenOnLoad = await page.locator("#report").evaluate((el) => el.hidden);
+
+  // Drill-down: report starts hidden, clicking "All" reveals every group.
+  await page.click('#filters .fpill[data-sev="all"]');
+  await page.waitForSelector("#report .group:not([hidden])", { timeout: 10000 });
+  const cards = await page.locator("#report .card").count();
+  const visibleGroups = await page.locator("#report .group:not([hidden])").count();
 
   console.log("banner:", banner.trim());
   console.log("sysinfo:", sysinfo.trim());
-  console.log("cards rendered:", cards, "| hero stats:", stats, "| filter pills:", filters, "| score:", score.trim());
+  console.log("report hidden on load:", reportHiddenOnLoad, "| cards after All:", cards, "| visible groups:", visibleGroups);
+  console.log("hero stats:", stats, "| filter pills:", pills, "| score:", score.trim());
   console.log("console errors:", consoleErrors.length);
   for (const e of consoleErrors) console.log("  [console] " + e);
   console.log("page errors:", pageErrors.length);

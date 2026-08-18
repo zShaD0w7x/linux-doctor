@@ -110,6 +110,8 @@
   /* Findings: single column, centered for readability. Groups stack cleanly. */
   #report { display: flex; flex-direction: column; gap: 10px; max-width: 720px; margin: 0 auto; }
   #report > .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  #nomatch { text-align: center; color: var(--muted); padding: 24px 0; font-size: 13px; }
+  #drillhint { text-align: center; color: var(--muted); padding: 32px 0; font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 10px; }
   .group { background: linear-gradient(180deg, var(--card), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
   .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 13px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
   .group.high summary { color: var(--red); }
@@ -193,7 +195,9 @@
     <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false">
   </div>
   <div id="trend" hidden></div>
+  <div id="drillhint" class="empty" hidden></div>
   <div id="report"><div class="empty">Running checks…</div></div>
+  <div id="nomatch" class="empty" hidden></div>
   <details id="fixed" class="group" hidden>
     <summary>✅ Fixed since last check <b id="fixed-count"></b><span class="chev">▸</span></summary>
     <div class="group-body" id="fixed-body"></div>
@@ -367,28 +371,40 @@ function animateScore(target) {
   requestAnimationFrame(step);
 }
 
-// Severity filter + live search. Both are pure DOM toggles — no re-fetch.
+// Severity filter + live search. Pure DOM toggles — no re-fetch.
+// activeFilter: null = report hidden (drill-down), "all" = every group,
+// "high"/"medium"/"info" = that group only.
 let activeFilter = null;
 
 function renderFilters(counts) {
   const total = counts.high + counts.medium + counts.info;
   const defs = [
-    { sev: null, label: "All", count: total },
+    { sev: "all", label: "All", count: total },
     { sev: "high", label: "High", count: counts.high },
     { sev: "medium", label: "Medium", count: counts.medium },
     { sev: "info", label: "Info", count: counts.info },
   ];
   $("#filters").innerHTML = defs.map((d) =>
-    '<button class="fpill ' + (d.sev || "") + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + (d.sev || "") + '">' +
+    '<button class="fpill ' + d.sev + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + d.sev + '">' +
     d.label + '<span class="n">' + d.count + '</span></button>'
   ).join("");
 }
 
 function applyFilters() {
+  const report = $("#report");
+  const hint = $("#drillhint");
+  report.hidden = !activeFilter;
+  hint.hidden = !!activeFilter;
+  if (activeFilter) {
+    hint.textContent = "";
+  } else {
+    hint.textContent = "Select a severity to see findings.";
+  }
   const q = $("#search").value.trim().toLowerCase();
+  let visible = 0;
   document.querySelectorAll("#report .group").forEach((g) => {
     const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
-    const sevOk = !activeFilter || sev === activeFilter;
+    const sevOk = activeFilter === "all" || sev === activeFilter;
     let any = false;
     g.querySelectorAll(".card").forEach((c) => {
       const match = !q || c.textContent.toLowerCase().includes(q);
@@ -396,14 +412,19 @@ function applyFilters() {
       if (match) any = true;
     });
     g.hidden = !(sevOk && any);
+    if (sevOk && any) visible++;
   });
+  const nomatch = $("#nomatch");
+  const qRaw = $("#search").value.trim();
+  nomatch.hidden = !(activeFilter && qRaw && visible === 0);
+  if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
 }
 
 $("#filters").addEventListener("click", (e) => {
   const btn = e.target.closest(".fpill");
   if (!btn) return;
-  activeFilter = btn.dataset.sev || null;
-  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b === btn));
+  activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
+  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
   applyFilters();
 });
 $("#search").addEventListener("input", applyFilters);
@@ -581,7 +602,7 @@ function render(data) {
     }
     html += "</div></details>";
   }
-  $("#report").innerHTML = html || '<div class="empty">No findings.</div>';
+  $("#report").innerHTML = html || '<div class="empty">No issues found — system looks healthy.</div>';
   applyFilters();
   renderFixed(data);
   renderTrend();
