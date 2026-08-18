@@ -255,6 +255,35 @@ test("gpu: AMD with amdgpu driver → info", async () => {
   assert.match(info.title, /driver is working/i);
 });
 
+test("gpu: AMD with built-in amdgpu (not in lsmod) is NOT a missing driver", async () => {
+  // amdgpu is often compiled INTO the kernel, so lsmod shows nothing even
+  // though the driver is active. A working display means it is fine.
+  const ctx = stubCtx({
+    "lspci -nn 2>/dev/null | grep -iE 'vga|3d|display'": "06:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 22 [Radeon RX 6700 XT]",
+    "lsmod 2>/dev/null | awk '{print $1}' | grep -iE '^(nvidia|nouveau|amdgpu|i915|xe)$'": "",
+    "ls /dev/dri/ 2>/dev/null": "card0\nrenderD128",
+    "glxinfo -B 2>/dev/null | grep -i 'renderer string'": "renderer string: AMD Radeon RX 6700 XT (RADV NAVI22)",
+  });
+  const findings = await gpu.run(ctx);
+  assert.ok(!findings.some((f) => f.severity === "medium"), "built-in amdgpu must not be reported as 'driver not loaded'");
+  const info = findings.find((f) => f.severity === "info");
+  assert.ok(info, "expected an informational driver finding");
+});
+
+test("gpu: AMD GPU with no working driver is medium", async () => {
+  // No DRI and no usable renderer → the driver really is not driving the card.
+  const ctx = stubCtx({
+    "lspci -nn 2>/dev/null | grep -iE 'vga|3d|display'": "06:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 22 [Radeon RX 6700 XT]",
+    "lsmod 2>/dev/null | awk '{print $1}' | grep -iE '^(nvidia|nouveau|amdgpu|i915|xe)$'": "",
+    "ls /dev/dri/ 2>/dev/null": "",
+    "glxinfo -B 2>/dev/null | grep -i 'renderer string'": "renderer string: llvmpipe (LLVM 19.1.4, 256 bits)",
+  });
+  const findings = await gpu.run(ctx);
+  const med = findings.find((f) => f.severity === "medium");
+  assert.ok(med, "expected a medium finding when the driver genuinely is not working");
+  assert.match(med.title, /amdgpu driver is not loaded/i);
+});
+
 test("gpu: software rendering (llvmpipe) → high", async () => {
   const ctx = stubCtx({
     "lspci -nn 2>/dev/null | grep -iE 'vga|3d|display'": "00:02.0 VGA compatible controller [0300]: Intel Corporation UHD Graphics",
@@ -282,9 +311,9 @@ test("countBySeverity buckets findings", () => {
   ]);
 });
 
-test("updates: apt counts pending updates correctly (grep -c output)", async () => {
+test("updates: apt counts pending updates correctly", async () => {
   const ctx = stubCtx({
-    "apt-get -s upgrade 2>/dev/null | grep -c '^Inst ' || true": "3\n",
+    "apt-get -s upgrade 2>&1": "Inst libssl3 [3.0.13-1] (3.0.14-1 Debian:stable-updates [amd64])\nInst firefox [130.0] (131.0 Debian:stable [amd64])\nInst vim [9.0] (9.1 Debian:stable [amd64])\n",
   });
   ctx.osRelease = { id: "debian", id_like: "" };
   ctx.dist = detectDistro(ctx.osRelease);
@@ -293,6 +322,16 @@ test("updates: apt counts pending updates correctly (grep -c output)", async () 
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /3 update/i);
   assert.match(findings[0].fix, /apt upgrade/);
+});
+
+test("updates: apt lock/error is silent, never 'up to date'", async () => {
+  const ctx = stubCtx({
+    "apt-get -s upgrade 2>&1": "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 123 (unattended-upgr)\n",
+  });
+  ctx.osRelease = { id: "debian", id_like: "" };
+  ctx.dist = detectDistro(ctx.osRelease);
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 0, "a locked apt must not be reported as 'up to date'");
 });
 
 test("updates: dnf exit code 100 (updates available) is counted", async () => {
@@ -475,7 +514,7 @@ test("security: active firewall and SELinux enforcing are reported", async () =>
   assert.ok(!findings.some((f) => f.severity === "medium"), "no medium finding when the firewall is up");
 });
 
-test("security: no firewall detected → medium finding", async () => {
+test("security: no firewall detected → informational finding", async () => {
   const ctx = stubCtx({
     "systemctl is-active firewalld 2>/dev/null": "inactive\n",
     "systemctl is-active ufw 2>/dev/null": "inactive\n",
@@ -485,9 +524,9 @@ test("security: no firewall detected → medium finding", async () => {
     "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
   });
   const findings = await security.run(ctx);
-  const med = findings.find((f) => f.severity === "medium");
-  assert.ok(med, "expected a medium finding");
-  assert.match(med.title, /No active firewall/);
+  const info = findings.find((f) => f.title.includes("No active firewall"));
+  assert.ok(info, "expected a firewall finding");
+  assert.equal(info.severity, "info", "absence of optional hardening is informational, not a fault");
 });
 
 test("security: AppArmor is reported on Debian-family systems", async () => {
@@ -568,14 +607,25 @@ test("suspend: boot separators alone are NOT a failing hook", async () => {
   assert.equal(findings.length, 0, "separator-only output must not be a finding");
 });
 
-test("journal: boot separators do not inflate the error count", async () => {
+test("journal: benign kernel noise (i2c address) is not an error finding", async () => {
   const ctx = stubCtx({
     "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 14:32:47 bazzite kernel: i2c i2c-1: Invalid 7-bit I2C address 0xffff`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 1);
-  assert.match(findings[0].title, /1 noteworthy error/);
-  assert.ok(!findings[0].evidence.includes("-- Boot"), "no boot separators in evidence");
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /routine noise/i);
+  assert.ok(!findings.some((f) => /recognized error|unrecognized log entry/i.test(f.title)), "known noise must not be reported as an error");
+});
+
+test("journal: unrecognized entries stay informational, not medium", async () => {
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 14:32:47 bazzite app[123]: Something unknown and weird happened\nAug 15 14:33:01 bazzite app[456]: Another unknown message\n`,
+  });
+  const findings = await journal.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info", "unrecognized entries must not escalate to medium");
+  assert.match(findings[0].title, /unrecognized log entr/i);
 });
 
 test("battery: low battery is flagged medium", async () => {
@@ -700,16 +750,16 @@ test("secureboot: UEFI with Secure Boot enabled and TPM is informational", async
   assert.ok(!findings.some((f) => f.severity === "medium"));
 });
 
-test("secureboot: disabled Secure Boot and missing TPM are medium", async () => {
+test("secureboot: disabled Secure Boot and missing TPM are informational", async () => {
   const ctx = stubCtx({
     "ls /sys/firmware/efi 2>/dev/null | head -1": "efi\n",
     "mokutil --sb-state 2>/dev/null": "SecureBoot disabled\n",
   });
   const findings = await secureboot.run(ctx);
-  const mediums = findings.filter((f) => f.severity === "medium");
-  assert.equal(mediums.length, 2);
-  assert.match(mediums.map((f) => f.title).join(" "), /Secure Boot is disabled/);
-  assert.match(mediums.map((f) => f.title).join(" "), /No TPM detected/);
+  const infos = findings.filter((f) => f.severity === "info");
+  assert.equal(infos.length, 2, "absence of optional hardening is informational, not a fault");
+  assert.match(infos.map((f) => f.title).join(" "), /Secure Boot is disabled/);
+  assert.match(infos.map((f) => f.title).join(" "), /No TPM detected/);
 });
 
 test("secureboot: legacy BIOS boot is informational", async () => {
@@ -744,7 +794,7 @@ test("thermal: normal temperature is informational", async () => {
 test("thermal: throttling events in the journal are medium", async () => {
   const ctx = stubCtx({
     'for z in /sys/class/thermal/thermal_zone*; do [ -f "$z/type" ] && [ -f "$z/temp" ] && echo "$(cat "$z/type"):$(cat "$z/temp")"; done 2>/dev/null': "x86_pkg_temp:45000\n",
-    'journalctl -g "throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "Aug 15 10:00:00 bazzite kernel: CPU3: Core temperature above threshold, cpu clock throttled\n",
+    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "Aug 15 10:00:00 bazzite kernel: CPU3: Core temperature above threshold, cpu clock throttled\n",
   });
   const findings = await thermal.run(ctx);
   const throttle = findings.find((f) => /throttling/i.test(f.title));
@@ -752,9 +802,20 @@ test("thermal: throttling events in the journal are medium", async () => {
   assert.equal(throttle.severity, "medium");
 });
 
+test("thermal: app-level messages containing 'throttle' are NOT CPU throttling", async () => {
+  // The old pattern `-g "throttl"` also matched app messages like
+  // "setStartupThrottle" (Roblox, Chromium) — a false positive.
+  const ctx = stubCtx({
+    'for z in /sys/class/thermal/thermal_zone*; do [ -f "$z/type" ] && [ -f "$z/temp" ] && echo "$(cat "$z/type"):$(cat "$z/temp")"; done 2>/dev/null': "x86_pkg_temp:45000\n",
+    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "Aug 18 13:39:06 bazzite flatpak[143639]: info: Roblox: ... setStartupThrottle: false\n",
+  });
+  const findings = await thermal.run(ctx);
+  assert.ok(!findings.some((f) => f.title.includes("throttling")), "app-level throttle messages must not be reported as CPU throttling");
+});
+
 test("thermal: journalctl boot separators alone are NOT throttling", async () => {
   const ctx = stubCtx({
-    'journalctl -g "throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "",
+    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "",
   });
   const findings = await thermal.run(ctx);
   assert.ok(!findings.some((f) => f.title.includes("throttling")), "separator-only output must not be a throttling finding");
@@ -898,7 +959,7 @@ test("wayland: software rendering in a Wayland session is high", async () => {
   assert.match(high[0].evidence, /llvmpipe/);
 });
 
-test("backup: nothing detected is medium", async () => {
+test("backup: nothing detected is informational", async () => {
   const ctx = stubCtx({
     'for t in borg restic rclone duplicity timeshift pika-backup backintime deja-dup; do command -v "$t" 2>/dev/null; done': "",
     "ls /etc/snapper/configs 2>/dev/null": "",
@@ -907,19 +968,19 @@ test("backup: nothing detected is medium", async () => {
   });
   const findings = await backup.run(ctx);
   assert.equal(findings.length, 1);
-  assert.equal(findings[0].severity, "medium");
+  assert.equal(findings[0].severity, "info", "no backup tool is a setup choice, not a fault");
   assert.match(findings[0].title, /No backup or snapshot tool/);
   assert.ok(findings[0].fix, "missing backups should include a fix");
 });
 
-test("backup: tools installed but nothing scheduled is medium", async () => {
+test("backup: tools installed but nothing scheduled is informational", async () => {
   const ctx = stubCtx({
     'for t in borg restic rclone duplicity timeshift pika-backup backintime deja-dup; do command -v "$t" 2>/dev/null; done': "/usr/bin/borg\n/usr/bin/restic\n",
     "systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'backup|borg|restic|timeshift|snapper|pika|deja' | grep -oE '[A-Za-z0-9_.@-]+\\.timer' | sort -u": "",
   });
   const findings = await backup.run(ctx);
   assert.equal(findings.length, 1);
-  assert.equal(findings[0].severity, "medium");
+  assert.equal(findings[0].severity, "info", "unscheduled backups are informational, not a detected fault");
   assert.match(findings[0].title, /nothing is scheduled/);
   assert.match(findings[0].evidence, /borg/);
 });
@@ -1000,13 +1061,13 @@ test("luks: encrypted system is informational", async () => {
   assert.match(findings[0].title, /encryption is active/);
 });
 
-test("luks: unencrypted system is medium", async () => {
+test("luks: unencrypted system is informational", async () => {
   const ctx = stubCtx({
     "lsblk -o NAME,FSTYPE,TYPE -n 2>/dev/null": "sda1 vfat part\nsda2 ext4 part\n",
   });
   const findings = await luks.run(ctx);
   assert.equal(findings.length, 1);
-  assert.equal(findings[0].severity, "medium");
+  assert.equal(findings[0].severity, "info", "unencrypted is a setup choice, not a detected fault");
   assert.match(findings[0].title, /No full-disk encryption/);
   assert.ok(findings[0].fix, "missing encryption should include a fix");
 });

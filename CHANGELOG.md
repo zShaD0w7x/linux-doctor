@@ -4,7 +4,7 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-08-18
 
 ### Added
 
@@ -75,6 +75,25 @@ All notable changes to Linux Doctor are documented here. The format follows
 - Packaging: the PKGBUILD and RPM spec now build from the real `npm pack`
   tarball layout (`package/`), which previously failed at `%setup`/`cp` time;
   `diffSinceLast` entries expose the stable `code` in the v1 JSON schema.
+- **NEW badge** printed the literal template string `${A.bold}` instead of the
+  ANSI code it was meant to reference — the badge now renders as actual colored
+  output.
+- **Thermal** check matched any log line containing "throttl" — e.g. Roblox's
+  `setStartupThrottle` — and falsely reported CPU throttling. The pattern now
+  requires `clock throttl` and a kernel-tagged log source.
+- **Journal** check escalated thousands of benign but unrecognized error-level
+  entries into a medium "noteworthy errors" finding. Noise patterns now cover
+  X.509 certs, ELF architecture, i2c address, rpm-ostree metadata, and
+  libseccomp lines; unrecognized entries are informational, never medium.
+- **GPU** check reported a kernel-built-in driver (absent from `lsmod`) as
+  "driver not loaded" even with a working display — a built-in driver plus a
+  working display is now fine.
+- **Updates** check could print "System is up to date" when `apt` actually
+  failed (dpkg lock, `E:` errors). Apt failures now stay silent instead of
+  pretending the system is clean.
+- **Severity**: missing optional hardening — no LUKS encryption, Secure Boot
+  off, no TPM, no firewall, no backup tool/schedule — is informational, not
+  medium. A healthy default install is no longer penalized in the health score.
 
 ## [0.2.0] - 2026-08-18
 

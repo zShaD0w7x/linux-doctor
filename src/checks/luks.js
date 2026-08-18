@@ -32,8 +32,10 @@ export const luks = defineCheck({
         confidence: "high",
       });
     } else if (devices.length > 0) {
+      // Running unencrypted is a deliberate choice, not a detected fault —
+      // informational so a healthy install is not penalized in the score.
       findings.push({
-        severity: "medium",
+        severity: "info",
         title: "No full-disk encryption detected",
         detail: "No LUKS or crypt devices were found. If this drive is lost or stolen, the data on it can be read directly.",
         evidence: "lsblk: no crypto_LUKS / crypt devices",

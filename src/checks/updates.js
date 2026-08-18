@@ -39,7 +39,9 @@ export const updates = defineCheck({
       cmd = "dnf check-update --quiet 2>/dev/null";
       label = "dnf";
     } else if (pkg === "apt") {
-      cmd = "apt-get -s upgrade 2>/dev/null | grep -c '^Inst ' || true";
+      // 2>&1 so apt's failure messages (dpkg lock, E: ...) are visible — a
+      // locked or broken apt must NOT look like "0 updates".
+      cmd = "apt-get -s upgrade 2>&1";
       label = "apt";
     } else if (pkg === "zypper") {
       cmd = "zypper -q lu 2>/dev/null | awk 'NR>4 && NF' | wc -l";
@@ -83,17 +85,22 @@ export const updates = defineCheck({
     // dnf exits with 100 when updates are available (0 = up to date);
     // rpm-ostree exits 77 even on a successful check. Any other failure means
     // we could not determine the state, so stay silent instead of falsely
-    // reporting "up to date".
+    // reporting "up to date". apt simulation reports errors as text even on a
+    // zero exit code, so scan for those too.
+    const aptError = label === "apt" && /could not get lock|^E:|^dpkg:|apt-get: error/i.test(res.stdout);
     const ok =
-      res.ok ||
+      (res.ok ||
       (label === "dnf" && res.code === 100) ||
-      (label === "rpm-ostree" && /Available update:|No updates available\./.test(res.stdout));
+      (label === "rpm-ostree" && /Available update:|No updates available\./.test(res.stdout))) &&
+      !aptError;
     // Only cache a *successful* determination. A failed command is not
     // cached, so the next run retries instead of repeating a stale result.
     if (!ok) return findings;
 
     let count;
-    if (label === "apt" || label === "zypper") {
+    if (label === "apt") {
+      count = lines(res.stdout).filter((l) => /^Inst /i.test(l)).length;
+    } else if (label === "zypper") {
       // These commands print a single count number, not one line per package.
       count = num(lines(res.stdout)[0]);
     } else if (label === "rpm-ostree") {

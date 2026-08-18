@@ -79,8 +79,9 @@ export async function renderReport(findings, { aiSummary, system, score, newCoun
     out.push("-".repeat(label.length));
     for (const f of group) {
       n += 1;
+      const badge = f.isNew ? (isTTY ? `${A.bold}${A.cyan}🆕 NEW${A.reset}` : "🆕 NEW") : "";
       out.push("");
-      out.push(`${n}. ${f.title}${f.isNew ? "  ${A.bold}${A.cyan}🆕 NEW${A.reset}" : ""}`);
+      out.push(`${n}. ${f.title}${badge ? `  ${badge}` : ""}`);
       if (f.confidence === "low") out.push("   ⚠ Low confidence — this finding may be a false positive.");
       if (f.detail) out.push(`   ${f.detail}`);
       if (f.evidence) {

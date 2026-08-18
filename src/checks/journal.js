@@ -17,6 +17,13 @@ const NOISE_PATTERNS = [
   /failed to retrieve rpm info/i,
   /busno=/i,
   /TDX not supported by the host platform/i,
+  // Common benign kernel/firmware messages that reach priority err but are
+  // routine on most distros — present on nearly every machine.
+  /problem loading x\.509 certificate/i,
+  /elf object binary architecture/i,
+  /invalid 7-bit i2c address/i,
+  /failed to query container image base metadata/i,
+  /module libseccomp/i,
 ];
 
 /**
@@ -71,6 +78,7 @@ export const journal = defineCheck({
 
     const noise = [];
     const meaningful = [];
+    const unknown = [];
     for (const l of lines(res.stdout)) {
       if (DEFERRED_PATTERNS.some((re) => re.test(l))) {
         continue; // owned by a dedicated check (suspend, hardware)
@@ -83,10 +91,14 @@ export const journal = defineCheck({
         meaningful.push(l);
         continue;
       }
-      // Anything else at error level is worth a mention.
-      meaningful.push(l);
+      // Not recognized as either benign or suspicious. These are counted but
+      // never escalate the severity — an unrecognized message is more likely
+      // our filter missing a benign pattern than a real fault.
+      unknown.push(l);
     }
 
+    // The count/evidence above is driven only by entries we recognize as
+    // suspicious. Unrecognized ones get their own low-key informational row.
     if (meaningful.length > 0) {
       // Aggregate duplicates so 60 copies of the same message become one line.
       const counts = new Map();
@@ -98,18 +110,39 @@ export const journal = defineCheck({
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([msg, count]) => `${msg}  (×${count})`);
+      const extra = unknown.length > 0 ? ` Plus ${plural(unknown.length, "unrecognized entry")} (possibly benign).` : "";
       findings.push({
         severity: meaningful.length > 3 ? "medium" : "info",
         code: "journal/errors",
-        title: `${plural(meaningful.length, "noteworthy error")} in the last 24 hours (${counts.size} unique)`,
-        detail: "These log entries are not routine noise and may point to a real problem. The most common ones are listed below; use `journalctl -p err -b` to investigate.",
+        title: `${plural(meaningful.length, "recognized error")} in the last 24 hours (${counts.size} unique)`,
+        detail: `These log entries match patterns that usually indicate a real problem.${extra} Use \`journalctl -p err -b\` to investigate.`,
         evidence: top.join("\n"),
         fix: "Look up the exact message on your distro's docs or forums. For suspend/resume failures, see the 'Suspend hooks are failing' finding.",
         confidence: "low",
       });
+    } else if (unknown.length > 0) {
+      // Aggregate duplicates so 60 copies of the same message become one line.
+      const counts = new Map();
+      for (const l of unknown) {
+        const key = l.replace(/^[A-Z][a-z]{2} \d{2} \d{2}:\d{2}:\d{2} \S+ /, "").slice(0, 90);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      const top = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([msg, count]) => `${msg}  (×${count})`);
+      findings.push({
+        severity: "info",
+        code: "journal/unknown",
+        title: `${unknown.length} unrecognized log ${unknown.length === 1 ? "entry" : "entries"} in the last 24 hours`,
+        detail: "These error-level entries are not recognized as either routine noise or a known problem. Most are benign, but it is worth a glance if one stands out.",
+        evidence: top.join("\n"),
+        fix: null,
+        confidence: "low",
+      });
     }
 
-    if (noise.length > 0 && meaningful.length === 0) {
+    if (noise.length > 0 && meaningful.length === 0 && unknown.length === 0) {
       findings.push({
         severity: "info",
         code: "journal/no-noise",

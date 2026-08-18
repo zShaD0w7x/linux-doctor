@@ -52,6 +52,11 @@ export const gpu = defineCheck({
       return findings;
     }
 
+    // Software rendering is the silent killer: the desktop "works" but is very
+    // slow. Detected once here because the driver branches below need it to
+    // tell a missing driver apart from a built-in one.
+    const swRenderer = await detectSoftwareRenderer(ctx);
+
     // NVIDIA is the most common source of pain, so it gets the detailed logic.
     if (hasNvidia) {
       if (nvidiaMod) {
@@ -84,14 +89,29 @@ export const gpu = defineCheck({
         });
       }
     } else if (hasAmd && !amdMod) {
-      findings.push({
-        severity: "medium",
-        title: "AMD GPU detected but the amdgpu driver is not loaded",
-        detail: "An AMD card is present but the amdgpu kernel driver is not active. Graphics may be running on a fallback path.",
-        evidence: "hardware: " + hardware,
-        fix: "Reboot the system; if the problem persists, check your kernel command line for a `nomodeset` option and remove it.",
-        confidence: "medium",
-      });
+      // amdgpu is often compiled INTO the kernel, in which case lsmod shows
+      // nothing even though the driver is active. A working display (DRI
+      // present, no software rendering) means it is fine — only flag the
+      // missing driver when the GPU is genuinely not driving the display.
+      if (hasDri && !swRenderer) {
+        findings.push({
+          severity: "info",
+          title: "Graphics driver is working",
+          detail: "Your AMD GPU is using the kernel's built-in amdgpu driver, which is the well-supported default.",
+          evidence: "hardware: " + (hardware || "integrated") + "\nmodule: amdgpu (built-in)",
+          fix: null,
+          confidence: "high",
+        });
+      } else {
+        findings.push({
+          severity: "medium",
+          title: "AMD GPU detected but the amdgpu driver is not loaded",
+          detail: "An AMD card is present but the amdgpu kernel driver is not active. Graphics are falling back to software rendering.",
+          evidence: "hardware: " + hardware + (swRenderer ? `\nrenderer: ${swRenderer}` : "\nrenderer: unknown"),
+          fix: "Reboot the system; if the problem persists, check your kernel command line for a `nomodeset` option and remove it.",
+          confidence: "medium",
+        });
+      }
     } else if ((hasAmd || hasIntel) && (amdMod || intelMod)) {
       findings.push({
         severity: "info",
@@ -103,8 +123,6 @@ export const gpu = defineCheck({
       });
     }
 
-    // Software rendering is the silent killer: the desktop "works" but is very slow.
-    const swRenderer = await detectSoftwareRenderer(ctx);
     if (swRenderer) {
       findings.push({
         severity: "high",

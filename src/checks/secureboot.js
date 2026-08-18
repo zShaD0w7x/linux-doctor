@@ -54,8 +54,10 @@ export const secureboot = defineCheck({
         confidence: "high",
       });
     } else if (sbEnabled === false) {
+      // Disabled Secure Boot is a hardware/config choice, not a detected
+      // fault — informational so it does not drag down the health score.
       findings.push({
-        severity: "medium",
+        severity: "info",
         title: "Secure Boot is disabled",
         detail: "Secure Boot is off, so nothing verifies the boot chain against tampering. On most systems this is a firmware setting, not a Linux setting.",
         evidence: "SecureBoot disabled",
@@ -74,8 +76,9 @@ export const secureboot = defineCheck({
         confidence: "high",
       });
     } else {
+      // A missing TPM is a hardware limitation, not a fault — informational.
       findings.push({
-        severity: "medium",
+        severity: "info",
         title: "No TPM detected",
         detail: "No TPM was found. A TPM strengthens disk encryption and is increasingly expected by operating systems.",
         evidence: "no /sys/class/tpm/tpm0",

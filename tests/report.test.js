@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderPlain, countBySeverity, renderJson } from "../src/report.js";
+import { renderReport, renderPlain, countBySeverity, renderJson } from "../src/report.js";
 
 test("countBySeverity: counts per severity in canonical order", () => {
   const counts = countBySeverity([
@@ -48,6 +48,17 @@ test("renderPlain: fixedCount becomes a # fixed comment line", () => {
 test("renderPlain: (new) marker travels into the plain title", () => {
   const out = renderPlain([{ severity: "medium", title: "Suspend hooks are failing", isNew: true }]);
   assert.match(out, /^medium\t1\tSuspend hooks are failing \(new\)$/m);
+});
+
+test("renderReport: the NEW badge renders without literal template syntax", async () => {
+  const out = await renderReport(
+    [{ severity: "medium", title: "Suspend hooks are failing", isNew: true, detail: null, evidence: null, fix: null }],
+    { system: { distro: "Bazzite 44", kernel: "6.1.0", cores: 4, uptime: "1h" }, score: 92, newCount: 1 }
+  );
+  assert.match(out, /🆕 NEW/);
+  assert.ok(!out.includes("${A.bold}"), "the ANSI placeholder must not print literally");
+  assert.ok(!out.includes("${A.cyan}"), "the ANSI placeholder must not print literally");
+  assert.ok(!out.includes("${A.reset}"), "the ANSI placeholder must not print literally");
 });
 
 test("renderPlain: multi-line detail is flattened to a single row", () => {

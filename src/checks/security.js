@@ -26,8 +26,11 @@ export const security = defineCheck({
         confidence: "high",
       });
     } else {
+      // Absence of optional hardening, not a detected fault: most distros ship
+      // with no firewall and many users run behind a router. Informational so
+      // a healthy default install is not penalized in the health score.
       findings.push({
-        severity: "medium",
+        severity: "info",
         title: "No active firewall detected",
         detail: "We could not detect an active firewall (firewalld, ufw, or nftables). On many distros the firewall is off by default, which is fine on a trusted home network but risky on public Wi-Fi.",
         evidence: "firewalld/ufw inactive, no nftables rules",

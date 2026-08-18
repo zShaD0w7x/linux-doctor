@@ -76,14 +76,23 @@ export const thermal = defineCheck({
 
     // journalctl -g prints "-- Boot ... --" separators and "-- No entries --"
     // even when nothing matches, so strip them or we'd report false positives.
-    const throttle = await ctx.run('journalctl -g "throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3');
-    if (throttle.ok && throttle.stdout.trim() !== "") {
+    // The pattern must be narrow: "throttl" alone also matches app-level
+    // messages like "setStartupThrottle" (Roblox, Chromium, ...) that have
+    // nothing to do with CPU heat. The real kernel messages always contain
+    // "clock throttl" (e.g. "cpu clock throttled") and come from the kernel.
+    // Filter in JS too, so even a journalctl version with a loose -g match
+    // can never surface an app message as CPU throttling.
+    const throttle = await ctx.run('journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3');
+    const throttleLines = throttle.ok
+      ? lines(throttle.stdout).filter((l) => /kernel:.*clock throttl/i.test(l))
+      : [];
+    if (throttleLines.length > 0) {
       findings.push({
         severity: "medium",
         code: "thermal/throttle",
         title: "CPU throttling events in the log",
         detail: "The kernel reported thermal throttling in the last 24 hours, meaning the CPU had to slow down to cool off. This can cause stutter and slow builds.",
-        evidence: throttle.stdout.trim().split("\n").slice(0, 2).join("\n"),
+        evidence: throttleLines.slice(0, 2).join("\n"),
         fix: "Address cooling (dust, fans, thermal paste) — throttling under load is a cooling problem, not a software problem.",
         confidence: "medium",
       });
