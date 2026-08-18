@@ -3,12 +3,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { run, runPool, slugify } from "./utils.js";
 import { checks as CHECKS } from "./checks/index.js";
 import { systemInfo } from "./checks/system.js";
-import { renderReport, renderJson, renderPlain } from "./report.js";
+import { renderReport, renderJson, renderPlain, SEV_ORDER } from "./report.js";
 import { aiSummary } from "./llm.js";
 import { pushReport } from "./fleet.js";
 import { startWeb } from "./web.js";
 import { score, loadHistory, diffSinceLast, saveRun } from "./history.js";
-import { loadIgnore, isIgnored } from "./ignore.js";
+import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored } from "./ignore.js";
 import { loadConfig } from "./config.js";
 import { loadThresholds } from "./thresholds.js";
 import { detectDistro } from "./distro.js";
@@ -97,7 +97,10 @@ OPTIONS
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
   --html <path>  save a standalone HTML report (open in any browser)
   --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
-  --ignore <txt> hide findings whose title contains <txt> (see config file)
+  --severity <s> show only findings at this severity (high, medium, info)
+  --ignore <txt> hide findings whose title contains <txt>
+  --ignore-code <c> hide findings by stable code (e.g. services/failed)
+  --ignore-list  show configured ignore patterns and exit
   --help         show this help
   --version      show the version
 
@@ -122,8 +125,31 @@ export async function main(argv) {
     console.log(`${pkg.name} ${pkg.version}`);
     return 0;
   }
+  if (args.severity && !SEV_ORDER.includes(args.severity)) {
+    console.error(`linux-doctor: --severity must be one of: high, medium, info (got "${args.severity}")`);
+    return 2;
+  }
   if (args.schema) {
     console.log(JSON.stringify(reportSchema, null, 2));
+    return 0;
+  }
+
+  // --ignore-list: show configured ignore patterns and exit.
+  if (args.ignoreList) {
+    const titlePatterns = loadIgnore();
+    const codePatterns = loadIgnoreCodes();
+    if (titlePatterns.length === 0 && codePatterns.length === 0) {
+      console.log("No ignore patterns configured.");
+    } else {
+      if (titlePatterns.length > 0) {
+        console.log("Title patterns:");
+        for (const p of titlePatterns) console.log(`  - ${p}`);
+      }
+      if (codePatterns.length > 0) {
+        console.log("Code patterns:");
+        for (const c of codePatterns) console.log(`  - ${c}`);
+      }
+    }
     return 0;
   }
 
@@ -156,6 +182,7 @@ export async function main(argv) {
   // (~/.config/linux-doctor/config.json) holds the persistent list.
   const config = loadConfig();
   const ignorePatterns = [...loadIgnore(), ...args.ignore];
+  const ignoreCodes = [...loadIgnoreCodes(), ...args.ignoreCodes];
   const thresholds = loadThresholds(config);
 
   const collect = async () => {
@@ -184,8 +211,8 @@ export async function main(argv) {
     // and wayland checks) so one problem never counts twice. `code` is a
     // stable machine key per finding: an explicit one wins, otherwise the
     // dedupeKey (stable root cause) or a slug of check id + title.
-    const ignoredCount = all.filter((f) => isIgnored(f.title, ignorePatterns)).length;
-    const findings = dedupe(all.filter((f) => !isIgnored(f.title, ignorePatterns)))
+    const ignoredCount = all.filter((f) => isIgnored(f.title, ignorePatterns) || isCodeIgnored(f.code, ignoreCodes)).length;
+    const findings = dedupe(all.filter((f) => !isIgnored(f.title, ignorePatterns) && !isCodeIgnored(f.code, ignoreCodes)))
       .map((f, i) => ({
         id: i + 1,
         ...f,
@@ -276,6 +303,12 @@ export async function main(argv) {
   const durationMs = Date.now() - t0;
   const { findings, system, score: sc, newCount } = report;
 
+  // --severity filters what is DISPLAYED but does not affect scoring or
+  // fleet push — the score and --push reflect the full picture.
+  const displayFindings = args.severity
+    ? findings.filter((f) => f.severity === args.severity)
+    : findings;
+
   let summary = null;
   if (args.ai) {
     summary = await aiSummary(findings);
@@ -326,7 +359,7 @@ export async function main(argv) {
   }
 
   if (args.json) {
-    console.log(renderJson(findings, system, {
+    console.log(renderJson(displayFindings, system, {
       generatedAt: report.generatedAt,
       score: sc,
       newCount,
@@ -344,14 +377,17 @@ export async function main(argv) {
   }
 
   if (args.plain) {
-    let out = renderPlain(findings, { system, score: sc, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
+    let out = renderPlain(displayFindings, { system, score: sc, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
     if (args.profile) out += "\n" + formatPlainDurations(report.checkDurations);
     console.log(out);
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
-  let out = await renderReport(findings, { aiSummary: summary, system, score: sc, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
+  let out = await renderReport(displayFindings, { aiSummary: summary, system, score: sc, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
   if (args.profile) out += "\n" + formatDurations(report.checkDurations);
   console.log(out);
   return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
 }
+
+// NOTE: exit code always reflects the FULL finding set (not the --severity
+// filter), so `--severity info` on a system with a high finding still exits 1.

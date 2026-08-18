@@ -24,6 +24,15 @@ export function loadIgnore(file = configFile()) {
   return [];
 }
 
+/** Load stable-code ignore patterns from the config file. Never throws. */
+export function loadIgnoreCodes(file = configFile()) {
+  const config = loadConfig(file);
+  if (Array.isArray(config.ignoreCodes)) {
+    return config.ignoreCodes.filter((p) => typeof p === "string" && p.trim() !== "");
+  }
+  return [];
+}
+
 /**
  * Add an ignore pattern to the config file, preserving any other keys (e.g.
  * thresholds). Never throws; returns success.
@@ -42,6 +51,29 @@ export function addIgnore(pattern, file = configFile()) {
   } catch {
     return false;
   }
+}
+
+/** Add a stable-code ignore pattern to the config file. */
+export function addIgnoreCode(code, file = configFile()) {
+  try {
+    if (typeof code !== "string" || code.trim() === "") return false;
+    const config = loadConfig(file);
+    const codes = Array.isArray(config.ignoreCodes)
+      ? config.ignoreCodes.filter((c) => typeof c === "string" && c.trim() !== "")
+      : [];
+    if (!codes.includes(code)) codes.push(code);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ ...config, ignoreCodes: codes }, null, 2) + "\n");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** True if the finding code matches any code-ignore pattern (exact match). */
+export function isCodeIgnored(code, codes) {
+  if (!codes || codes.length === 0) return false;
+  return codes.includes(code);
 }
 
 /** True if the finding title matches any ignore pattern (case-insensitive). */

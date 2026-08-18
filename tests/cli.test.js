@@ -255,3 +255,22 @@ test("--html writes a standalone HTML file that contains the report data", () =>
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("--severity high shows only high findings in JSON", () => {
+  const res = run("--json", "--severity", "high");
+  assert.ok(res.status === 0 || res.status === 1, `exit ${res.status}`);
+  const data = JSON.parse(res.stdout);
+  assert.ok(data.findings.every((f) => f.severity === "high"), `expected only high findings, got: ${data.findings.map((f) => f.severity).join(", ")}`);
+});
+
+test("--severity invalid is rejected with exit 2", () => {
+  const res = run("--severity", "critical");
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /severity must be one of/);
+});
+
+test("--ignore-list shows configured patterns", () => {
+  const res = run("--ignore-list");
+  assert.equal(res.status, 0);
+  assert.match(res.stdout, /No ignore patterns configured|Title patterns|Code patterns/);
+});

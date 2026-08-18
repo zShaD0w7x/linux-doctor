@@ -10,6 +10,11 @@ export const SEV_LABEL = {
   info: "⚪ INFO",
 };
 
+/** ANSI color codes — only used when stdout is a TTY, never in --plain. */
+const A = { red: "\x1b[31m", yellow: "\x1b[33m", blue: "\x1b[34m", cyan: "\x1b[36m", bold: "\x1b[1m", dim: "\x1b[2m", reset: "\x1b[0m" };
+const SEV_COLOR = { high: A.red, medium: A.yellow, info: A.blue };
+const isTTY = process.stdout?.isTTY;
+
 export function countBySeverity(findings) {
   return SEV_ORDER.map((s) => ({ severity: s, count: findings.filter((f) => f.severity === s).length }));
 }
@@ -69,12 +74,13 @@ export async function renderReport(findings, { aiSummary, system, score, newCoun
   for (const sev of SEV_ORDER) {
     const group = findings.filter((f) => f.severity === sev);
     if (group.length === 0) continue;
-    out.push(`${SEV_LABEL[sev]}`);
-    out.push("-".repeat(SEV_LABEL[sev].length));
+    const label = SEV_LABEL[sev];
+    out.push(isTTY ? `${SEV_COLOR[sev]}${A.bold}${label}${A.reset}` : label);
+    out.push("-".repeat(label.length));
     for (const f of group) {
       n += 1;
       out.push("");
-      out.push(`${n}. ${f.title}${f.isNew ? "  (new)" : ""}`);
+      out.push(`${n}. ${f.title}${f.isNew ? "  ${A.bold}${A.cyan}🆕 NEW${A.reset}" : ""}`);
       if (f.confidence === "low") out.push("   ⚠ Low confidence — this finding may be a false positive.");
       if (f.detail) out.push(`   ${f.detail}`);
       if (f.evidence) {

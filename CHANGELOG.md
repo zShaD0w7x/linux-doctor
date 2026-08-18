@@ -16,6 +16,20 @@ All notable changes to Linux Doctor are documented here. The format follows
 - **HTML export**: `--html <path>` saves a standalone HTML report you can
   open in any browser or share on Slack.
 
+### Added
+
+- **`--severity <level>`**: filter output to show only high, medium, or info
+  findings (scoring and fleet push always use the full set).
+- **`--ignore-code <code>`**: ignore findings by stable code (e.g.
+  `services/failed`) instead of fragile title substrings; works alongside
+  `--ignore` and the config file's `ignoreCodes` array.
+- **`--ignore-list`**: shows all configured ignore patterns (title + code)
+  and exits.
+- **Terminal colors**: severity headers are now ANSI-colored (red/yellow/blue)
+  when stdout is a TTY.
+- **NEW badge**: findings new since the last check now show `🆕 NEW` instead
+  of the subtle `(new)` marker.
+
 ### Changed
 
 - **Stable finding codes**: every count-bearing finding (services, journal,

@@ -3,8 +3,8 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-const VALUE_FLAGS = new Set(["--check", "--ignore", "--push", "--html"]);
-const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile"]);
+const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity"]);
+const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -20,6 +20,9 @@ export function parseArgs(argv) {
     ai: false,
     checkIds: [],
     ignore: [],
+    ignoreCodes: [],
+    severity: null,
+    ignoreList: false,
     pushUrl: null,
     htmlPath: null,
     error: null,
@@ -32,18 +35,22 @@ export function parseArgs(argv) {
   const assign = (flag, val) => {
     if (flag === "--check") out.checkIds.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
     else if (flag === "--ignore") out.ignore.push(val);
+    else if (flag === "--ignore-code") out.ignoreCodes.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
+    else if (flag === "--severity") out.severity = val.toLowerCase();
     else if (flag === "--push") out.pushUrl = val;
     else if (flag === "--html") out.htmlPath = val;
   };
 
   const example = (flag) =>
-    flag === "--push" ? "https://your-server/reports" : flag === "--check" ? "memory,disk" : "fw-fanctrl";
+    flag === "--push" ? "https://your-server/reports" : flag === "--check" ? "memory,disk" : flag === "--severity" ? "high" : "fw-fanctrl";
 
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
 
     if (BOOL_FLAGS.has(a)) {
-      out[a.slice(2)] = true;
+      // Convert --ignore-list → ignoreList (camelCase for JS access)
+      const key = a.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      out[key] = true;
       continue;
     }
 
