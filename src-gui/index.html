@@ -99,7 +99,6 @@
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   .filters { display: flex; gap: 5px; }
   .fpill { padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-  .fpill .n { opacity: .55; margin-left: 3px; font-variant-numeric: tabular-nums; }
   .fpill.active { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; }
   .fpill.high.active { background: linear-gradient(180deg, color-mix(in srgb, var(--red) 70%, #000), var(--red)); border-color: var(--red); }
   .fpill.medium.active { background: linear-gradient(180deg, color-mix(in srgb, var(--yellow) 70%, #000), var(--yellow)); border-color: var(--yellow); color: #201400; }
@@ -377,16 +376,11 @@ function animateScore(target) {
 let activeFilter = null;
 
 function renderFilters(counts) {
-  const total = counts.high + counts.medium + counts.info;
-  const defs = [
-    { sev: "all", label: "All", count: total },
-    { sev: "high", label: "High", count: counts.high },
-    { sev: "medium", label: "Medium", count: counts.medium },
-    { sev: "info", label: "Info", count: counts.info },
-  ];
-  $("#filters").innerHTML = defs.map((d) =>
-    '<button class="fpill ' + d.sev + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + d.sev + '">' +
-    d.label + '<span class="n">' + d.count + '</span></button>'
+  // Counts live on the summary cards only; pills are pure severity labels.
+  const defs = ["all", "high", "medium", "info"];
+  $("#filters").innerHTML = defs.map((sev) =>
+    '<button class="fpill ' + sev + (activeFilter === sev ? " active" : "") + '" data-sev="' + sev + '">' +
+    { all: "All", high: "High", medium: "Medium", info: "Info" }[sev] + '</button>'
   ).join("");
 }
 
@@ -426,9 +420,11 @@ $("#filters").addEventListener("click", (e) => {
   activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
   document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
   // Filtering reveals the group — open it so findings are visible right away.
+  // On "All", only High opens (progressive disclosure: Informational can hold
+  // dozens of items); a specific severity opens its own group.
   document.querySelectorAll("#report .group").forEach((g) => {
     const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
-    g.open = activeFilter === "all" || activeFilter === sev;
+    g.open = activeFilter === sev || (activeFilter === "all" && sev === "high");
   });
   applyFilters();
 });
