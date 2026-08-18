@@ -2,7 +2,7 @@
 
 [![Sponsor](https://img.shields.io/github/sponsors/zShaD0w7x)](https://github.com/sponsors/zShaD0w7x)
 
-**Plain-English health checks for your Linux system.**
+**Checks for your Linux system.**
 
 Linux Doctor runs a battery of read-only checks (memory, CPU, disk, services, logs, suspend/resume, security, updates, processes, battery), finds the problems that actually matter, explains them in clear **American English**, and tells you exactly how to fix them.
 
