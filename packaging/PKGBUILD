@@ -16,8 +16,8 @@ arch=('any')
 url="https://github.com/zShaD0w7x/linux-doctor-cli"
 license=('GPL-3.0-or-later')
 depends=('nodejs>=20')
-source=("${pkgname}-${pkgver}.tar.gz")
-sha256sums=('SKIP')
+source=("https://registry.npmjs.org/${pkgname}/-/${pkgname}-${pkgver}.tgz")
+sha256sums=('7fc17ab2b8fa55014330d564a646989bd7ffefe844f1ad8f8bdaa3544eba0f4b')
 
 package() {
   # npm pack tarballs extract to $srcdir/package/; fall back to a plain
