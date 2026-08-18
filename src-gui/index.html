@@ -425,6 +425,11 @@ $("#filters").addEventListener("click", (e) => {
   if (!btn) return;
   activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
   document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
+  // Filtering reveals the group — open it so findings are visible right away.
+  document.querySelectorAll("#report .group").forEach((g) => {
+    const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
+    g.open = activeFilter === "all" || activeFilter === sev;
+  });
   applyFilters();
 });
 $("#search").addEventListener("input", applyFilters);
