@@ -7,105 +7,153 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
 <style>
   :root {
-    --bg: #0f1115; --card: #1a1d24; --card2: #21252e; --border: #2a2f3a;
-    --text: #e6e9ef; --muted: #9aa3b2;
-    --red: #ff5c5c; --yellow: #ffc94d; --green: #3ddc84; --blue: #7aa2f7;
-    --accent: #2d5bff; --hover: #2a2f3a; --evidence-bg: #10131a;
+    --bg: #0b0e14; --bg2: #11151e; --card: #161b26; --card2: #1e2432; --border: #262d3d;
+    --text: #e8ebf2; --muted: #8b95a8;
+    --red: #ff5f6a; --yellow: #ffc94d; --green: #34e08a; --blue: #6ea8ff; --purple: #b78bff;
+    --accent: #3b6dff; --accent2: #7aa7ff; --hover: #232a3a; --evidence-bg: #0e1220;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.28);
+    --radius: 14px;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-  /* Light theme: follows the system by default, overridable with the 🌓 button. */
   :root[data-theme="light"] {
-    --bg: #f5f6f8; --card: #ffffff; --card2: #edf0f4; --border: #d8dde5;
-    --text: #1b212b; --muted: #5a6472;
-    --red: #c13b3b; --yellow: #9a7500; --green: #14814a; --blue: #3a63c9;
-    --hover: #e2e6ec; --evidence-bg: #f2f4f7;
+    --bg: #eef1f6; --bg2: #e6eaf1; --card: #ffffff; --card2: #f1f4f9; --border: #dfe4ee;
+    --text: #171c26; --muted: #5b6577;
+    --red: #d63a4b; --yellow: #9a6f00; --green: #0e8a4e; --blue: #2f66d0; --purple: #7a3fd0;
+    --hover: #e8ecf4; --evidence-bg: #f4f6fa;
+    --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 8px 24px rgba(23,28,38,.08);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 32px 20px 64px; }
-  .wrap { max-width: 860px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
-  header .logo { font-size: 34px; }
-  h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    padding: 34px 20px 72px;
+    /* Soft ambient glow so the page reads as layered, not flat. */
+    background-image: radial-gradient(900px 480px at 18% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+                      radial-gradient(700px 420px at 100% 0%, color-mix(in srgb, var(--blue) 9%, transparent), transparent 55%);
+    background-attachment: fixed;
+    font-feature-settings: "cv02", "cv03", "cv11", "ss01";
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  header .logo {
+    font-size: 30px; width: 46px; height: 46px; display: grid; place-items: center;
+    background: linear-gradient(160deg, var(--card2), var(--card));
+    border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
+  }
+  h1 { font-size: 23px; font-weight: 750; letter-spacing: -0.025em; line-height: 1.15; }
   .sysinfo { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .statusrow { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .statuspill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    color: var(--muted); border: 1px solid var(--border); background: var(--card);
+    border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+  }
+  .statuspill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
+  .statuspill .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 20%, transparent); }
+  .verpill {
+    font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1px 6px; background: var(--card);
+  }
   .actions { margin-left: auto; display: flex; gap: 8px; }
   button {
     background: var(--card2); color: var(--text); border: 1px solid var(--border);
-    padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: background .15s;
+    padding: 8px 14px; border-radius: 10px; font-size: 13px; cursor: pointer;
+    transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12);
   }
-  button:hover { background: var(--hover); }
-  button.primary { background: var(--accent); border-color: var(--accent); }
-  button.primary:hover { background: #3a68ff; }
-  button:disabled { opacity: .55; cursor: default; }
-  .banner { border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; font-size: 15px; border: 1px solid var(--border); }
-  .banner.ok { background: rgba(61,220,132,.08); border-color: rgba(61,220,132,.35); color: var(--green); }
-  .banner.warn { background: rgba(255,92,92,.08); border-color: rgba(255,92,92,.35); color: var(--red); }
+  button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--border) 60%, var(--text) 40%); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button.primary { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; box-shadow: 0 1px 2px rgba(51,98,240,.4), 0 4px 14px rgba(51,98,240,.28); }
+  button.primary:hover { background: linear-gradient(180deg, #5a88ff, #3b6dff); }
+  button:disabled { opacity: .55; cursor: default; transform: none; }
+  .banner { border-radius: var(--radius); padding: 15px 18px; margin-bottom: 20px; font-size: 15px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .banner.ok { background: linear-gradient(180deg, color-mix(in srgb, var(--green) 12%, var(--card)), var(--card)); border-color: color-mix(in srgb, var(--green) 40%, var(--border)); color: var(--green); }
+  .banner.warn { background: linear-gradient(180deg, color-mix(in srgb, var(--red) 12%, var(--card)), var(--card)); border-color: color-mix(in srgb, var(--red) 40%, var(--border)); color: var(--red); }
   .banner.running { background: var(--card); color: var(--muted); }
   .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .chips { display: flex; gap: 8px; margin-bottom: 26px; flex-wrap: wrap; }
-  .chip { padding: 6px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); background: var(--card); }
-  .chip b { font-weight: 700; }
-  .chip.red { color: var(--red); } .chip.yellow { color: var(--yellow); } .chip.blue { color: var(--blue); }
-  .chip.new { color: #c792ea; border-color: rgba(199,146,234,.4); }
-  .newbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #16131c; background: #c792ea; border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
+  .newbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #14101e; background: var(--purple); border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
+  .fixedbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #0d2418; background: var(--green); border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
   .lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
-  .checkid { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+  .checkid { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; background: var(--card); }
   /* Summary cards: score gauge + one card per severity. */
-  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
-  .sumcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
-  .sumcard .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
-  .sumcard .v { font-size: 24px; font-weight: 800; line-height: 1.1; margin-top: 3px; }
+  .summary { display: grid; grid-template-columns: 1.4fr repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .sumcard { background: linear-gradient(180deg, var(--card2), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 16px; box-shadow: var(--shadow); transition: transform .15s ease, border-color .15s ease; }
+  .sumcard:hover { transform: translateY(-2px); }
+  .sumcard .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
+  .sumcard .v { font-size: 25px; font-weight: 800; line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .sumcard.red .v { color: var(--red); } .sumcard.yellow .v { color: var(--yellow); }
-  .sumcard.blue .v { color: var(--blue); } .sumcard.new .v { color: #c792ea; }
-  .scorecard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
-  .scorecard .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
-  .scorenum { font-size: 34px; font-weight: 800; line-height: 1.05; margin-top: 3px; }
-  .scoredelta { font-size: 13px; font-weight: 700; margin-top: 4px; }
+  .sumcard.blue .v { color: var(--blue); } .sumcard.new .v { color: var(--purple); }
+  .sumcard.fixed .v { color: var(--green); }
+  .scorecard {
+    background: linear-gradient(165deg, var(--card2), var(--card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px;
+    display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow);
+  }
+  .scorecard .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
+  .gauge { position: relative; width: 84px; height: 84px; flex-shrink: 0; }
+  .gauge svg { width: 100%; height: 100%; }
+  .gauge .track { fill: none; stroke: var(--card2); stroke-width: 9; }
+  .gauge .ring { fill: none; stroke-width: 9; stroke-linecap: round; }
+  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .scorenum { font-size: 27px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .scoreout { font-size: 10px; color: var(--muted); margin-top: 2px; font-weight: 600; }
+  .scoreinfo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .scoredelta { font-size: 13px; font-weight: 700; }
   .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
-  .group { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
-  .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .group { background: linear-gradient(180deg, var(--card), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 12px 15px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
   .group summary::-webkit-details-marker { display: none; }
   .group summary b { color: var(--text); }
-  .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .15s; }
+  .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .18s ease; color: var(--muted); }
   .group[open] summary .chev { transform: rotate(90deg); }
   .group-body { padding: 0 10px 10px; }
   .group .card { border: none; background: var(--card2); margin-bottom: 8px; }
   .group .card:last-child { margin-bottom: 0; }
-  .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+  .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 11px; margin-bottom: 8px; overflow: hidden; transition: border-color .15s ease, transform .12s ease; }
+  .card:hover { border-color: color-mix(in srgb, var(--border) 55%, var(--text) 45%); }
   .card.high { border-left-color: var(--red); }
   .card.medium { border-left-color: var(--yellow); }
   .card.info { border-left-color: var(--blue); }
   .card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
   .card summary::-webkit-details-marker { display: none; }
-  .card summary h3 { font-size: 14.5px; font-weight: 600; flex: 1; }
-  .card summary .chev { color: var(--muted); font-size: 12px; transition: transform .15s; }
+  .card summary h3 { font-size: 14.5px; font-weight: 620; flex: 1; letter-spacing: -0.01em; }
+  .card summary .chev { color: var(--muted); font-size: 12px; transition: transform .18s ease; }
   .card[open] summary .chev { transform: rotate(90deg); }
-  .card-body { padding: 0 14px 14px; }
-  .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 6px; }
-  .badge.high { background: rgba(255,92,92,.15); color: var(--red); }
-  .badge.medium { background: rgba(255,201,77,.15); color: var(--yellow); }
-  .badge.info { background: rgba(122,162,247,.15); color: var(--blue); }
+  .card-body { padding: 0 14px 14px; animation: fadein .22s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+  .badge { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
+  .badge.high { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+  .badge.medium { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
+  .badge.info { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
   .card .detail { color: var(--text); margin-top: 8px; font-size: 14px; }
-  .evidence { margin-top: 10px; background: var(--evidence-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  .evidence { margin-top: 10px; background: var(--evidence-bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
   /* Keyboard navigation: the focused finding card gets a visible outline. */
   .card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--card2); }
+  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: var(--card2); }
   details.ev { margin-top: 10px; }
   details.ev summary { cursor: pointer; color: var(--blue); font-size: 13px; user-select: none; }
   .fix { margin-top: 10px; display: flex; gap: 8px; align-items: flex-start; }
-  .fix .fixtext { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; flex: 1; color: var(--text); }
+  .fix .fixtext { background: var(--card2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; flex: 1; color: var(--text); }
   .fix button { flex-shrink: 0; }
   .fix .reportbtn { flex-shrink: 0; align-self: center; font-size: 12.5px; color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
   .fix .reportbtn:hover { color: var(--text); background: var(--hover); }
-  footer { margin-top: 40px; color: var(--muted); font-size: 12.5px; text-align: center; }
+  footer { margin-top: 42px; color: var(--muted); font-size: 12.5px; text-align: center; }
   .empty { text-align: center; color: var(--muted); padding: 40px 0; }
-  #trend { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; }
+  #trend { background: linear-gradient(180deg, var(--card2), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 18px; box-shadow: var(--shadow); }
   .trendtitle { font-size: 13px; color: var(--muted); }
   .trendtitle b { color: var(--text); }
   #trend svg { flex-shrink: 0; }
   #trend .trend-wrap { display: flex; align-items: center; gap: 16px; width: 100%; }
   #trend .trend-dots { display: flex; gap: 2px; }
   #trend .trend-dots i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  @media (max-width: 560px) {
+    header { flex-wrap: wrap; }
+    .actions { margin-left: 0; width: 100%; }
+    .summary { grid-template-columns: 1fr 1fr; }
+    .scorecard { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
@@ -115,6 +163,10 @@
     <div>
       <h1>Linux Doctor</h1>
       <div class="sysinfo" id="sysinfo">Loading system info…</div>
+      <div class="statusrow">
+        <span class="statuspill" id="statuspill"><span class="dot" id="statusdot"></span><span id="statuspill-txt">Loading…</span></span>
+        <span class="verpill" id="verpill"></span>
+      </div>
     </div>
     <div class="actions">
       <button id="theme" title="Theme">🌓</button>
@@ -127,6 +179,10 @@
   <div class="summary" id="summary"></div>
   <div id="trend" hidden></div>
   <div id="report"><div class="empty">Running checks…</div></div>
+  <details id="fixed" class="group" hidden>
+    <summary>✅ Fixed since last check <b id="fixed-count"></b><span class="chev">▸</span></summary>
+    <div class="group-body" id="fixed-body"></div>
+  </details>
   <div id="skipped" class="group" hidden>
     <summary>Checks that were skipped on this system <b id="skipped-count"></b><span class="chev">▸</span></summary>
     <div class="group-body" id="skipped-body"></div>
@@ -141,6 +197,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
 const expandBtn = $("#expandall");
 const themeBtn = $("#theme");
+let statusTimer = null;
 // True inside the Tauri desktop app, where the report is served over loopback
 // HTTP on 17321. In a plain browser (--web) that port does not exist, so we
 // skip the probes entirely instead of logging connection errors.
@@ -167,6 +224,23 @@ themeBtn.addEventListener("click", () => {
 });
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 applyTheme();
+
+// "Checked X ago" pill: relative time, refreshed every 30s. Goes amber when
+// the report is older than an hour (stale cron/desktop run).
+function setStatus(generatedAt) {
+  const txt = $("#statuspill-txt");
+  const dot = $("#statusdot");
+  const ms = Date.now() - new Date(generatedAt).getTime();
+  const secs = Math.max(0, Math.round(ms / 1000));
+  let label;
+  if (secs < 5) label = "checked just now";
+  else if (secs < 60) label = "checked " + secs + "s ago";
+  else if (secs < 3600) label = "checked " + Math.floor(secs / 60) + "m ago";
+  else if (secs < 86400) label = "checked " + Math.floor(secs / 3600) + "h ago";
+  else label = "checked " + Math.floor(secs / 86400) + "d ago";
+  txt.textContent = label;
+  dot.className = "dot" + (secs >= 3600 ? " stale" : "");
+}
 
 async function fetchReport() {
   // Desktop app: the Rust shell serves the report over loopback HTTP.
@@ -258,16 +332,21 @@ async function renderTrend() {
     '</div>';
 }
 
-// Animated count-up for the score card. Cheap (one element, ~700ms).
+// Animated count-up for the score. Cheap (one element + one SVG ring, ~900ms).
+const SCORE_RING_R = 34;
+const SCORE_RING_C = 2 * Math.PI * SCORE_RING_R;
 function animateScore(target) {
-  const el = $("#scorenum");
-  if (!el) return;
+  const num = $("#scorenum");
+  const ring = $("#scorering");
+  if (!num) return;
   const t0 = performance.now();
-  const dur = 700;
+  const dur = 900;
   const step = (now) => {
     const p = Math.min(1, (now - t0) / dur);
     // Ease-out so the big jump at the start reads as "counting up".
-    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+    const v = target * (1 - Math.pow(1 - p, 3));
+    num.textContent = Math.round(v);
+    if (ring) ring.style.strokeDashoffset = SCORE_RING_C * (1 - v / 100);
     if (p < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -377,14 +456,36 @@ function render(data) {
   const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
   const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
   const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "▲ +" + scoreDelta : scoreDelta < 0 ? "▼ " + scoreDelta : "◆ no change";
+  const score = typeof data.score === "number" ? data.score : 0;
+  const scoreColor = score >= 80 ? "var(--green)" : score >= 50 ? "var(--yellow)" : "var(--red)";
   $("#summary").innerHTML =
-    '<div class="scorecard"><div class="k">Health</div><div class="scorenum" id="scorenum">0</div>' +
+    '<div class="scorecard">' +
+    '<div class="gauge">' +
+    '<svg viewBox="0 0 84 84" role="img" aria-label="Health score ' + score + ' of 100">' +
+    '<circle class="track" cx="42" cy="42" r="' + SCORE_RING_R + '"></circle>' +
+    '<circle class="ring" id="scorering" cx="42" cy="42" r="' + SCORE_RING_R + '" ' +
+    'transform="rotate(-90 42 42)" stroke="' + scoreColor + '" ' +
+    'stroke-dasharray="' + SCORE_RING_C + '" stroke-dashoffset="' + SCORE_RING_C + '"></circle>' +
+    '</svg>' +
+    '<div class="gauge-center"><div class="scorenum" id="scorenum">0</div><div class="scoreout">/ 100</div></div>' +
+    '</div>' +
+    '<div class="scoreinfo"><div class="k">Health</div>' +
     '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
+    '</div>' +
     '<div class="sumcard red"><div class="k">High</div><div class="v">🔴 ' + high + '</div></div>' +
     '<div class="sumcard yellow"><div class="k">Medium</div><div class="v">🟡 ' + med + '</div></div>' +
     '<div class="sumcard blue"><div class="k">Info</div><div class="v">🔵 ' + inf + '</div></div>' +
-    (data.newCount > 0 ? '<div class="sumcard new"><div class="k">New since last check</div><div class="v">✨ ' + data.newCount + '</div></div>' : "");
-  animateScore(typeof data.score === "number" ? data.score : 0);
+    (data.newCount > 0 ? '<div class="sumcard new"><div class="k">New since last check</div><div class="v">✨ ' + data.newCount + '</div></div>' : "") +
+    (data.fixedCount > 0 ? '<div class="sumcard fixed"><div class="k">Fixed since last check</div><div class="v">✅ ' + data.fixedCount + '</div></div>' : "");
+  animateScore(score);
+
+  // Header: freshness pill + version badge.
+  $("#verpill").textContent = (data.version || "").replace(/^v/, "") ? "v" + data.version.replace(/^v/, "") : "";
+  if (data.generatedAt) {
+    setStatus(data.generatedAt);
+    clearInterval(statusTimer);
+    statusTimer = setInterval(() => setStatus(data.generatedAt), 30000);
+  }
 
   const order = ["high", "medium", "info"];
   const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
@@ -422,8 +523,26 @@ function render(data) {
     html += "</div></details>";
   }
   $("#report").innerHTML = html || '<div class="empty">No findings.</div>';
+  renderFixed(data);
   renderTrend();
   renderSkipped();
+}
+
+// "Fixed since last check": the diffSinceLast.fixed entries are findings that
+// disappeared between runs (resolved). Green, celebratory, self-reinforcing.
+function renderFixed(data) {
+  const el = $("#fixed");
+  const fixed = (data.diffSinceLast && data.diffSinceLast.fixed) || [];
+  el.hidden = !fixed.length;
+  if (!fixed.length) return;
+  $("#fixed-count").textContent = fixed.length;
+  $("#fixed-body").innerHTML = fixed.map((f) =>
+    '<div class="card"><summary><span class="badge fixedbadge">fixed</span>' +
+    '<h3>' + esc(f.title) + '</h3>' +
+    (f.code ? '<span class="checkid">' + esc(f.code) + "</span>" : "") +
+    '<span class="chev">▸</span></summary>' +
+    '<div class="card-body"><div class="detail">This no longer shows up in the report.</div></div></div>'
+  ).join("");
 }
 
 async function copyText(text) {
