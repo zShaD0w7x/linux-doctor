@@ -1,7 +1,7 @@
 {
   "name": "linux-doctor",
-  "version": "0.2.0",
-  "description": "Linux Doctor — plain-English health checks for your Linux system. Finds real problems, explains them in American English, and tells you exactly how to fix them.",
+  "version": "0.2.1",
+  "description": "Read-only health checks for your Linux system — finds real problems, explains what went wrong, and tells you exactly how to fix them.",
   "type": "module",
   "bin": {
     "linux-doctor": "bin/doctor.js"
