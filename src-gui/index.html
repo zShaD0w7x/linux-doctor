@@ -95,6 +95,7 @@
   .fpill.high.active { background: linear-gradient(180deg, color-mix(in srgb, var(--red) 70%, #000), var(--red)); border-color: var(--red); }
   .fpill.medium.active { background: linear-gradient(180deg, color-mix(in srgb, var(--yellow) 70%, #000), var(--yellow)); border-color: var(--yellow); color: #201400; }
   .fpill.info.active { background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 70%, #000), var(--blue)); border-color: var(--blue); }
+  .fpill:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
   #search { flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 6px 12px; color: var(--text); font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
   .toolbtn { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
   #search::placeholder { color: var(--muted); }
@@ -160,6 +161,8 @@
   #trend { background: linear-gradient(180deg, var(--card2), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
   .trendtitle { font-size: 12px; color: var(--muted); }
   .trendtitle b { color: var(--text); }
+  .trendtitle .delta-up, .trendtitle .delta-down, .trendtitle .delta-flat { font-weight: 700; margin-left: 2px; }
+  .trendrange { color: var(--muted); font-size: 11px; }
   #trend svg { flex-shrink: 0; }
   #trend .trend-wrap { display: flex; align-items: center; gap: 14px; width: 100%; }
   #trend { max-width: 720px; margin-left: auto; margin-right: auto; }
@@ -196,12 +199,12 @@
     <button id="expandall" class="toolbtn">⊞ Expand all</button>
   </div>
   <div id="filterbar" class="filterbar" hidden><span id="filterbar-txt"></span><button id="filterbar-clear" type="button">Clear</button></div>
-  <div id="trend" hidden></div>
   <div id="drillhint" class="empty" hidden></div>
   <div id="report"><div class="empty">Running checks…</div></div>
   <div id="nomatch" class="empty" hidden></div>
+  <div id="trend" hidden></div>
   <details id="fixed" class="group" hidden>
-    <summary>✅ Fixed since last check <b id="fixed-count"></b><span class="chev">▸</span></summary>
+    <summary>Fixed since last check · <b id="fixed-count"></b><span class="chev">▸</span></summary>
     <div class="group-body" id="fixed-body"></div>
   </details>
   <details id="skipped" class="group" hidden>
@@ -333,6 +336,11 @@ async function renderTrend() {
   });
   const last = scores[scores.length - 1];
   const color = last >= 80 ? "var(--green)" : last >= 50 ? "var(--yellow)" : "var(--red)";
+  // Trend direction: first vs last run, so the sparkline says "improving"
+  // instead of just drawing a line.
+  const first = scores[0];
+  const dir = last > first ? { txt: "▲ Improving", cls: "delta-up" } : last < first ? { txt: "▼ Declining", cls: "delta-down" } : { txt: "◆ Stable", cls: "delta-flat" };
+  const range = min === max ? String(last) : min + " → " + last;
   const line = pts.map((p) => p.join(",")).join(" ");
   // Area chart: the same polyline closed down to the bottom edge.
   const area = "M" + line.replace(/ /g, " L") + " L" + (W - pad) + "," + (H - pad) + " L" + pad + "," + (H - pad) + " Z";
@@ -343,7 +351,8 @@ async function renderTrend() {
   const end = pts[pts.length - 1];
   trend.innerHTML =
     '<div class="trend-wrap">' +
-    '<div class="trendtitle">Health score · last ' + scores.length + ' run(s): <b>' + last + '/100</b></div>' +
+    '<div class="trendtitle">Health score · last ' + scores.length + ' run(s): <b>' + last + '/100</b>' +
+    ' <span class="' + dir.cls + '">' + dir.txt + '</span> <span class="trendrange">(' + range + ')</span></div>' +
     '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Health score trend">' +
     '<path d="' + area + '" fill="' + color + '" opacity="0.18"/>' +
     '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
@@ -381,10 +390,19 @@ let activeFilter = "all";
 
 function renderFilters(counts) {
   // Counts live on the summary cards only; pills are pure severity labels.
-  const defs = ["all", "high", "medium", "info"];
-  $("#filters").innerHTML = defs.map((sev) =>
-    '<button class="fpill ' + sev + (activeFilter === sev ? " active" : "") + '" data-sev="' + sev + '">' +
-    { all: "All", high: "High", medium: "Medium", info: "Info" }[sev] + '</button>'
+  const defs = [
+    { sev: "all", label: "All" },
+    { sev: "high", label: "High" },
+    { sev: "medium", label: "Medium" },
+    { sev: "info", label: "Info" },
+  ];
+  // A severity with no findings can't be filtered on; if the active chip is
+  // one of them (e.g. after a re-run that fixed everything), fall back to All.
+  const empty = (sev) => sev !== "all" && (counts[sev] || 0) === 0;
+  if (empty(activeFilter)) activeFilter = "all";
+  $("#filters").innerHTML = defs.map((d) =>
+    '<button class="fpill ' + d.sev + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + d.sev + '"' +
+    (empty(d.sev) ? " disabled" : "") + '>' + d.label + '</button>'
   ).join("");
 }
 
@@ -663,7 +681,7 @@ function renderFixed(data) {
   if (!fixed.length) return;
   $("#fixed-count").textContent = fixed.length;
   $("#fixed-body").innerHTML = fixed.map((f) =>
-    '<div class="card"><summary><span class="badge fixedbadge">fixed</span>' +
+    '<div class="card ' + (f.severity || "") + '"><summary><span class="badge fixedbadge">fixed</span>' +
     '<h3>' + esc(f.title) + '</h3>' +
     (f.code ? '<span class="checkid">' + esc(f.code) + "</span>" : "") +
     '<span class="chev">▸</span></summary>' +
