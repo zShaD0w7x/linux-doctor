@@ -1,0 +1,123 @@
+.\" Linux Doctor man page
+.TH LINUX-DOCTOR 1 "2026-08-18" "linux-doctor 0.2.1" "User Commands"
+.SH NAME
+linux-doctor \- read-only health checks for your Linux system
+.SH SYNOPSIS
+.B linux-doctor
+.RI [ options ]
+.SH DESCRIPTION
+.B Linux Doctor
+runs read-only health checks on your Linux system, finds real problems,
+explains what went wrong, and tells you exactly how to fix them.
+.PP
+It never modifies anything on the system. All checks are idempotent
+and safe to run repeatedly.
+.SH OPTIONS
+.TP
+.BR \-\-check " " \fIid\fR
+Run only the given check(s), comma-separated or repeated.
+.TP
+.BR \-\-list
+List the available checks without running them.
+.TP
+.BR \-\-check\-list
+List checks as JSON with metadata (id, title, category, appliesTo).
+.TP
+.BR \-\-json
+Print findings as JSON (machine-readable, schema version 1).
+.TP
+.BR \-\-plain
+Print plain, tab-separated text (no colors/emoji; grep-friendly).
+.TP
+.BR \-\-summary
+Print a one-liner with score and severity counts (for cron/scripts).
+.TP
+.BR \-\-web
+Open the visual dashboard in your browser.
+.TP
+.BR \-\-ai
+Add an AI summary in plain English (requires LLM_API_KEY).
+.TP
+.BR \-\-html " " \fIpath\fR
+Save a standalone HTML report to the given path.
+.TP
+.BR \-\-compare " " \fIfile\fR
+Diff a previous JSON report against the current run.
+.TP
+.BR \-\-push " " \fIurl\fR
+Post the report to a fleet server (FLEET_API_KEY optional).
+.TP
+.BR \-\-severity " " \fIlevel\fR
+Show only findings at this severity (high, medium, info).
+.TP
+.BR \-\-ignore " " \fItext\fR
+Hide findings whose title contains the given text.
+.TP
+.BR \-\-ignore\-code " " \fIcode\fR
+Hide findings by stable code (e.g. services/failed).
+.TP
+.BR \-\-ignore\-list
+Show configured ignore patterns and exit.
+.TP
+.BR \-\-init\-config
+Create a starter config file at ~/.config/linux-doctor/config.json.
+.TP
+.BR \-\-profile
+Show per-check durations in the output.
+.TP
+.BR \-\-schema
+Print the JSON Schema for \-\-json output and exit.
+.TP
+.BR \-\-help ", " \-h
+Show the help message.
+.TP
+.BR \-\-version
+Show the version number.
+.SH EXIT CODES
+.TP
+.B 0
+No high or medium severity findings.
+.TP
+.B 1
+At least one high or medium severity finding exists.
+.TP
+.B 2
+A usage error occurred (bad flags, unknown check, etc.).
+.SH FILES
+.TP
+.I ~/.config/linux-doctor/config.json
+Configuration file for ignore patterns and threshold overrides.
+.TP
+.I ~/.config/linux-doctor/checks/
+Directory for user-provided plugin checks.
+.TP
+.I ~/.local/share/linux-doctor/history.json
+Report history for trend tracking and new/fixed detection.
+.SH EXAMPLES
+.TP
+.B linux-doctor
+Run all applicable checks with the default text report.
+.TP
+.B linux-doctor \-\-json | jq .score
+Get just the health score.
+.TP
+.B linux-doctor \-\-severity high \-\-plain
+Show only high-severity findings, grep-friendly.
+.TP
+.B linux-doctor \-\-check memory,disk
+Run only memory and disk checks.
+.TP
+.B linux-doctor \-\-summary
+One-liner for cron: score=72 high=1 medium=3 info=12
+.TP
+.B linux-doctor \-\-html /tmp/report.html
+Save a shareable HTML report.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR journalctl (1),
+.BR free (1),
+.BR df (1)
+.SH AUTHOR
+zShaD0w7x
+.SH LICENSE
+GPL-3.0-or-later

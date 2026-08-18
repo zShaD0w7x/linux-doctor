@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { run, runPool, slugify } from "./utils.js";
 import { checks as CHECKS } from "./checks/index.js";
 import { systemInfo } from "./checks/system.js";
@@ -17,6 +18,7 @@ import { dedupe } from "./dedupe.js";
 import { parseArgs } from "./args.js";
 import { reportSchema } from "./schema.js";
 import { loadPlugins } from "./plugins.js";
+import { configFile } from "./config.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -59,6 +61,80 @@ function formatChecksForSystem(checks, profile) {
   return lines.join("\n");
 }
 
+/** Starter config with commented thresholds — written by --init-config. */
+function starterConfig() {
+  return JSON.stringify({
+    // Hide findings whose title contains this text (case-insensitive substring match).
+    ignore: [],
+    // Hide findings by stable code (exact match, e.g. "services/failed").
+    ignoreCodes: [],
+    // Severity thresholds — override defaults. Remove lines to keep defaults.
+    thresholds: {
+      diskFullPct: 90,       // disk: percent used at which a partition is flagged
+      diskWarnPct: 80,       // disk: percent used for a warning
+      memLowRatio: 0.15,     // memory: available/total below which it's flagged
+      memWarnRatio: 0.25,    // memory: available/total for warning
+      loadWarnRatio: 0.7,    // load: 1-min average / cores for warning
+      loadHighRatio: 1.0,    // load: 1-min average / cores for high
+      loadCriticalRatio: 1.5,// load: 1-min average / cores for critical
+      tempWarnC: 85,         // thermal: CPU temp in °C for warning
+      tempHotC: 95,          // thermal: CPU temp in °C for high
+      procWarnRatio: 0.2,    // processes: single app RSS / total RAM for warning
+      procHighRatio: 0.4,    // processes: single app RSS / total RAM for high
+      journalWarnBytes: 2147483648, // journald: journal size in bytes for warning (2 GB)
+      containerWarnGB: 20,   // containerdisk: image storage in GB for warning
+      containerHighGB: 50,   // containerdisk: image storage in GB for high
+    },
+  }, null, 2) + "\n";
+}
+
+/**
+ * --compare: show what changed between a previous report and the current run.
+ * The previous report is the JSON file passed as the argument; the current
+ * report is what a fresh run produces. Differences are grouped by severity.
+ */
+async function runCompare(previous) {
+  const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
+  const config = loadConfig();
+  const thresholds = loadThresholds(config);
+  const cctx = { run, osRelease: system.osRelease, dist: detectDistro(system.osRelease), thresholds, profile };
+  const selected = applicableChecks([], profile.kind);
+  const results = await runPool(selected, RUN_CONCURRENCY, async (c) => {
+    try {
+      return (await c.run(cctx)).map((f) => ({ ...f, check: c.id }));
+    } catch {
+      return [];
+    }
+  });
+  const all = results.flat();
+  const current = dedupe(all).map((f, i) => ({
+    id: i + 1, ...f,
+    code: f.code ?? f.dedupeKey ?? `${f.check}/${slugify(f.title)}`,
+  }));
+
+  const prevCodes = new Set((previous.findings || []).map((f) => f.code));
+  const curCodes = new Set(current.map((f) => f.code));
+  const added = current.filter((f) => !prevCodes.has(f.code));
+  const fixed = (previous.findings || []).filter((f) => !curCodes.has(f.code));
+
+  if (added.length === 0 && fixed.length === 0) {
+    console.log("No changes since the previous report.");
+    return 0;
+  }
+
+  const out = [];
+  if (added.length > 0) {
+    out.push(`🔴 ${added.length} new finding(s):`);
+    for (const f of added) out.push(`   [${f.severity}] ${f.title}`);
+  }
+  if (fixed.length > 0) {
+    out.push(`🟢 ${fixed.length} fixed finding(s):`);
+    for (const f of fixed) out.push(`   [${f.severity}] ${f.title}`);
+  }
+  console.log(out.join("\n"));
+  return added.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
+}
+
 /**
  * Which checks run. An explicit --check list always wins (user intent); a
  * full run skips checks whose appliesTo does not include the machine kind
@@ -91,16 +167,20 @@ USAGE
 OPTIONS
   --check <id>   run only the given check(s), comma-separated or repeated
   --list         list the checks without running them
+  --check-list   list checks as JSON (id, title, category, appliesTo)
   --json         print findings as JSON (machine-readable)
   --plain        print plain, tab-separated text (no colors/emoji; grep-friendly)
+  --summary      one-liner: score + severity counts (for cron/scripts)
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
   --html <path>  save a standalone HTML report (open in any browser)
+  --compare <f>  diff a previous JSON report against the current run
   --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
   --severity <s> show only findings at this severity (high, medium, info)
   --ignore <txt> hide findings whose title contains <txt>
   --ignore-code <c> hide findings by stable code (e.g. services/failed)
   --ignore-list  show configured ignore patterns and exit
+  --init-config  create a starter config file at ~/.config/linux-doctor/config.json
   --help         show this help
   --version      show the version
 
@@ -129,6 +209,32 @@ export async function main(argv) {
     console.error(`linux-doctor: --severity must be one of: high, medium, info (got "${args.severity}")`);
     return 2;
   }
+
+  // --init-config: create a starter config file and exit.
+  if (args.initConfig) {
+    const file = configFile();
+    try {
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, starterConfig(), "utf8");
+      console.log(`Config written to ${file}`);
+    } catch (err) {
+      console.error(`linux-doctor: could not write config: ${err.message}`);
+      return 2;
+    }
+    return 0;
+  }
+
+  // --compare: diff two JSON report files and exit.
+  if (args.comparePath) {
+    try {
+      const other = JSON.parse(readFileSync(args.comparePath, "utf8"));
+      return await runCompare(other);
+    } catch (err) {
+      console.error(`linux-doctor: could not read compare file: ${err.message}`);
+      return 2;
+    }
+  }
+
   if (args.schema) {
     console.log(JSON.stringify(reportSchema, null, 2));
     return 0;
@@ -165,6 +271,20 @@ export async function main(argv) {
     return true;
   });
   const checks = [...CHECKS, ...plugins];
+
+  // --check-list: print check metadata as JSON and exit.
+  if (args.checkList) {
+    const profile = await detectProfile();
+    const list = checks.map((c) => ({
+      id: c.id,
+      title: c.title,
+      category: c.category,
+      appliesTo: c.appliesTo,
+      appliesHere: c.appliesTo.includes(profile.kind),
+    }));
+    console.log(JSON.stringify(list, null, 2));
+    return 0;
+  }
 
   if (args.list) {
     const profile = await detectProfile();
@@ -302,6 +422,18 @@ export async function main(argv) {
   const report = attachHistory(await collect());
   const durationMs = Date.now() - t0;
   const { findings, system, score: sc, newCount } = report;
+
+  // --summary: one-liner for cron/scripts — score + counts, no findings.
+  if (args.summary) {
+    const { high, medium, info } = report.counts;
+    const parts = [`score=${sc}`];
+    if (high > 0) parts.push(`high=${high}`);
+    if (medium > 0) parts.push(`medium=${medium}`);
+    if (info > 0) parts.push(`info=${info}`);
+    if (newCount > 0) parts.push(`new=${newCount}`);
+    console.log(parts.join(" "));
+    return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
+  }
 
   // --severity filters what is DISPLAYED but does not affect scoring or
   // fleet push — the score and --push reflect the full picture.

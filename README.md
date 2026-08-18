@@ -66,17 +66,25 @@ sudo systemctl enable --now linux-doctor.timer
 ## Options
 
 ```
---check <id>   run only the given check(s) — comma-separated or repeated, e.g. --check memory,disk
---list         list the checks by category without running them
---json         machine-readable JSON output (great for scripting)
---plain        plain, tab-separated text — no colors/emoji, grep-friendly
---web          open the visual dashboard in your browser (recommended)
---ai           add an AI summary in plain English (needs LLM_API_KEY)  --html <path>  save a standalone HTML report (open in any browser)
-  --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
-  --ignore <txt> hide findings whose title contains <txt> (see Ignore list below)
---schema       print the JSON Schema for --json output (v1)
---profile      append per-check durations to the report
---help         usage
+--check <id>      run only the given check(s) — comma-separated or repeated
+--list            list the checks by category without running them
+--check-list      list checks as JSON (id, title, category, appliesTo)
+--json            machine-readable JSON output (great for scripting)
+--plain           plain, tab-separated text — no colors/emoji, grep-friendly
+--summary         one-liner: score + severity counts (for cron/scripts)
+--web             open the visual dashboard in your browser (recommended)
+--ai              add an AI summary in plain English (needs LLM_API_KEY)
+--html <path>     save a standalone HTML report (open in any browser)
+--compare <file>  diff a previous JSON report against the current run
+--push <url>      post the report to a fleet server (FLEET_API_KEY optional)
+--severity <s>    show only findings at this severity (high, medium, info)
+--ignore <txt>    hide findings whose title contains <txt>
+--ignore-code <c> hide findings by stable code (e.g. services/failed)
+--ignore-list     show configured ignore patterns and exit
+--init-config     create a starter config file with commented thresholds
+--schema          print the JSON Schema for --json output (v1)
+--profile         append per-check durations to the report
+--help            usage
 --version      version
 ```
 

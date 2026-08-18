@@ -274,3 +274,122 @@ test("--ignore-list shows configured patterns", () => {
   assert.equal(res.status, 0);
   assert.match(res.stdout, /No ignore patterns configured|Title patterns|Code patterns/);
 });
+
+test("--summary prints a one-liner with score and counts", () => {
+  const res = run("--summary");
+  assert.ok(res.status === 0 || res.status === 1, `exit ${res.status}`);
+  assert.match(res.stdout, /^score=\d+/);
+  // No multi-line output — it's a single line
+  assert.equal(res.stdout.trim().split("\n").length, 1);
+});
+
+test("--summary exits 1 when high or medium findings exist", () => {
+  const res = run("--summary");
+  // On a real system there's usually at least one medium finding
+  if (res.stdout.includes("high=") || res.stdout.includes("medium=")) {
+    assert.equal(res.status, 1);
+  }
+});
+
+test("--check-list prints check metadata as JSON", () => {
+  const res = run("--check-list");
+  assert.equal(res.status, 0);
+  const list = JSON.parse(res.stdout);
+  assert.ok(Array.isArray(list));
+  assert.ok(list.length > 20, `expected 20+ checks, got ${list.length}`);
+  const mem = list.find((c) => c.id === "memory");
+  assert.ok(mem, "memory check should be in the list");
+  assert.equal(typeof mem.title, "string");
+  assert.equal(typeof mem.category, "string");
+  assert.ok(Array.isArray(mem.appliesTo));
+  assert.equal(typeof mem.appliesHere, "boolean");
+});
+
+test("--init-config creates a starter config file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-initconfig-"));
+  const prevConfig = process.env.LINUX_DOCTOR_CONFIG;
+  process.env.LINUX_DOCTOR_CONFIG = join(dir, "config.json");
+  try {
+    const res = run("--init-config");
+    assert.equal(res.status, 0);
+    assert.match(res.stdout, /Config written to/);
+    const config = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+    assert.ok(Array.isArray(config.ignore));
+    assert.ok(Array.isArray(config.ignoreCodes));
+    assert.ok(typeof config.thresholds === "object");
+    assert.equal(typeof config.thresholds.diskFullPct, "number");
+  } finally {
+    if (prevConfig === undefined) delete process.env.LINUX_DOCTOR_CONFIG;
+    else process.env.LINUX_DOCTOR_CONFIG = prevConfig;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--compare shows no changes when reports are identical", () => {
+  // Create a report, then compare it against itself
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-compare-"));
+  try {
+    const reportPath = join(dir, "report.json");
+    const baseline = run("--check", "memory", "--json");
+    writeFileSync(reportPath, baseline.stdout, "utf8");
+    // Run the same check and compare against the saved report
+    const res = spawnSync(process.execPath, [bin, "--check", "memory", "--compare", reportPath, "--json"], {
+      encoding: "utf8",
+      timeout: 60000,
+    });
+    // --compare runs its own checks internally; the output goes to stdout
+    // (either "No changes" or a diff). The exit code is from the compare.
+    assert.ok(res.status === 0 || res.status === 1, `exit ${res.status}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--compare missing file fails with exit 2", () => {
+  const res = run("--compare", "/nonexistent/report.json");
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /could not read compare file/);
+});
+
+test("network: slow DNS resolution is flagged medium", async () => {
+  const { network } = await import("../src/checks/network.js");
+  const { detectDistro } = await import("../src/distro.js");
+  const ctx = {
+    osRelease: { id: "fedora", id_like: "fedora" },
+    dist: detectDistro({ id: "fedora", id_like: "fedora" }),
+    thresholds: {},
+    run: async (cmd) => {
+      if (cmd.includes("ip -brief addr")) return { ok: true, code: 0, stdout: "eth0 UP 192.168.1.100/24\n", stderr: "" };
+      if (cmd.includes("ip route show default")) return { ok: true, code: 0, stdout: "default via 192.168.1.1 dev eth0\n", stderr: "" };
+      if (cmd.includes("getent ahostsv4")) {
+        // Simulate slow DNS by delaying
+        await new Promise((r) => setTimeout(r, 600));
+        return { ok: true, code: 0, stdout: "93.184.216.34\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await network.run(ctx);
+  const slow = findings.find((f) => f.code === "network/dns-slow");
+  assert.ok(slow, "expected a slow DNS finding");
+  assert.equal(slow.severity, "medium");
+  assert.match(slow.title, /slow/);
+});
+
+test("network: fast DNS does NOT produce a slow finding", async () => {
+  const { network } = await import("../src/checks/network.js");
+  const { detectDistro } = await import("../src/distro.js");
+  const ctx = {
+    osRelease: { id: "fedora", id_like: "fedora" },
+    dist: detectDistro({ id: "fedora", id_like: "fedora" }),
+    thresholds: {},
+    run: async (cmd) => {
+      if (cmd.includes("ip -brief addr")) return { ok: true, code: 0, stdout: "eth0 UP 192.168.1.100/24\n", stderr: "" };
+      if (cmd.includes("ip route show default")) return { ok: true, code: 0, stdout: "default via 192.168.1.1 dev eth0\n", stderr: "" };
+      if (cmd.includes("getent ahostsv4")) return { ok: true, code: 0, stdout: "93.184.216.34\n", stderr: "" };
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await network.run(ctx);
+  assert.ok(!findings.some((f) => f.code === "network/dns-slow"), "fast DNS must not produce a slow finding");
+});

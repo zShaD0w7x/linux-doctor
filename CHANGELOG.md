@@ -15,6 +15,19 @@ All notable changes to Linux Doctor are documented here. The format follows
   checks (see [packaging/](packaging/)).
 - **HTML export**: `--html <path>` saves a standalone HTML report you can
   open in any browser or share on Slack.
+- **`--summary`**: one-liner output with score + severity counts, designed
+  for cron jobs and shell prompts (`score=72 high=1 medium=3 info=12`).
+- **`--init-config`**: creates a starter config file at
+  `~/.config/linux-doctor/config.json` with commented thresholds and
+  examples — no more guessing what keys exist.
+- **`--check-list`**: prints check metadata as JSON (id, title, category,
+  appliesTo, appliesHere) — useful for dashboards and fleet tooling.
+- **`--compare <file>`**: diffs a previous JSON report against the current
+  run, showing new and fixed findings side by side.
+- **DNS speed check**: the `network` check now times DNS resolution; slow
+  resolvers (>500ms) are flagged as medium severity.
+- **Man page**: `linux-doctor(1)` with full option docs, exit codes, and
+  file locations (see `packaging/linux-doctor.1`).
 
 ### Added
 

@@ -54,8 +54,11 @@ export const network = defineCheck({
       return findings;
     }
 
-    // DNS is only meaningful when there is a route.
+    // DNS is only meaningful when there is a route. Time the resolution to
+    // catch slow resolvers — the most common "net is slow" complaint.
+    const t0 = Date.now();
     const dns = await ctx.run("getent ahostsv4 kernel.org 2>/dev/null | head -1", { timeoutMs: 8000 });
+    const dnsMs = Date.now() - t0;
     if (!dns.ok || dns.stdout.trim() === "") {
       findings.push({
         severity: "medium",
@@ -71,11 +74,25 @@ export const network = defineCheck({
       return findings;
     }
 
+    if (dnsMs > 500) {
+      findings.push({
+        severity: "medium",
+        code: "network/dns-slow",
+        title: `DNS resolution is slow (${dnsMs}ms)` ,
+        detail:
+          `kernel.org resolved in ${dnsMs}ms — normal is under 100ms. ` +
+          "Slow DNS makes every web request feel sluggish.",
+        evidence: `getent ahostsv4 kernel.org → ${dns.stdout.trim().split("\n")[0]} (${dnsMs}ms)`,
+        fix: "Check /etc/resolv.conf for slow or misconfigured nameservers. Consider switching to a faster resolver (e.g. 1.1.1.1 or 8.8.8.8).",
+        confidence: "high",
+      });
+    }
+
     findings.push({
       severity: "info",
       code: "network/ok",
       title: "Network and DNS look healthy",
-      detail: "There is a default route and the system resolver works (kernel.org resolved).",
+      detail: `There is a default route and the system resolver works (kernel.org resolved in ${dnsMs}ms).`,
       evidence: route.stdout.trim().split("\n")[0],
       fix: null,
       confidence: "high",

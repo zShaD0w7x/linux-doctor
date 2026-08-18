@@ -3,8 +3,8 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity"]);
-const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list"]);
+const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity", "--compare"]);
+const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -25,6 +25,10 @@ export function parseArgs(argv) {
     ignoreList: false,
     pushUrl: null,
     htmlPath: null,
+    summary: false,
+    initConfig: false,
+    checkList: false,
+    comparePath: null,
     error: null,
   };
 
@@ -39,10 +43,11 @@ export function parseArgs(argv) {
     else if (flag === "--severity") out.severity = val.toLowerCase();
     else if (flag === "--push") out.pushUrl = val;
     else if (flag === "--html") out.htmlPath = val;
+    else if (flag === "--compare") out.comparePath = val;
   };
 
   const example = (flag) =>
-    flag === "--push" ? "https://your-server/reports" : flag === "--check" ? "memory,disk" : flag === "--severity" ? "high" : "fw-fanctrl";
+    flag === "--push" ? "https://your-server/reports" : flag === "--check" ? "memory,disk" : flag === "--severity" ? "high" : flag === "--compare" ? "report.json" : "fw-fanctrl";
 
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
