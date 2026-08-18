@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { readFileSync, writeFileSync } from "node:fs";
 import { run, runPool, slugify } from "./utils.js";
 import { checks as CHECKS } from "./checks/index.js";
 import { systemInfo } from "./checks/system.js";
@@ -94,6 +95,7 @@ OPTIONS
   --plain        print plain, tab-separated text (no colors/emoji; grep-friendly)
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
+  --html <path>  save a standalone HTML report (open in any browser)
   --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
   --ignore <txt> hide findings whose title contains <txt> (see config file)
   --help         show this help
@@ -295,6 +297,32 @@ export async function main(argv) {
       console.error(`⚠️  Could not send report to fleet server: ${err.message}`);
       return 2;
     }
+  }
+
+  if (args.htmlPath) {
+    try {
+      const jsonPayload = renderJson(findings, system, {
+        generatedAt: report.generatedAt,
+        score: sc,
+        newCount,
+        fixedCount: report.fixedCount,
+        diffSinceLast: report.diffSinceLast,
+        counts: report.counts,
+        durationMs,
+        checkErrors: report.checkErrors,
+        ignoredCount: report.ignoredCount,
+        checksRun: report.checksRun,
+        checksSkipped: report.checksSkipped,
+      });
+      const dashboard = readFileSync(new URL("../src-gui/index.html", import.meta.url), "utf8");
+      const html = `<script>\nconst __DATA__ = ${jsonPayload};\nwindow.fetch = async (url) => ({ ok: true, json: async () => __DATA__, text: async () => JSON.stringify(__DATA__) });\n</script>\n${dashboard}`;
+      writeFileSync(args.htmlPath, html, "utf8");
+      console.error(`📄 Report saved to ${args.htmlPath}`);
+    } catch (err) {
+      console.error(`⚠️  Could not write HTML report: ${err.message}`);
+      return 2;
+    }
+    return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
   if (args.json) {

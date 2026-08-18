@@ -1,0 +1,11 @@
+[Unit]
+Description=Linux Doctor — automated system health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/linux-doctor --json
+StandardOutput=journal
+StandardError=journal
+# Read-only — safe to run as a normal user

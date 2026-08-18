@@ -44,6 +44,25 @@ Native packages (no Node needed on PATH):
 
 See [packaging/README.md](packaging/README.md) for details.
 
+Shell completions (bash/zsh/fish) are in [completions/](completions/). Install them with:
+
+```bash
+# bash
+install -Dm644 completions/linux-doctor.bash /usr/share/bash-completion/completions/linux-doctor
+# zsh
+install -Dm644 completions/linux-doctor.zsh /usr/share/zsh/site-functions/_linux-doctor
+# fish
+install -Dm644 completions/linux-doctor.fish ~/.config/fish/completions/linux-doctor.fish
+```
+
+To run checks automatically, enable the systemd timer:
+
+```bash
+sudo cp packaging/linux-doctor.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now linux-doctor.timer
+```
+
 ## Options
 
 ```
@@ -52,9 +71,9 @@ See [packaging/README.md](packaging/README.md) for details.
 --json         machine-readable JSON output (great for scripting)
 --plain        plain, tab-separated text — no colors/emoji, grep-friendly
 --web          open the visual dashboard in your browser (recommended)
---ai           add an AI summary in plain English (needs LLM_API_KEY)
---push <url>   post the report to a fleet server (FLEET_API_KEY optional)
---ignore <txt> hide findings whose title contains <txt> (see Ignore list below)
+--ai           add an AI summary in plain English (needs LLM_API_KEY)  --html <path>  save a standalone HTML report (open in any browser)
+  --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
+  --ignore <txt> hide findings whose title contains <txt> (see Ignore list below)
 --schema       print the JSON Schema for --json output (v1)
 --profile      append per-check durations to the report
 --help         usage
@@ -140,6 +159,8 @@ install -Dm644 src-tauri/icons/128x128.png ~/.local/share/icons/hicolor/128x128/
 | `journald` | System journal (log) disk usage |
 | `suspend` | Failed suspend/resume hooks (laptops) |
 | `containers` | Container runtimes — podman/docker installed and usable |
+| `containerdisk` | Container image storage (podman/docker) — hidden disk usage |
+| `crash` | Crash and reboot history (coredumps + unexpected restarts) |
 | `security` | Firewall, SELinux, update services |
 | `secureboot` | UEFI boot mode, Secure Boot state, TPM presence |
 | `network` | Default route and DNS resolution |

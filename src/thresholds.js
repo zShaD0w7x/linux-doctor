@@ -25,6 +25,9 @@ export const DEFAULT_THRESHOLDS = {
   procHighRatio: 0.4,
   // journald.js — journal size in bytes before it is flagged
   journalWarnBytes: 2 * 1024 ** 3,
+  // containerdisk.js — container image storage in GB
+  containerWarnGB: 20,
+  containerHighGB: 50,
 };
 
 /** Merge the user's thresholds (config.thresholds) over the defaults. */

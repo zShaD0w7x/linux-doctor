@@ -6,6 +6,16 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Checks**: `containerdisk` (container image storage via podman/docker),
+  `crash` (reboot frequency + coredumps via journalctl and coredumpctl).
+- **Shell completions**: bash, zsh, and fish completions in `completions/`.
+- **Systemd timer**: `linux-doctor.timer` + `.service` for automated daily
+  checks (see [packaging/](packaging/)).
+- **HTML export**: `--html <path>` saves a standalone HTML report you can
+  open in any browser or share on Slack.
+
 ### Changed
 
 - **Stable finding codes**: every count-bearing finding (services, journal,

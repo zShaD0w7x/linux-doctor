@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { applicableChecks } from "../src/cli.js";
 import { fileURLToPath } from "node:url";
@@ -17,7 +17,7 @@ function run(...args) {
 test("--list prints every check id grouped by category without running them", () => {
   const res = run("--list");
   assert.equal(res.status, 0);
-  for (const id of ["memory", "load", "disk", "services", "timers", "journal", "journald", "suspend", "security", "secureboot", "network", "ntp", "updates", "firmware", "flatpak", "reboot", "processes", "thermal", "battery", "gpu", "bluetooth", "wayland", "backup", "hardware", "smart", "luks", "audio", "containers"]) {
+  for (const id of ["memory", "load", "disk", "services", "timers", "journal", "journald", "suspend", "security", "secureboot", "network", "ntp", "updates", "firmware", "flatpak", "reboot", "processes", "thermal", "battery", "gpu", "bluetooth", "wayland", "backup", "hardware", "smart", "luks", "audio", "containers", "containerdisk", "crash"]) {
     assert.match(res.stdout, new RegExp(`^  ${id} — `, "m"), `--list should include ${id}`);
   }
   // Category headers group the list.
@@ -234,4 +234,24 @@ test("--json output is the v1 schema with per-finding check ids and codes", () =
   assert.ok(Array.isArray(data.findings));
   assert.ok(data.findings.every((f) => typeof f.check === "string"), "every finding knows its check");
   assert.ok(data.findings.every((f) => typeof f.code === "string"), "every finding has a stable code");
+});
+
+test("--html writes a standalone HTML file that contains the report data", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-html-"));
+  const htmlPath = join(dir, "report.html");
+  try {
+    const res = run("--check", "memory", "--html", htmlPath);
+    assert.ok(res.status === 0 || res.status === 1, `exit ${res.status}`);
+    const html = readFileSync(htmlPath, "utf8");
+    assert.ok(html.includes("__DATA__"), "HTML contains embedded data");
+    assert.ok(html.includes("linux-doctor"), "HTML contains the dashboard");
+    // Extract the JSON data and validate it
+    const match = html.match(/const __DATA__ = ({.*?});/s);
+    assert.ok(match, "embedded data is valid JS");
+    const data = JSON.parse(match[1]);
+    assert.equal(data.schemaVersion, 1);
+    assert.ok(Array.isArray(data.findings));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

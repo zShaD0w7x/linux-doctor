@@ -24,6 +24,8 @@ import { firmware } from "./firmware.js";
 import { flatpak } from "./flatpak.js";
 import { reboot } from "./reboot.js";
 import { containers } from "./containers.js";
+import { containerdisk } from "./containerdisk.js";
+import { crash } from "./crash.js";
 import { battery } from "./battery.js";
 import { gpu } from "./gpu.js";
 import { bluetooth } from "./bluetooth.js";
@@ -37,7 +39,7 @@ export const checks = [
   // system
   memory, load, disk, processes, thermal, journald,
   // software
-  services, timers, journal, suspend, containers,
+  services, timers, journal, suspend, containers, containerdisk, crash,
   // security
   security, secureboot, luks,
   // network

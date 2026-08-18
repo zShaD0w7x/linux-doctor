@@ -3,7 +3,7 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-const VALUE_FLAGS = new Set(["--check", "--ignore", "--push"]);
+const VALUE_FLAGS = new Set(["--check", "--ignore", "--push", "--html"]);
 const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile"]);
 
 export function parseArgs(argv) {
@@ -21,6 +21,7 @@ export function parseArgs(argv) {
     checkIds: [],
     ignore: [],
     pushUrl: null,
+    htmlPath: null,
     error: null,
   };
 
@@ -32,6 +33,7 @@ export function parseArgs(argv) {
     if (flag === "--check") out.checkIds.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
     else if (flag === "--ignore") out.ignore.push(val);
     else if (flag === "--push") out.pushUrl = val;
+    else if (flag === "--html") out.htmlPath = val;
   };
 
   const example = (flag) =>

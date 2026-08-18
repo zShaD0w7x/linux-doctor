@@ -28,6 +28,8 @@ import { smart } from "../src/checks/smart.js";
 import { luks } from "../src/checks/luks.js";
 import { audio } from "../src/checks/audio.js";
 import { containers } from "../src/checks/containers.js";
+import { containerdisk } from "../src/checks/containerdisk.js";
+import { crash } from "../src/checks/crash.js";
 import { network } from "../src/checks/network.js";
 import { reboot, versionGt } from "../src/checks/reboot.js";
 import { journald, parseSize } from "../src/checks/journald.js";
@@ -1492,4 +1494,53 @@ test("containers: podman usable is reported healthy", async () => {
   const findings = await containers.run(ctx);
   assert.equal(findings.length, 1);
   assert.match(findings[0].title, /Container runtimes are ready/);
+});
+
+test("containerdisk: large podman image storage is flagged medium", async () => {
+  const ctx = stubCtx({});
+  ctx.thresholds = { containerWarnGB: 20, containerHighGB: 50 };
+  ctx.run = async (cmd) => {
+    if (cmd === "podman system df 2>/dev/null") return { ok: true, code: 0, stdout: "TYPE           TOTAL   ACTIVE  SIZE      RECLAIMABLE\nImages             25      3    25.0GB    22.0GB (88%)\nContainers         4      1     150MB     100MB (66%)\nLocal Volumes      3      1     200MB      50MB (25%)\n", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await containerdisk.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].title, /25\.0 GB/);
+});
+
+test("containerdisk: no runtime installed is an info skip", async () => {
+  const ctx = stubCtx({});
+  ctx.thresholds = { containerWarnGB: 20, containerHighGB: 50 };
+  const findings = await containerdisk.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /container storage check skipped/i);
+});
+
+test("crash: many reboots in a week is flagged", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) {
+      const lines = Array.from({length: 25}, (_, i) => `  -${i}  ...`).join("\n");
+      return { ok: true, code: 0, stdout: lines + "\n", stderr: "" };
+    }
+    if (cmd.includes("coredumpctl")) return { ok: false, code: 1, stdout: "", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  assert.ok(findings.length > 0, "expected at least one finding");
+  assert.match(findings[0].title, /reboot/i);
+  assert.equal(findings[0].severity, "high");
+});
+
+test("crash: coredumps are reported", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) return { ok: true, code: 0, stdout: "  0  ...\n", stderr: "" };
+    if (cmd.includes("coredumpctl")) return { ok: true, code: 0, stdout: "TIME                          PID   UID   GID   SIG     EXE\nMon 2026-08-18 10:00:00      1234  1000  1000  SIGSEGV  /usr/bin/foo\nMon 2026-08-18 11:00:00      5678  1000  1000  SIGABRT  /usr/bin/bar\n", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  assert.ok(findings.some((f) => /crash/i.test(f.title)), "expected a crash finding");
 });
