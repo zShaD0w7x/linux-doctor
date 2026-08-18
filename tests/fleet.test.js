@@ -39,3 +39,19 @@ test("pushReport: throws when the server responds with an error", async () => {
     globalThis.fetch = origFetch;
   }
 });
+
+test("pushReport: guards against a hung server with a fetch timeout", async () => {
+  const origFetch = globalThis.fetch;
+  let signal = null;
+  globalThis.fetch = async (_url, opts) => {
+    signal = opts.signal;
+    return { ok: true, status: 200 };
+  };
+  try {
+    await pushReport("https://example.com/reports", { findings: [] });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+  assert.ok(signal instanceof AbortSignal, "fetch must carry an abort signal");
+  assert.equal(typeof signal.aborted, "boolean");
+});

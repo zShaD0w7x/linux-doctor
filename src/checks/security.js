@@ -19,6 +19,7 @@ export const security = defineCheck({
     if (firewallActive) {
       findings.push({
         severity: "info",
+        code: "security/firewall",
         title: "Firewall is active",
         detail: "A firewall is running, which is the recommended baseline for a desktop system.",
         evidence: firewalld.stdout.trim() || ufw.stdout.trim() || "nftables rules present",
@@ -31,6 +32,7 @@ export const security = defineCheck({
       // a healthy default install is not penalized in the health score.
       findings.push({
         severity: "info",
+        code: "security/no-firewall",
         title: "No active firewall detected",
         detail: "We could not detect an active firewall (firewalld, ufw, or nftables). On many distros the firewall is off by default, which is fine on a trusted home network but risky on public Wi-Fi.",
         evidence: "firewalld/ufw inactive, no nftables rules",
@@ -43,6 +45,7 @@ export const security = defineCheck({
     if (selinux.ok && selinux.stdout.trim() === "Enforcing") {
       findings.push({
         severity: "info",
+        code: "security/selinux",
         title: "SELinux is enforcing",
         detail: "SELinux is running in enforcing mode. Occasional SELinux messages in the log are normal and usually harmless.",
         evidence: "getenforce: Enforcing",
@@ -56,6 +59,7 @@ export const security = defineCheck({
     if (apparmor.ok && apparmor.stdout.trim().length > 0) {
       findings.push({
         severity: "info",
+        code: "security/apparmor",
         title: "AppArmor is active",
         detail: "AppArmor is enforcing application confinement, the standard hardening on Debian/Ubuntu-family systems.",
         evidence: apparmor.stdout.trim().split("\n").slice(0, 2).join("\n"),
@@ -70,6 +74,7 @@ export const security = defineCheck({
     if (upRes.ok && upRes.stdout.trim() === "active") {
       findings.push({
         severity: "info",
+        code: "security/auto-update",
         title: "Automatic update service is active",
         detail: "A package update service is running, so security updates are likely to arrive automatically.",
         evidence: upRes.stdout.trim(),

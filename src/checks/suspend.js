@@ -18,6 +18,7 @@ export const suspend = defineCheck({
     const entries = lines(res.stdout).slice(-5);
     findings.push({
       severity: "medium",
+      code: "suspend/failed",
       title: "Suspend hooks are failing",
       detail: "Some scripts that run when the system suspends or wakes up are failing. On laptops this usually means fan control, power management, or driver setup does not re-apply after waking up.",
       evidence: entries.join("\n"),

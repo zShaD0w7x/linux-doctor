@@ -28,6 +28,7 @@ export async function pushReport(url, data, { apiKey } = {}) {
   const res = await fetch(url, {
     method: "POST",
     headers,
+    signal: AbortSignal.timeout(10000),
     body: JSON.stringify({
       ...data,
       agent: "linux-doctor",

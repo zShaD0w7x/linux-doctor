@@ -23,8 +23,12 @@ export const services = defineCheck({
     }
 
     if (failed.length > 0) {
+      // Scope matters, not just count: a failed system service (network,
+      // display, a daemon) is a real fault; user autostart failures are the
+      // user's own apps and rarely worth a scary "high".
+      const hasSystemFailure = failed.some((f) => f.scope === "system");
       findings.push({
-        severity: failed.length > 2 ? "high" : "medium",
+        severity: hasSystemFailure ? "high" : "medium",
         code: "services/failed",
         title: `${failed.length} service${failed.length > 1 ? "s" : ""} failed to start`,
         detail: `These ${plural(failed.length, "service")} are in a failed state: ${failed.map((f) => `\`${f.name}\` (${f.scope})`).join(", ")}. A failed service usually means a broken package, a bad configuration, or a hook that errored.`,
@@ -38,6 +42,7 @@ export const services = defineCheck({
       const init = await ctx.run("ps -p 1 -o comm= 2>/dev/null");
       findings.push({
         severity: "info",
+        code: "services/skipped",
         title: "Non-systemd system — services check skipped",
         detail: `This system does not run systemd (init: ${init.stdout.trim() || "unknown"}), so the failed-services check does not apply.`,
         evidence: init.stdout.trim() || "init unknown",

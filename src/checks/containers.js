@@ -29,6 +29,7 @@ export const containers = defineCheck({
     if (!podmanPath && !dockerPath) {
       findings.push({
         severity: "info",
+        code: "containers/none",
         title: "No container runtime installed",
         detail: "Neither Podman nor Docker is installed. Containers are optional — install one if you want to run containerized applications.",
         evidence: "podman: not found\ndocker: not found",
@@ -47,6 +48,7 @@ export const containers = defineCheck({
       } else if (st === "inactive") {
         findings.push({
           severity: "medium",
+          code: "containers/docker-stopped",
           title: "Docker daemon is not running",
           detail: "Docker is installed but its daemon is stopped, so `docker` commands fail. This is usually just a service that is not enabled at boot.",
           evidence: `docker: ${dockerPath}\nsystemctl docker: ${st}`,
@@ -64,6 +66,7 @@ export const containers = defineCheck({
       } else {
         findings.push({
           severity: "medium",
+          code: "containers/podman-failed",
           title: "Podman cannot run containers",
           detail: "`podman info` failed, so Podman cannot manage containers right now. This is usually a storage or user-namespace problem.",
           evidence: `podman: ${podmanPath}\npodman info: ${info.stdout.trim()}`,
@@ -76,6 +79,7 @@ export const containers = defineCheck({
     if (ready.length > 0 && findings.length === 0) {
       findings.push({
         severity: "info",
+        code: "containers/ok",
         title: "Container runtimes are ready",
         detail: `${ready.join(" and ")} can run containers.`,
         evidence: `${ready.join(", ")}: usable`,

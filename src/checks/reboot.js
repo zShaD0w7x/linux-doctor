@@ -56,6 +56,7 @@ export const reboot = defineCheck({
     if (!newer && !rebootRequired) {
       findings.push({
         severity: "info",
+        code: "reboot/ok",
         title: "No reboot needed",
         detail: "The running kernel is the newest installed, and no restart is pending.",
         evidence: `booted: ${booted}`,
@@ -75,6 +76,7 @@ export const reboot = defineCheck({
 
     findings.push({
       severity: "medium",
+      code: "reboot/required",
       title: "A reboot is required",
       detail: parts.join(" "),
       evidence: [`booted: ${booted}`, newer ? `newest installed: ${newer}` : null, rebootRequired ? "reboot-required: yes" : null]

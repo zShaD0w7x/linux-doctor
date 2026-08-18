@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { checks } from "../src/checks/index.js";
 import { memory } from "../src/checks/memory.js";
 import { load } from "../src/checks/load.js";
 import { disk } from "../src/checks/disk.js";
@@ -147,15 +149,28 @@ test("disk: two mounts on the same device (btrfs subvolumes) share one dedupeKey
   assert.ok(findings.every((f) => f.dedupeKey === "disk:/dev/sda2"), "same device → same dedupeKey, so dedupe collapses them into one");
 });
 
-test("services: failed units are surfaced", async () => {
+test("services: system-scope failures are high severity", async () => {
   const ctx = stubCtx({
-    "systemctl --failed --no-legend --plain": `homebrew.clamav.service loaded failed failed`,
+    "systemctl --failed --no-legend --plain": `NetworkManager.service loaded failed failed`,
     "systemctl --user --failed --no-legend --plain": "",
   });
   const findings = await services.run(ctx);
   assert.equal(findings.length, 1);
-  assert.match(findings[0].detail, /homebrew\.clamav/i);
-  assert.match(findings[0].fix, /systemctl status homebrew\.clamav/i);
+  assert.equal(findings[0].severity, "high");
+  assert.equal(findings[0].code, "services/failed");
+  assert.match(findings[0].detail, /NetworkManager/i);
+  assert.match(findings[0].fix, /systemctl status NetworkManager/i);
+});
+
+test("services: only user-scope failures are medium, not high", async () => {
+  const ctx = stubCtx({
+    "systemctl --failed --no-legend --plain": "",
+    "systemctl --user --failed --no-legend --plain": `bitwarden.service loaded failed failed\npicom.service loaded failed failed\nclamav.service loaded failed failed\ncustom-thing.service loaded failed failed\napp.service loaded failed failed`,
+  });
+  const findings = await services.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].title, /5 services failed to start/);
 });
 
 test("journal: known noise is filtered into an informational finding", async () => {
@@ -1604,4 +1619,59 @@ test("crash: coredumps are reported", async () => {
   };
   const findings = await crash.run(ctx);
   assert.ok(findings.some((f) => /crash/i.test(f.title)), "expected a crash finding");
+});
+
+// Trust budget: SIGTRAP cores come from debuggers/ptrace (gdb, emulators) —
+// an intentional signal, not a crash. Pinned here so a future refactor cannot
+// silently turn a gdb session into a "your system is crashing" finding.
+test("crash: SIGTRAP coredumps (debuggers/emulators) are NOT crashes", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) return { ok: true, code: 0, stdout: "  0  ...\n", stderr: "" };
+    if (cmd.includes("coredumpctl")) return { ok: true, code: 0, stdout: "TIME                          PID   UID   GID   SIG     EXE\nMon 2026-08-18 10:00:00      1234  1000  1000  SIGTRAP  /usr/bin/gdb\nMon 2026-08-18 10:05:00      1235  1000  1000  SIGTRAP  /usr/bin/qemu-system-x86\n", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  assert.ok(!findings.some((f) => /crash/i.test(f.title)), "debugger SIGTRAP cores must not be reported as crashes");
+});
+
+test("crash: real crash signals (SIGSEGV/SIGABRT/SIGBUS) are still crashes", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) return { ok: true, code: 0, stdout: "  0  ...\n", stderr: "" };
+    if (cmd.includes("coredumpctl")) return { ok: true, code: 0, stdout: "TIME                          PID   UID   GID   SIG     EXE\nMon 2026-08-18 10:00:00      1234  1000  1000  SIGSEGV  /usr/bin/foo\nMon 2026-08-18 10:02:00      1235  1000  1000  SIGBUS   /usr/bin/bar\nMon 2026-08-18 10:04:00      1236  1000  1000  SIGABRT  /usr/bin/baz\n", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  const finding = findings.find((f) => /crash/i.test(f.title));
+  assert.ok(finding, "expected a crash finding for real signals");
+  assert.doesNotMatch(finding.evidence, /SIGTRAP/, "SIGTRAP cores must not appear in crash evidence");
+  assert.match(finding.evidence, /SIGBUS|SIGSEGV/, "real crash signals must remain visible");
+});
+
+test("stable codes: every built-in check emits findings with an explicit code", async () => {
+  for (const check of checks) {
+    const findings = await check.run(stubCtx({}));
+    for (const f of findings) {
+      assert.ok(
+        typeof f.code === "string" && f.code.length > 0,
+        `${check.id} finding "${f.title}" must carry a stable code`
+      );
+    }
+  }
+});
+
+test("stable codes: every built-in findings.push block declares a code", () => {
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "checks");
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".js")) continue;
+    const src = readFileSync(join(dir, file), "utf8");
+    const re = /findings\.push\(\{([\s\S]*?)\}\);/g;
+    let m;
+    while ((m = re.exec(src))) {
+      if (/severity:/.test(m[1]) && !/code:/.test(m[1])) {
+        assert.fail(`${file}: findings.push block without a code`);
+      }
+    }
+  }
 });

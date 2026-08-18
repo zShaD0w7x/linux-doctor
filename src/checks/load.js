@@ -21,6 +21,7 @@ export const load = defineCheck({
     if (ratio >= t.loadHighRatio) {
       findings.push({
         severity: ratio >= t.loadCriticalRatio ? "high" : "medium",
+        code: "load/overloaded",
         title: "CPU is overloaded",
         detail: `The 1-minute load average is ${load1.toFixed(2)} on a system with ${plural(cpus, "CPU core")}. Load at or above the core count means processes are waiting for CPU time, which makes the whole desktop feel slow.`,
         evidence: `load average: ${fields.join(" ")}\ncores: ${cpus}`,
@@ -30,6 +31,7 @@ export const load = defineCheck({
     } else if (ratio >= t.loadWarnRatio) {
       findings.push({
         severity: "info",
+        code: "load/busy",
         title: "CPU is busy but not overloaded",
         detail: `Load average is ${load1.toFixed(2)} on ${plural(cpus, "core")}. The system is working, but there is still headroom.`,
         evidence: `load average: ${fields.join(" ")}`,

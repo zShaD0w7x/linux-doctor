@@ -34,6 +34,7 @@ export const backup = defineCheck({
       // informational so the health score is not penalized for it.
       findings.push({
         severity: "info",
+        code: "backup/none",
         title: "No backup or snapshot tool detected",
         detail: "No backup tool (Borg, Restic, Timeshift, …) and no snapshot system (Snapper, Timeshift) was found. If this disk fails, the data on it is gone.",
         evidence: "tools: none · snapper configs: none · timeshift: none",
@@ -46,6 +47,7 @@ export const backup = defineCheck({
     if (timerNames.length === 0) {
       findings.push({
         severity: "info",
+        code: "backup/unscheduled",
         title: "Backup tools are installed, but nothing is scheduled",
         detail: `${present.join(", ")} ${present.length > 1 ? "are" : "is"} installed, but no backup systemd timer or cron job was found. A backup only protects you if it actually runs.`,
         evidence: "tools: " + present.join(", ") + "\nscheduled: none",
@@ -57,6 +59,7 @@ export const backup = defineCheck({
 
     findings.push({
       severity: "info",
+      code: "backup/ok",
       title: "Backups are set up",
       detail: `${present.join(", ")} ${present.length > 1 ? "are" : "is"} available and scheduled backup timer${timerNames.length > 1 ? "s" : ""} (${timerNames.join(", ")}) ${timerNames.length > 1 ? "are" : "is"} active.`,
       evidence: "tools: " + present.join(", ") + "\ntimers: " + timerNames.join(", "),

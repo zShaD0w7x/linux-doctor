@@ -25,6 +25,7 @@ export const luks = defineCheck({
     if (encrypted.length > 0) {
       findings.push({
         severity: "info",
+        code: "luks/encrypted",
         title: "Disk encryption is active",
         detail: "The system uses LUKS/disk encryption, so the data at rest is protected if the drive is stolen or removed.",
         evidence: encrypted.slice(0, 3).join("\n"),
@@ -36,6 +37,7 @@ export const luks = defineCheck({
       // informational so a healthy install is not penalized in the score.
       findings.push({
         severity: "info",
+        code: "luks/none",
         title: "No full-disk encryption detected",
         detail: "No LUKS or crypt devices were found. If this drive is lost or stolen, the data on it can be read directly.",
         evidence: "lsblk: no crypto_LUKS / crypt devices",

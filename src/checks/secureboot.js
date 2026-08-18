@@ -23,6 +23,7 @@ export const secureboot = defineCheck({
     if (!efi.ok || efi.stdout.trim() === "") {
       findings.push({
         severity: "info",
+        code: "secureboot/bios",
         title: "Legacy BIOS boot",
         detail: "This system boots in legacy BIOS mode, so Secure Boot (a UEFI feature) does not apply. Modern firmware is a good upgrade path if you want Secure Boot and a TPM.",
         evidence: "no /sys/firmware/efi",
@@ -47,6 +48,7 @@ export const secureboot = defineCheck({
     if (sbEnabled === true) {
       findings.push({
         severity: "info",
+        code: "secureboot/enabled",
         title: "Secure Boot is enabled",
         detail: "Secure Boot verifies the boot chain, which helps protect against tampering before the OS loads.",
         evidence: "SecureBoot enabled",
@@ -58,6 +60,7 @@ export const secureboot = defineCheck({
       // fault — informational so it does not drag down the health score.
       findings.push({
         severity: "info",
+        code: "secureboot/disabled",
         title: "Secure Boot is disabled",
         detail: "Secure Boot is off, so nothing verifies the boot chain against tampering. On most systems this is a firmware setting, not a Linux setting.",
         evidence: "SecureBoot disabled",
@@ -69,6 +72,7 @@ export const secureboot = defineCheck({
     if (tpm.ok && tpm.stdout.trim() !== "") {
       findings.push({
         severity: "info",
+        code: "secureboot/tpm",
         title: "TPM is present",
         detail: "A Trusted Platform Module is available, which enables disk encryption (LUKS with TPM unlock) and measured boot.",
         evidence: "/sys/class/tpm/tpm0",
@@ -79,6 +83,7 @@ export const secureboot = defineCheck({
       // A missing TPM is a hardware limitation, not a fault — informational.
       findings.push({
         severity: "info",
+        code: "secureboot/no-tpm",
         title: "No TPM detected",
         detail: "No TPM was found. A TPM strengthens disk encryption and is increasingly expected by operating systems.",
         evidence: "no /sys/class/tpm/tpm0",

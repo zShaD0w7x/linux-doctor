@@ -31,6 +31,7 @@ export const gpu = defineCheck({
     if (!lspci.ok) {
       findings.push({
         severity: "info",
+        code: "gpu/skipped",
         title: "GPU check skipped",
         detail: "`lspci` is not available, so we could not inspect the graphics hardware.",
         evidence: null,
@@ -43,6 +44,7 @@ export const gpu = defineCheck({
     if (!hasNvidia && !hasAmd && !hasIntel && !hasDri) {
       findings.push({
         severity: "info",
+        code: "gpu/none",
         title: "No GPU detected",
         detail: "No VGA/3D controller was found. This is normal on headless servers or virtual machines.",
         evidence: hardware || "(no output)",
@@ -63,6 +65,7 @@ export const gpu = defineCheck({
         const ver = await ctx.run("cat /proc/driver/nvidia/version 2>/dev/null");
         findings.push({
           severity: "info",
+          code: "gpu/nvidia",
           title: "NVIDIA proprietary driver is loaded",
           detail: "The NVIDIA proprietary driver is active, which is the right setup for gaming and CUDA workloads.",
           evidence: ver.ok && ver.stdout.trim() ? ver.stdout.trim() : "module: nvidia",
@@ -72,6 +75,7 @@ export const gpu = defineCheck({
       } else if (nouveauMod) {
         findings.push({
           severity: "medium",
+          code: "gpu/nouveau",
           title: "NVIDIA GPU is using the open-source nouveau driver",
           detail: "Your NVIDIA card is running on the open nouveau driver. It works for the desktop, but performance and CUDA support are limited — games and GPU compute will underperform.",
           evidence: "hardware: " + (hardware || "nvidia") + "\nmodule: nouveau",
@@ -81,6 +85,7 @@ export const gpu = defineCheck({
       } else {
         findings.push({
           severity: "high",
+          code: "gpu/nvidia-missing",
           title: "NVIDIA GPU detected but no driver is loaded",
           detail: "Your system has an NVIDIA card, but neither the proprietary driver nor nouveau is loaded. Graphics will fall back to slow software rendering.",
           evidence: "hardware: " + (hardware || "nvidia") + "\nloaded modules: " + (loaded || "none"),
@@ -96,8 +101,8 @@ export const gpu = defineCheck({
       if (hasDri && !swRenderer) {
         findings.push({
           severity: "info",
+          code: "gpu/amd",
           title: "Graphics driver is working",
-          detail: "Your AMD GPU is using the kernel's built-in amdgpu driver, which is the well-supported default.",
           evidence: "hardware: " + (hardware || "integrated") + "\nmodule: amdgpu (built-in)",
           fix: null,
           confidence: "high",
@@ -105,6 +110,7 @@ export const gpu = defineCheck({
       } else {
         findings.push({
           severity: "medium",
+          code: "gpu/amd-missing",
           title: "AMD GPU detected but the amdgpu driver is not loaded",
           detail: "An AMD card is present but the amdgpu kernel driver is not active. Graphics are falling back to software rendering.",
           evidence: "hardware: " + hardware + (swRenderer ? `\nrenderer: ${swRenderer}` : "\nrenderer: unknown"),
@@ -115,6 +121,7 @@ export const gpu = defineCheck({
     } else if ((hasAmd || hasIntel) && (amdMod || intelMod)) {
       findings.push({
         severity: "info",
+        code: "gpu/driver",
         title: "Graphics driver is working",
         detail: `Your ${hasAmd ? "AMD" : "Intel"} GPU is using the standard open-source driver (${amdMod ? "amdgpu" : "i915/xe"}), which is the well-supported default.`,
         evidence: "hardware: " + (hardware || "integrated") + "\nmodule: " + (amdMod ? "amdgpu" : "i915/xe"),
@@ -126,6 +133,7 @@ export const gpu = defineCheck({
     if (swRenderer) {
       findings.push({
         severity: "high",
+        code: "gpu/software-rendering",
         title: "GPU acceleration is not active (software rendering)",
         detail: "Graphics are being rendered in software (llvmpipe), not by your GPU. Everything visual will feel slow — video playback, scrolling, games. This usually means the GPU driver is missing or misconfigured.",
         evidence: "renderer: " + swRenderer,

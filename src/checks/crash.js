@@ -65,8 +65,15 @@ export const crash = defineCheck({
     );
 
     if (core.ok && core.stdout.trim()) {
-      const crashCount = lines(core.stdout).length;
-      const top = lines(core.stdout).slice(0, 3).join("\n");
+      // SIGTRAP cores come from debuggers and ptrace-based tools (gdb, some
+      // emulators/JITs) — an intentional signal, not a crash. Everything else
+      // (SIGSEGV, SIGABRT, SIGBUS, SIGILL, …) is a genuine crash. The signal
+      // stays in the evidence so a user can see what actually happened.
+      const crashes = lines(core.stdout)
+        .filter((l) => !/^TIME\s/.test(l))
+        .filter((l) => !/\sSIGTRAP\s/.test(` ${l} `));
+      const crashCount = crashes.length;
+      const top = crashes.slice(0, 3).join("\n");
 
       if (crashCount > 5) {
         findings.push({

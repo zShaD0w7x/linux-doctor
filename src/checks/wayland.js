@@ -22,6 +22,7 @@ export const wayland = defineCheck({
     if (sid.missing) {
       findings.push({
         severity: "info",
+        code: "wayland/loginctl-missing",
         title: "Session type could not be determined",
         detail: "`loginctl` is not available on this system, so the display session could not be inspected.",
         evidence: "loginctl: missing",
@@ -35,6 +36,7 @@ export const wayland = defineCheck({
     if (sessionId === "") {
       findings.push({
         severity: "info",
+        code: "wayland/no-session",
         title: "No graphical session detected",
         detail: "No graphical login session was found on the primary seat. This is normal on servers and headless machines.",
         evidence: "no seat0 session",
@@ -56,6 +58,7 @@ export const wayland = defineCheck({
     if (type === "x11") {
       findings.push({
         severity: "info",
+        code: "wayland/x11",
         title: "Running an X11 session",
         detail: `The current session uses X11 (${desktop || "unknown desktop"}). X11 is mature and stable; most modern desktops also offer a Wayland session that you can try from the login screen.`,
         evidence: `session type: x11${desktop ? " · desktop: " + desktop : ""}`,
@@ -68,6 +71,7 @@ export const wayland = defineCheck({
     if (type !== "wayland") {
       findings.push({
         severity: "info",
+        code: "wayland/not-graphical",
         title: "No graphical session detected",
         detail: `The active session is not graphical (type: ${info.Type || "unknown"}). This is normal on servers and headless machines.`,
         evidence: `session type: ${info.Type || "unknown"}`,
@@ -87,6 +91,7 @@ export const wayland = defineCheck({
     if (compName) {
       findings.push({
         severity: "info",
+        code: "wayland/healthy",
         title: "Wayland session looks healthy",
         detail: `The session is running Wayland (${desktop || "unknown desktop"}) and the compositor (${compName}) is up.`,
         evidence: `session type: wayland · desktop: ${desktop || "unknown"}\ncompositor: ${compName}`,
@@ -96,6 +101,7 @@ export const wayland = defineCheck({
     } else {
       findings.push({
         severity: "medium",
+        code: "wayland/no-compositor",
         title: "Wayland session is active, but no compositor process was found",
         detail: `The session is Wayland (${desktop || "unknown desktop"}), but none of the common compositors (GNOME Shell, KWin, Sway, Hyprland, …) is running. The session may be stuck or the compositor may have crashed.`,
         evidence: "session type: wayland\ncompositor: none found",
@@ -108,6 +114,7 @@ export const wayland = defineCheck({
     if (swRenderer) {
       findings.push({
         severity: "high",
+        code: "wayland/software-rendering",
         title: "Wayland is falling back to software rendering",
         detail: `Graphics are being rendered in software (${swRenderer}), so the compositor has no GPU acceleration. The desktop will feel slow — window animations, video, and scrolling all suffer.`,
         evidence: "renderer: " + swRenderer,

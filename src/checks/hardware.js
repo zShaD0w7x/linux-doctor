@@ -26,6 +26,7 @@ export const hardware = defineCheck({
     if (mceLines.length > 0) {
       findings.push({
         severity: "high",
+        code: "hardware/mce",
         title: "Machine check exceptions detected",
         detail: "The kernel recorded machine check exceptions — uncorrected hardware errors. These are a strong sign of failing CPU, memory, or a motherboard issue, and they can corrupt data.",
         evidence: mceLines.join("\n"),
@@ -35,6 +36,7 @@ export const hardware = defineCheck({
     } else if (edcLines.length > 0) {
       findings.push({
         severity: "medium",
+        code: "hardware/ecc",
         title: "Corrected hardware errors (ECC)",
         detail: "The memory controller detected and corrected some bit-flip errors. Occasional ones are normal and ECC is doing its job, but frequent ones suggest a DIMM is starting to fail.",
         evidence: edcLines.join("\n"),
@@ -44,6 +46,7 @@ export const hardware = defineCheck({
     } else if (mce.ok || edc.ok) {
       findings.push({
         severity: "info",
+        code: "hardware/ok",
         title: "No hardware errors logged",
         detail: "No machine check exceptions or corrected memory errors were found in the last 7 days of kernel logs.",
         evidence: "mce: none · edac/ecc: none",

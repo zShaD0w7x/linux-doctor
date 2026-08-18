@@ -49,6 +49,7 @@ export const processes = defineCheck({
     if (top.rss > 0 && ratio > t.procHighRatio) {
       findings.push({
         severity: "high",
+        code: "processes/high",
         title: "A single app is using a huge amount of memory",
         detail: `${FRIENDLY[top.name] || `The \`${top.name}\` process`} is using ${fmtBytes(top.rss)}, which is more than 40% of your total RAM. This is very likely why the system feels slow.`,
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
@@ -58,6 +59,7 @@ export const processes = defineCheck({
     } else if (top.rss > 0 && ratio > t.procWarnRatio) {
       findings.push({
         severity: "medium",
+        code: "processes/warn",
         title: "A single app is using a lot of memory",
         detail: `${FRIENDLY[top.name] || `The \`${top.name}\` process`} is using ${fmtBytes(top.rss)}, which is more than 20% of your total RAM. This is the most likely reason the system feels slow.`,
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
@@ -67,6 +69,7 @@ export const processes = defineCheck({
     } else {
       findings.push({
         severity: "info",
+        code: "processes/ok",
         title: "Top memory consumers",
         detail: "The largest memory users right now are listed below. This is normal unless the system is under pressure.",
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),

@@ -29,6 +29,7 @@ export const bluetooth = defineCheck({
     if (ctrls.length === 0) {
       findings.push({
         severity: "info",
+        code: "bluetooth/none",
         title: "No Bluetooth hardware detected",
         detail: "No Bluetooth controllers were found. This is normal on desktops and most servers — the Bluetooth check does not apply.",
         evidence: "no /sys/class/bluetooth entries",
@@ -41,6 +42,7 @@ export const bluetooth = defineCheck({
     if (isFailed.ok && isFailed.stdout.trim() === "failed") {
       findings.push({
         severity: "medium",
+        code: "bluetooth/failed",
         title: "Bluetooth service is in a failed state",
         detail: `The Bluetooth service failed to start, even though the controller (${ctrls[0]}) is present. Bluetooth will not work until this is fixed.`,
         evidence: "systemctl is-failed bluetooth → failed",
@@ -53,6 +55,7 @@ export const bluetooth = defineCheck({
     if (!(daemon.ok && daemon.stdout.trim() !== "")) {
       findings.push({
         severity: "medium",
+        code: "bluetooth/stopped",
         title: "Bluetooth service is not running",
         detail: `A Bluetooth controller (${ctrls[0]}) is present, but the bluetoothd daemon is not running, so Bluetooth devices cannot connect.`,
         evidence: "controller: " + ctrls[0] + "\nbluetoothd: not running",
@@ -66,6 +69,7 @@ export const bluetooth = defineCheck({
 
     findings.push({
       severity: "info",
+      code: "bluetooth/ok",
       title: "Bluetooth is working",
       detail: `The Bluetooth service is running and the controller (${ctrls.join(", ")}) is available.`,
       evidence: "controller: " + ctrls.join(", ") + "\nbluetoothd: running",

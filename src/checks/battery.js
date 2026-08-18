@@ -50,6 +50,7 @@ export const battery = defineCheck({
       if (cap < 20) {
         findings.push({
           severity: "medium",
+          code: "battery/low",
           title: "Battery level is very low",
           detail: `The battery is at ${cap}%. Plug in the charger to avoid losing work.`,
           evidence: `${s}: capacity=${cap}% status=${status || "unknown"}`,
@@ -59,6 +60,7 @@ export const battery = defineCheck({
       } else {
         findings.push({
           severity: "info",
+          code: "battery/status",
           title: "Battery status",
           detail: `The battery is at ${cap}% and ${status.toLowerCase() || "idle"}.`,
           evidence: `${s}: capacity=${cap}% status=${status || "unknown"}`,
@@ -70,6 +72,7 @@ export const battery = defineCheck({
       if (wear !== null && wear >= 40) {
         findings.push({
           severity: "medium",
+          code: "battery/wear",
           title: "Battery has lost a lot of capacity",
           detail: `The battery now holds ${100 - wear}% of its design capacity (${wear}% wear). It may start shutting down unexpectedly under load.`,
           evidence: `${s}: ${wear}% wear`,
@@ -79,6 +82,7 @@ export const battery = defineCheck({
       } else if (wear !== null && wear >= 20) {
         findings.push({
           severity: "info",
+          code: "battery/wear",
           title: "Battery is showing wear",
           detail: `The battery now holds ${100 - wear}% of its design capacity (${wear}% wear). This is normal aging, but worth monitoring.`,
           evidence: `${s}: ${wear}% wear`,
@@ -91,6 +95,7 @@ export const battery = defineCheck({
     if (batteries.length === 0) {
       findings.push({
         severity: "info",
+        code: "battery/none",
         title: "No battery detected",
         detail: "This does not look like a laptop with a battery, so the battery check is skipped.",
         evidence: null,

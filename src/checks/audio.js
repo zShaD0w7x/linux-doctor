@@ -32,6 +32,7 @@ export const audio = defineCheck({
               : "sudo dnf install pipewire pipewire-pulse wireplumber";
       findings.push({
         severity: "medium",
+        code: "audio/no-server",
         title: "No sound server is running",
         detail: "Neither PipeWire nor PulseAudio is running, so the system has no sound. This is usually a missing or disabled audio stack.",
         evidence: `pipewire: ${pipewire.stdout.trim()}\npipewire-pulse: ${pwPulse.stdout.trim()}\npulseaudio: ${pulse.stdout.trim()}`,
