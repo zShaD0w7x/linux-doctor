@@ -372,8 +372,9 @@ function animateScore(target) {
 
 // Severity filter + live search. Pure DOM toggles — no re-fetch.
 // activeFilter: null = report hidden (drill-down), "all" = every group,
-// "high"/"medium"/"info" = that group only.
-let activeFilter = null;
+// "high"/"medium"/"info" = that group only. Defaults to "all" so the report
+// is visible as soon as the app opens.
+let activeFilter = "all";
 
 function renderFilters(counts) {
   // Counts live on the summary cards only; pills are pure severity labels.

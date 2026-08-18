@@ -37,17 +37,19 @@ try {
   const pills = await page.locator("#filters .fpill").count();
   const score = await page.textContent("#scorenum");
   const sysinfo = await page.textContent("#sysinfo");
-  const reportHiddenOnLoad = await page.locator("#report").evaluate((el) => el.hidden);
+  const allActive = await page.locator('#filters .fpill[data-sev="all"].active').count();
+  const reportVisibleOnLoad = await page.locator("#report").evaluate((el) => !el.hidden);
 
-  // Drill-down: report starts hidden, clicking "All" reveals every group.
-  await page.click('#filters .fpill[data-sev="all"]');
+  // Default view is "All": every group visible, High open, the rest collapsed.
   await page.waitForSelector("#report .group:not([hidden])", { timeout: 10000 });
   const cards = await page.locator("#report .card").count();
   const visibleGroups = await page.locator("#report .group:not([hidden])").count();
+  const openGroups = await page.locator("#report .group[open]").count();
 
   console.log("banner:", banner.trim());
   console.log("sysinfo:", sysinfo.trim());
-  console.log("report hidden on load:", reportHiddenOnLoad, "| cards after All:", cards, "| visible groups:", visibleGroups);
+  console.log("all active on load:", allActive === 1, "| report visible on load:", reportVisibleOnLoad);
+  console.log("cards:", cards, "| visible groups:", visibleGroups, "| open groups:", openGroups);
   console.log("hero stats:", stats, "| filter pills:", pills, "| score:", score.trim());
   console.log("console errors:", consoleErrors.length);
   for (const e of consoleErrors) console.log("  [console] " + e);
