@@ -3,7 +3,7 @@
 # Build from the npm tarball produced by `npm pack` at a release tag:
 #   VERSION=0.1.0; npm pack && mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
 pkgname=linux-doctor
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Plain-English health checks for your Linux system — finds real problems, explains them, and tells you how to fix them"
 arch=('any')

@@ -17,7 +17,7 @@ function run(...args) {
 test("--list prints every check id grouped by category without running them", () => {
   const res = run("--list");
   assert.equal(res.status, 0);
-  for (const id of ["memory", "load", "disk", "services", "timers", "journal", "journald", "suspend", "security", "secureboot", "network", "ntp", "updates", "firmware", "flatpak", "reboot", "processes", "thermal", "battery", "gpu", "bluetooth", "wayland", "backup", "hardware", "smart", "luks"]) {
+  for (const id of ["memory", "load", "disk", "services", "timers", "journal", "journald", "suspend", "security", "secureboot", "network", "ntp", "updates", "firmware", "flatpak", "reboot", "processes", "thermal", "battery", "gpu", "bluetooth", "wayland", "backup", "hardware", "smart", "luks", "audio", "containers"]) {
     assert.match(res.stdout, new RegExp(`^  ${id} — `, "m"), `--list should include ${id}`);
   }
   // Category headers group the list.

@@ -2,7 +2,7 @@
 # Build from the npm tarball produced by `npm pack` at a release tag:
 #   VERSION=0.1.0; npm pack && mv linux-doctor-*.tgz ~/rpmbuild/SOURCES/linux-doctor-$VERSION.tar.gz
 Name:           linux-doctor
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Plain-English health checks for your Linux system
 License:        GPL-3.0-or-later
@@ -31,5 +31,7 @@ chmod 0755 %{buildroot}%{_libdir}/linux-doctor/bin/doctor.js
 %{_bindir}/linux-doctor
 
 %changelog
+* Tue Aug 18 2026 Linux Doctor <maintainer@example.com> - 0.2.0-1
+- Sync to 0.2.0; add audio and containers checks
 * Tue Aug 18 2026 Linux Doctor <maintainer@example.com> - 0.1.0-1
 - Initial packaging

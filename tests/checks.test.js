@@ -26,6 +26,8 @@ import { backup } from "../src/checks/backup.js";
 import { hardware } from "../src/checks/hardware.js";
 import { smart } from "../src/checks/smart.js";
 import { luks } from "../src/checks/luks.js";
+import { audio } from "../src/checks/audio.js";
+import { containers } from "../src/checks/containers.js";
 import { network } from "../src/checks/network.js";
 import { reboot, versionGt } from "../src/checks/reboot.js";
 import { journald, parseSize } from "../src/checks/journald.js";
@@ -1323,4 +1325,91 @@ test("smart: unreadable devices without root are explained, not silent", async (
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /needs root/);
+});
+
+test("audio: no sound server running is a medium finding with a distro-aware fix", async () => {
+  const ctx = {
+    osRelease: { id: "fedora", id_like: "fedora" },
+    dist: detectDistro({ id: "fedora", id_like: "fedora" }),
+    thresholds: {},
+    run: async () => ({ ok: true, code: 0, stdout: "down\n", stderr: "" }),
+  };
+  const findings = await audio.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].title, /No sound server is running/);
+  assert.match(findings[0].fix, /dnf install pipewire/);
+});
+
+test("audio: server up with a real sink is healthy; dummy sink is not", async () => {
+  const makeCtx = (sinksOut) => ({
+    osRelease: { id: "ubuntu", id_like: "debian" },
+    dist: detectDistro({ id: "ubuntu", id_like: "debian" }),
+    thresholds: {},
+    run: async (cmd) => {
+      if (cmd.includes("pgrep -x pipewire")) return { ok: true, code: 0, stdout: "up\n", stderr: "" };
+      if (cmd.includes("command -v pactl")) return { ok: true, code: 0, stdout: "yes\n", stderr: "" };
+      if (cmd.includes("pactl list sinks short")) return { ok: true, code: 0, stdout: sinksOut, stderr: "" };
+      return { ok: true, code: 0, stdout: "down\n", stderr: "" };
+    },
+  });
+  const healthy = await audio.run(makeCtx("0\talsa_output.pci-0000_00_1f.3.analog-stereo\tRUNNING\n"));
+  assert.equal(healthy.length, 1);
+  assert.match(healthy[0].title, /Audio is working/);
+  assert.equal(healthy[0].severity, "info");
+
+  const dummy = await audio.run(makeCtx("0\tauto_null\tRUNNING\n"));
+  assert.equal(dummy.length, 1);
+  assert.equal(dummy[0].severity, "medium");
+  assert.match(dummy[0].title, /No audio output device detected/);
+});
+
+test("containers: no runtime installed is informational with an install hint", async () => {
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }),
+  };
+  const findings = await containers.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info");
+  assert.match(findings[0].title, /No container runtime installed/);
+  assert.match(findings[0].fix, /apt install podman/);
+});
+
+test("containers: docker installed but daemon stopped is medium", async () => {
+  const ctx = {
+    osRelease: { id: "fedora", id_like: "fedora" },
+    dist: detectDistro({ id: "fedora", id_like: "fedora" }),
+    thresholds: {},
+    run: async (cmd) => {
+      if (cmd === "command -v podman 2>/dev/null") return { ok: false, code: 1, stdout: "", stderr: "" };
+      if (cmd === "command -v docker 2>/dev/null") return { ok: true, code: 0, stdout: "/usr/bin/docker\n", stderr: "" };
+      if (cmd.startsWith("systemctl is-active docker")) return { ok: true, code: 0, stdout: "inactive\n", stderr: "" };
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await containers.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].title, /Docker daemon is not running/);
+  assert.match(findings[0].fix, /systemctl enable --now docker/);
+});
+
+test("containers: podman usable is reported healthy", async () => {
+  const ctx = {
+    osRelease: { id: "bazzite", id_like: "fedora" },
+    dist: detectDistro({ id: "bazzite", id_like: "fedora" }),
+    thresholds: {},
+    run: async (cmd) => {
+      if (cmd === "command -v podman 2>/dev/null") return { ok: true, code: 0, stdout: "/usr/bin/podman\n", stderr: "" };
+      if (cmd === "command -v docker 2>/dev/null") return { ok: false, code: 1, stdout: "", stderr: "" };
+      if (cmd.startsWith("podman info")) return { ok: true, code: 0, stdout: "ok\n", stderr: "" };
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await containers.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /Container runtimes are ready/);
 });

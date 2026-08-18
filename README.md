@@ -120,6 +120,13 @@ npm run gui:build
 
 The bundled app needs `node` on PATH to run the checks. Set `LINUX_DOCTOR_ROOT` to point at a Linux Doctor checkout if the bundled resources are unavailable.
 
+To put the app in your desktop menu, install the launcher (the deb/rpm bundles ship one automatically; this is for the AppImage or manual setups):
+
+```bash
+install -Dm644 packaging/linux-doctor.desktop ~/.local/share/applications/
+install -Dm644 src-tauri/icons/128x128.png ~/.local/share/icons/hicolor/128x128/apps/linux-doctor.png
+```
+
 ## Checks
 
 | ID | What it checks |
@@ -132,6 +139,7 @@ The bundled app needs `node` on PATH to run the checks. Set `LINUX_DOCTOR_ROOT` 
 | `journal` | Error log, with known-benign noise filtered out |
 | `journald` | System journal (log) disk usage |
 | `suspend` | Failed suspend/resume hooks (laptops) |
+| `containers` | Container runtimes — podman/docker installed and usable |
 | `security` | Firewall, SELinux, update services |
 | `secureboot` | UEFI boot mode, Secure Boot state, TPM presence |
 | `network` | Default route and DNS resolution |
@@ -146,6 +154,7 @@ The bundled app needs `node` on PATH to run the checks. Set `LINUX_DOCTOR_ROOT` 
 | `gpu` | Graphics driver health (NVIDIA proprietary vs nouveau vs missing, software rendering) |
 | `bluetooth` | Bluetooth controller presence and daemon state |
 | `wayland` | Display session type, running compositor, software rendering |
+| `audio` | Sound server (PipeWire/PulseAudio) and output device (desktop/laptop) |
 | `backup` | Backup/snapshot tools installed and scheduled (borg, restic, snapper, timeshift…) |
 | `hardware` | Machine check exceptions and corrected ECC memory errors |
 | `smart` | Disk SMART health (needs root or smartmontools) |

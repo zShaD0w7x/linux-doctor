@@ -23,19 +23,21 @@ import { updates } from "./updates.js";
 import { firmware } from "./firmware.js";
 import { flatpak } from "./flatpak.js";
 import { reboot } from "./reboot.js";
+import { containers } from "./containers.js";
 import { battery } from "./battery.js";
 import { gpu } from "./gpu.js";
 import { bluetooth } from "./bluetooth.js";
 import { wayland } from "./wayland.js";
 import { smart } from "./smart.js";
 import { hardware } from "./hardware.js";
+import { audio } from "./audio.js";
 import { backup } from "./backup.js";
 
 export const checks = [
   // system
   memory, load, disk, processes, thermal, journald,
   // software
-  services, timers, journal, suspend,
+  services, timers, journal, suspend, containers,
   // security
   security, secureboot, luks,
   // network
@@ -43,7 +45,7 @@ export const checks = [
   // updates
   updates, firmware, flatpak, reboot,
   // hardware
-  battery, gpu, bluetooth, wayland, smart, hardware,
+  battery, gpu, bluetooth, wayland, smart, hardware, audio,
   // data
   backup,
 ];

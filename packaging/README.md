@@ -9,7 +9,7 @@ dashboard needs at load time).
 ## Build the tarball
 
 ```bash
-VERSION=0.1.0
+VERSION=0.2.0
 npm pack
 mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
 ```
@@ -24,7 +24,7 @@ git clone ssh://aur@aur.archlinux.org/linux-doctor.git /tmp/aur
 cp packaging/PKGBUILD /tmp/aur/
 # fill in the real sha256sums, then:
 cd /tmp/aur && makepkg -f && makepkg --printsrcinfo > .SRCINFO
-git add . && git commit -m "linux-doctor 0.1.0" && git push
+git add . && git commit -m "linux-doctor 0.2.0" && git push
 ```
 
 ## Fedora / RHEL (COPR)
@@ -45,6 +45,22 @@ A `deb` needs a proper maintainer setup (`debian/` control files + `dpkg-buildpa
 The easiest path for now: the npm tarball plus a `/usr/bin` symlink, or a
 `.deb` generated from the same layout as the RPM spec (install to
 `/usr/lib/linux-doctor`).
+
+## GUI: .desktop launcher
+
+The Tauri app (`npm run gui:build`) produces a binary named `linux-doctor` and
+the deb/rpm bundles it generates carry their own `.desktop` entry. For the
+AppImage (which has no menu entry by default) or manual installs, ship the
+launcher in this directory:
+
+```bash
+install -Dm644 packaging/linux-doctor.desktop ~/.local/share/applications/linux-doctor.desktop
+install -Dm644 src-tauri/icons/128x128.png ~/.local/share/icons/hicolor/128x128/apps/linux-doctor.png
+update-desktop-database ~/.local/share/applications 2>/dev/null || true
+```
+
+The desktop file expects the `linux-doctor` GUI binary on `PATH`, and the app
+itself needs `node` on `PATH` (see the README) to run the checks.
 
 ## No Node on the target? (optional)
 
