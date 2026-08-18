@@ -42,18 +42,9 @@
   }
   h1 { font-size: 20px; font-weight: 750; letter-spacing: -0.025em; line-height: 1.2; }
   .sysinfo { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
-  .statusrow { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-  .statuspill {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
-    color: var(--muted); border: 1px solid var(--border); background: var(--card);
-    border-radius: 999px; padding: 1px 9px; white-space: nowrap;
-  }
-  .statuspill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
-  .statuspill .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 20%, transparent); }
-  .verpill {
-    font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border);
-    border-radius: 6px; padding: 1px 6px; background: var(--card);
-  }
+  .sysinfo .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); vertical-align: 1px; margin-right: 5px; }
+  .sysinfo .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 20%, transparent); }
+  .sysinfo .ver { font-family: var(--mono); }
   .actions { margin-left: auto; display: flex; gap: 7px; }
   button {
     background: var(--card2); color: var(--text); border: 1px solid var(--border);
@@ -95,6 +86,7 @@
   .stat span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; }
   .stat.red b { color: var(--red); } .stat.yellow b { color: var(--yellow); }
   .stat.blue b { color: var(--blue); } .stat.new b { color: var(--purple); } .stat.fixed b { color: var(--green); }
+  .stat[data-sev].active { border-color: var(--accent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
   /* Toolbar: severity filters + live search. */
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   .filters { display: flex; gap: 5px; }
@@ -104,6 +96,7 @@
   .fpill.medium.active { background: linear-gradient(180deg, color-mix(in srgb, var(--yellow) 70%, #000), var(--yellow)); border-color: var(--yellow); color: #201400; }
   .fpill.info.active { background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 70%, #000), var(--blue)); border-color: var(--blue); }
   #search { flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 6px 12px; color: var(--text); font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .toolbtn { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
   #search::placeholder { color: var(--muted); }
   #search:focus { outline: none; border-color: var(--accent); }
   /* Findings: single column, centered for readability. Groups stack cleanly. */
@@ -187,16 +180,11 @@
     <span class="logo">🩺</span>
     <div>
       <h1>Linux Doctor</h1>
-      <div class="sysinfo" id="sysinfo">Loading system info…</div>
-      <div class="statusrow">
-        <span class="statuspill" id="statuspill"><span class="dot" id="statusdot"></span><span id="statuspill-txt">Loading…</span></span>
-        <span class="verpill" id="verpill"></span>
-      </div>
+      <div class="sysinfo" id="sysinfo">Loading…</div>
     </div>
     <div class="actions">
       <button id="theme" title="Theme">🌓</button>
       <button id="export" title="Copy the report as Markdown">⧉ Copy</button>
-      <button id="expandall">⊞ Expand all</button>
       <button id="rerun" class="primary">↻ Re-run checks</button>
     </div>
   </header>
@@ -205,6 +193,7 @@
   <div class="toolbar">
     <div class="filters" id="filters"></div>
     <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false">
+    <button id="expandall" class="toolbtn">⊞ Expand all</button>
   </div>
   <div id="filterbar" class="filterbar" hidden><span id="filterbar-txt"></span><button id="filterbar-clear" type="button">Clear</button></div>
   <div id="trend" hidden></div>
@@ -437,6 +426,15 @@ function applyFilters() {
   const qRaw = $("#search").value.trim();
   nomatch.hidden = !(activeFilter && qRaw && visible === 0);
   if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
+  syncCardActive();
+}
+
+// The active severity chip highlights its matching summary card, linking the
+// "state" layer (cards) to the "control" layer (chips) so they read as one.
+function syncCardActive() {
+  document.querySelectorAll("#summary .stat[data-sev]").forEach((s) => {
+    s.classList.toggle("active", activeFilter === s.dataset.sev);
+  });
 }
 
 $("#filterbar-clear").addEventListener("click", () => {
@@ -534,9 +532,13 @@ function reportMarkdown(data) {
 function render(data) {
   lastData = data;
   const { findings = [], system = {} } = data;
-  $(".sysinfo").textContent = system.distro + " · " + system.kernel + " · " + (system.cores || "?") + " core(s) · up " + system.uptime +
+  const ver = (data.version || "").replace(/^v/, "");
+  $(".sysinfo").innerHTML =
+    [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · ") +
     (typeof data.score === "number" ? " · Health " + data.score + "/100" +
-      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : "") : "");
+      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : "") : "") +
+    ' · <span class="dot" id="statusdot"></span><span id="statuspill-txt"></span>' +
+    (ver ? ' · <span class="ver">v' + ver + "</span>" : "");
   const count = (s) => findings.filter((f) => f.severity === s).length;
   const high = count("high"), med = count("medium"), inf = count("info");
 
@@ -587,17 +589,15 @@ function render(data) {
     '<div class="hero-main"><div class="k">Health</div>' +
     '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
     '<div class="hero-stats">' +
-    '<div class="stat red"><b>' + high + '</b><span>high</span></div>' +
-    '<div class="stat yellow"><b>' + med + '</b><span>medium</span></div>' +
-    '<div class="stat blue"><b>' + inf + '</b><span>info</span></div>' +
+    '<div class="stat red" data-sev="high"><b>' + high + '</b><span>high</span></div>' +
+    '<div class="stat yellow" data-sev="medium"><b>' + med + '</b><span>medium</span></div>' +
+    '<div class="stat blue" data-sev="info"><b>' + inf + '</b><span>info</span></div>' +
     (data.newCount > 0 ? '<div class="stat new"><b>' + data.newCount + '</b><span>new</span></div>' : "") +
     (data.fixedCount > 0 ? '<div class="stat fixed"><b>' + data.fixedCount + '</b><span>fixed</span></div>' : "") +
     '</div>';
   animateScore(score);
   renderFilters({ high, medium: med, info: inf });
 
-  // Header: freshness pill + version badge.
-  $("#verpill").textContent = (data.version || "").replace(/^v/, "") ? "v" + data.version.replace(/^v/, "") : "";
   if (data.generatedAt) {
     setStatus(data.generatedAt);
     clearInterval(statusTimer);
