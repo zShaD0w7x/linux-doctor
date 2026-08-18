@@ -50,6 +50,18 @@
   .newbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #16131c; background: #c792ea; border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
   .lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; flex-shrink: 0; }
   .checkid { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+  /* Summary cards: score gauge + one card per severity. */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .sumcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+  .sumcard .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+  .sumcard .v { font-size: 24px; font-weight: 800; line-height: 1.1; margin-top: 3px; }
+  .sumcard.red .v { color: var(--red); } .sumcard.yellow .v { color: var(--yellow); }
+  .sumcard.blue .v { color: var(--blue); } .sumcard.new .v { color: #c792ea; }
+  .scorecard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+  .scorecard .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+  .scorenum { font-size: 34px; font-weight: 800; line-height: 1.05; margin-top: 3px; }
+  .scoredelta { font-size: 13px; font-weight: 700; margin-top: 4px; }
+  .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
   .group { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
   .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
   .group summary::-webkit-details-marker { display: none; }
@@ -91,6 +103,9 @@
   .trendtitle { font-size: 13px; color: var(--muted); }
   .trendtitle b { color: var(--text); }
   #trend svg { flex-shrink: 0; }
+  #trend .trend-wrap { display: flex; align-items: center; gap: 16px; width: 100%; }
+  #trend .trend-dots { display: flex; gap: 2px; }
+  #trend .trend-dots i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 </style>
 </head>
 <body>
@@ -103,14 +118,19 @@
     </div>
     <div class="actions">
       <button id="theme" title="Theme">🌓</button>
+      <button id="export" title="Copy the report as Markdown">⧉ Copy</button>
       <button id="expandall">⊞ Expand all</button>
       <button id="rerun" class="primary">↻ Re-run checks</button>
     </div>
   </header>
   <div id="banner" class="banner">Running checks…</div>
-  <div class="chips" id="chips"></div>
+  <div class="summary" id="summary"></div>
   <div id="trend" hidden></div>
   <div id="report"><div class="empty">Running checks…</div></div>
+  <div id="skipped" class="group" hidden>
+    <summary>Checks that were skipped on this system <b id="skipped-count"></b><span class="chev">▸</span></summary>
+    <div class="group-body" id="skipped-body"></div>
+  </div>
   <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate findings · <kbd>Enter</kbd> open/close</footer>
 </div>
 <script>
@@ -121,6 +141,10 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
 const expandBtn = $("#expandall");
 const themeBtn = $("#theme");
+// True inside the Tauri desktop app, where the report is served over loopback
+// HTTP on 17321. In a plain browser (--web) that port does not exist, so we
+// skip the probes entirely instead of logging connection errors.
+const isDesktop = () => typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 // The last fetched report, kept so the Ignore button can re-render locally
 // (filtering one finding out) instead of re-running all checks.
 let lastData = null;
@@ -147,11 +171,13 @@ applyTheme();
 async function fetchReport() {
   // Desktop app: the Rust shell serves the report over loopback HTTP.
   // Try it first, then fall back to the browser dashboard endpoint (--web).
-  try {
-    const res = await fetch("http://127.0.0.1:17321/report", { cache: "no-store" });
-    if (res.ok) return res.json();
-  } catch {
-    /* not running inside the desktop app */
+  if (isDesktop()) {
+    try {
+      const res = await fetch("http://127.0.0.1:17321/report", { cache: "no-store" });
+      if (res.ok) return res.json();
+    } catch {
+      /* loopback server not up yet */
+    }
   }
   const res = await fetch("/api/report", { cache: "no-store" });
   if (!res.ok) throw new Error("HTTP " + res.status);
@@ -186,10 +212,12 @@ async function load() {
 async function renderTrend() {
   const trend = $("#trend");
   let runs = [];
-  try {
-    const res = await fetch("http://127.0.0.1:17321/history", { cache: "no-store" });
-    if (res.ok) runs = (await res.json()).runs || [];
-  } catch { /* not inside the desktop app */ }
+  if (isDesktop()) {
+    try {
+      const res = await fetch("http://127.0.0.1:17321/history", { cache: "no-store" });
+      if (res.ok) runs = (await res.json()).runs || [];
+    } catch { /* loopback server not up yet */ }
+  }
   if (!runs.length) {
     try {
       const res = await fetch("/api/history", { cache: "no-store" });
@@ -200,30 +228,122 @@ async function renderTrend() {
   trend.hidden = scores.length < 2;
   if (trend.hidden) return;
 
-  const W = 240, H = 40, pad = 4;
+  const W = 240, H = 44, pad = 4;
   const min = Math.min(...scores), max = Math.max(...scores);
   const span = Math.max(1, max - min);
   const pts = scores.map((s, i) => {
     const x = pad + (i * (W - 2 * pad)) / (scores.length - 1);
     const y = H - pad - ((s - min) / span) * (H - 2 * pad);
-    return x.toFixed(1) + "," + y.toFixed(1);
+    return [x.toFixed(1), y.toFixed(1)];
   });
   const last = scores[scores.length - 1];
   const color = last >= 80 ? "var(--green)" : last >= 50 ? "var(--yellow)" : "var(--red)";
-  const end = pts[pts.length - 1].split(",");
+  const line = pts.map((p) => p.join(",")).join(" ");
+  // Area chart: the same polyline closed down to the bottom edge.
+  const area = "M" + line.replace(/ /g, " L") + " L" + (W - pad) + "," + (H - pad) + " L" + pad + "," + (H - pad) + " Z";
+  // Tooltip: one transparent circle per point, wide hit area, native <title>.
+  const dots = pts.map((p, i) =>
+    '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="transparent" style="cursor:crosshair">' +
+    '<title>' + scores[i] + '/100 · run ' + (i + 1) + ' of ' + scores.length + '</title></circle>');
+  const end = pts[pts.length - 1];
   trend.innerHTML =
+    '<div class="trend-wrap">' +
     '<div class="trendtitle">Health score · last ' + scores.length + ' run(s): <b>' + last + '/100</b></div>' +
     '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Health score trend">' +
-    '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="' + area + '" fill="' + color + '" opacity="0.18"/>' +
+    '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    dots.join("") +
     '<circle cx="' + end[0] + '" cy="' + end[1] + '" r="3" fill="' + color + '"/>' +
-    '</svg>';
+    '</svg>' +
+    '</div>';
+}
+
+// Animated count-up for the score card. Cheap (one element, ~700ms).
+function animateScore(target) {
+  const el = $("#scorenum");
+  if (!el) return;
+  const t0 = performance.now();
+  const dur = 700;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur);
+    // Ease-out so the big jump at the start reads as "counting up".
+    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// "Checks that were skipped on this system": pull /api/checks (the web server
+// serves it; the desktop app returns nothing, so the section stays hidden).
+async function renderSkipped() {
+  const box = $("#skipped");
+  let checks = [];
+  if (isDesktop()) {
+    try {
+      const res = await fetch("http://127.0.0.1:17321/checks", { cache: "no-store" });
+      if (res.ok) checks = (await res.json()).checks || [];
+    } catch { /* loopback server not up yet */ }
+  }
+  if (!checks.length) {
+    try {
+      const res = await fetch("/api/checks", { cache: "no-store" });
+      if (res.ok) checks = (await res.json()).checks || [];
+    } catch { /* no checks endpoint */ }
+  }
+  const skipped = checks.filter((c) => !c.appliesHere);
+  box.hidden = !skipped.length;
+  if (!skipped.length) return;
+  $("#skipped-count").textContent = skipped.length;
+  $("#skipped-body").innerHTML = skipped.map((c) =>
+    '<div class="card info"><summary><span class="badge info">skipped</span>' +
+    '<h3>' + esc(c.title) + '</h3><span class="checkid">' + esc(c.id) + '</span>' +
+    '<span class="chev">▸</span></summary>' +
+    '<div class="card-body"><div class="detail">Only runs on: ' + esc(c.appliesTo.join(", ")) + '.</div></div></div>'
+  ).join("");
+}
+
+// Export: copy the whole report as Markdown. Plain text in the clipboard, so
+// it pastes into issues, Slack, notes — wherever.
+function reportMarkdown(data) {
+  const { system = {}, findings = [] } = data;
+  const lines = [];
+  lines.push("# Linux Doctor report");
+  lines.push("");
+  lines.push("- **System:** " + [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · "));
+  if (typeof data.score === "number") {
+    lines.push("- **Health:** " + data.score + "/100" +
+      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : ""));
+  }
+  lines.push("- **Checks:** " + (data.checksRun ?? "?") + " ran, " + (data.checksSkipped ?? 0) + " skipped");
+  lines.push("");
+  const order = ["high", "medium", "info"];
+  const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
+  let count = 0;
+  for (const sev of order) {
+    const group = findings.filter((f) => f.severity === sev);
+    if (!group.length) continue;
+    lines.push("## " + names[sev] + " (" + group.length + ")");
+    lines.push("");
+    for (const f of group) {
+      count++;
+      lines.push((count) + ". **" + (f.title || "") + "**" + (f.code ? " (`" + f.code + "`)" : ""));
+      if (f.detail) lines.push("   - Detail: " + f.detail);
+      if (f.evidence) lines.push("   - Evidence: " + f.evidence);
+      // Fix text itself may contain backticks, so no inline code fence here.
+      if (f.fix) lines.push("   - Fix: " + f.fix);
+      lines.push("");
+    }
+  }
+  if (!count) lines.push("No findings.");
+  return lines.join("\n");
 }
 
 function render(data) {
   lastData = data;
   const { findings = [], system = {} } = data;
   $(".sysinfo").textContent = system.distro + " · " + system.kernel + " · " + (system.cores || "?") + " core(s) · up " + system.uptime +
-    (typeof data.score === "number" ? " · Health " + data.score + "/100" : "");
+    (typeof data.score === "number" ? " · Health " + data.score + "/100" +
+      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : "") : "");
   const count = (s) => findings.filter((f) => f.severity === s).length;
   const high = count("high"), med = count("medium"), inf = count("info");
 
@@ -252,13 +372,19 @@ function render(data) {
       (high > 0 ? "Start with the HIGH ones." : "Worth taking a look.");
   }
 
-  // Icons on the chips (not just color) so the report reads fine for
+  // Icons on the summary cards (not just color) so the report reads fine for
   // color-blind users: 🔴 red circle, 🟡 yellow circle, 🔵 blue circle.
-  $("#chips").innerHTML =
-    '<span class="chip red">🔴 <b>' + high + '</b> high</span>' +
-    '<span class="chip yellow">🟡 <b>' + med + '</b> medium</span>' +
-    '<span class="chip blue">🔵 <b>' + inf + '</b> info</span>' +
-    (data.newCount > 0 ? '<span class="chip new">✨ <b>' + data.newCount + '</b> new</span>' : "");
+  const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
+  const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
+  const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "▲ +" + scoreDelta : scoreDelta < 0 ? "▼ " + scoreDelta : "◆ no change";
+  $("#summary").innerHTML =
+    '<div class="scorecard"><div class="k">Health</div><div class="scorenum" id="scorenum">0</div>' +
+    '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
+    '<div class="sumcard red"><div class="k">High</div><div class="v">🔴 ' + high + '</div></div>' +
+    '<div class="sumcard yellow"><div class="k">Medium</div><div class="v">🟡 ' + med + '</div></div>' +
+    '<div class="sumcard blue"><div class="k">Info</div><div class="v">🔵 ' + inf + '</div></div>' +
+    (data.newCount > 0 ? '<div class="sumcard new"><div class="k">New since last check</div><div class="v">✨ ' + data.newCount + '</div></div>' : "");
+  animateScore(typeof data.score === "number" ? data.score : 0);
 
   const order = ["high", "medium", "info"];
   const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
@@ -297,6 +423,7 @@ function render(data) {
   }
   $("#report").innerHTML = html || '<div class="empty">No findings.</div>';
   renderTrend();
+  renderSkipped();
 }
 
 async function copyText(text) {
@@ -387,6 +514,17 @@ expandBtn.addEventListener("click", () => {
 });
 
 $("#rerun").addEventListener("click", load);
+
+// Export: copy the report as Markdown.
+const exportBtn = $("#export");
+exportBtn.addEventListener("click", async () => {
+  if (!lastData) return;
+  await copyText(reportMarkdown(lastData));
+  const old = exportBtn.textContent;
+  exportBtn.textContent = "✓ Copied";
+  setTimeout(() => (exportBtn.textContent = old), 1200);
+});
+
 load();
 </script>
 </body>

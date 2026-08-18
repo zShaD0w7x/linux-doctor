@@ -444,15 +444,29 @@ export async function main(argv) {
     const server = await startWeb({
       collect: async () => attachHistory(await collect(), { save: false }),
       history: loadHistory,
+      checkList: async () => {
+        const profile = await detectProfile();
+        return checks.map((c) => ({
+          id: c.id,
+          title: c.title,
+          category: c.category,
+          appliesTo: c.appliesTo,
+          appliesHere: c.appliesTo.includes(profile.kind),
+        }));
+      },
       // The dashboard endpoint serves the same versioned payload as --json,
       // so scripts that read /api/report get schemaVersion/tool/version too.
       render: (data) => renderJson(data.findings, data.system, {
         generatedAt: data.generatedAt,
         score: data.score,
+        scoreDelta: data.scoreDelta,
+        previousScore: data.previousScore,
         newCount: data.newCount,
         fixedCount: data.fixedCount,
         diffSinceLast: data.diffSinceLast,
         counts: data.counts,
+        checksRun: data.checksRun,
+        checksSkipped: data.checksSkipped,
       }),
     });
     await new Promise((resolve) => {

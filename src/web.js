@@ -14,7 +14,7 @@ import { addIgnore } from "./ignore.js";
  * `quiet` suppresses the URL banner on stdout — needed when embedding the
  * server in tests, where stdout must stay a clean TAP stream.
  */
-export async function startWeb({ collect, history = () => [], port = 0, open = true, quiet = false, render = (d) => d }) {
+export async function startWeb({ collect, history = () => [], checkList = async () => [], port = 0, open = true, quiet = false, render = (d) => d }) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/report") {
@@ -35,6 +35,17 @@ export async function startWeb({ collect, history = () => [], port = 0, open = t
     if (url.pathname === "/api/history" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
       res.end(JSON.stringify({ runs: history() }));
+      return;
+    }
+    if (url.pathname === "/api/checks" && req.method === "GET") {
+      try {
+        const checks = await checkList();
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ checks }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
     if (url.pathname === "/api/ignore" && req.method === "POST") {

@@ -34,12 +34,13 @@ try {
 
   const banner = await page.textContent("#banner");
   const cards = await page.locator("#report .card").count();
-  const chips = await page.locator("#chips .chip").count();
+  const sumcards = await page.locator("#summary .sumcard").count();
+  const score = await page.textContent("#scorenum");
   const sysinfo = await page.textContent("#sysinfo");
 
   console.log("banner:", banner.trim());
   console.log("sysinfo:", sysinfo.trim());
-  console.log("cards rendered:", cards, "| severity chips:", chips);
+  console.log("cards rendered:", cards, "| summary cards:", sumcards, "| score:", score.trim());
   console.log("console errors:", consoleErrors.length);
   for (const e of consoleErrors) console.log("  [console] " + e);
   console.log("page errors:", pageErrors.length);
