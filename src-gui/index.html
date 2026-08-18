@@ -89,9 +89,9 @@
   .hero-main .k { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
   .scoredelta { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
   .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
-  .hero-stats { margin-left: auto; display: flex; gap: 6px; align-items: stretch; }
-  .stat { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 4px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; }
-  .stat b { font-size: 17px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .hero-stats { flex: 1; margin-left: 24px; display: flex; gap: 8px; align-items: stretch; }
+  .stat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 5px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; }
+  .stat b { font-size: 18px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
   .stat span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; }
   .stat.red b { color: var(--red); } .stat.yellow b { color: var(--yellow); }
   .stat.blue b { color: var(--blue); } .stat.new b { color: var(--purple); } .stat.fixed b { color: var(--green); }
@@ -107,9 +107,9 @@
   #search { flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 6px 12px; color: var(--text); font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
   #search::placeholder { color: var(--muted); }
   #search:focus { outline: none; border-color: var(--accent); }
-  /* Findings: two columns on wide screens, one on narrow. */
-  #report { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
-  #report > .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 0; }
+  /* Findings: single column, centered for readability. Groups stack cleanly. */
+  #report { display: flex; flex-direction: column; gap: 10px; max-width: 720px; margin: 0 auto; }
+  #report > .empty { text-align: center; color: var(--muted); padding: 40px 0; }
   .group { background: linear-gradient(180deg, var(--card), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
   .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 13px; cursor: pointer; user-select: none; font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
   .group summary::-webkit-details-marker { display: none; }
@@ -152,13 +152,15 @@
   .trendtitle b { color: var(--text); }
   #trend svg { flex-shrink: 0; }
   #trend .trend-wrap { display: flex; align-items: center; gap: 14px; width: 100%; }
+  #trend { max-width: 720px; margin-left: auto; margin-right: auto; }
+  #fixed, #skipped { max-width: 720px; margin-left: auto; margin-right: auto; }
+  #fixed, #skipped { margin-bottom: 10px; }
   @media (max-width: 700px) {
     header { flex-wrap: wrap; }
     .actions { margin-left: 0; width: 100%; }
-    #report { grid-template-columns: 1fr; }
-    .hero-stats { gap: 4px; }
-    .stat { min-width: 44px; padding: 3px 8px; }
-    #summary { gap: 12px; padding: 10px 14px; }
+    .hero-stats { gap: 4px; margin-left: 0; margin-top: 10px; }
+    .stat { min-width: 0; padding: 3px 8px; }
+    #summary { flex-wrap: wrap; gap: 12px; padding: 10px 14px; }
   }
 </style>
 </head>
@@ -522,11 +524,11 @@ function render(data) {
     '<div class="hero-main"><div class="k">Health</div>' +
     '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
     '<div class="hero-stats">' +
-    '<div class="stat red"><b>🔴 ' + high + '</b><span>high</span></div>' +
-    '<div class="stat yellow"><b>🟡 ' + med + '</b><span>medium</span></div>' +
-    '<div class="stat blue"><b>🔵 ' + inf + '</b><span>info</span></div>' +
-    (data.newCount > 0 ? '<div class="stat new"><b>✨ ' + data.newCount + '</b><span>new</span></div>' : "") +
-    (data.fixedCount > 0 ? '<div class="stat fixed"><b>✅ ' + data.fixedCount + '</b><span>fixed</span></div>' : "") +
+    '<div class="stat red"><b>' + high + '</b><span>high</span></div>' +
+    '<div class="stat yellow"><b>' + med + '</b><span>medium</span></div>' +
+    '<div class="stat blue"><b>' + inf + '</b><span>info</span></div>' +
+    (data.newCount > 0 ? '<div class="stat new"><b>' + data.newCount + '</b><span>new</span></div>' : "") +
+    (data.fixedCount > 0 ? '<div class="stat fixed"><b>' + data.fixedCount + '</b><span>fixed</span></div>' : "") +
     '</div>';
   animateScore(score);
   renderFilters({ high, medium: med, info: inf });
