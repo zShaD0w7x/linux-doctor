@@ -64,6 +64,13 @@ export function saveRun(run, file = historyFile()) {
   }
 }
 
+/** Score of the most recent previous run, or null when there is no history. */
+export function previousScore(runs) {
+  const prev = runs[runs.length - 1];
+  if (!prev || typeof prev.score !== "number") return null;
+  return prev.score;
+}
+
 /**
  * Stable identity of a finding for history diffing: its explicit `code` when
  * one exists, otherwise the title. Matching by code matters because many

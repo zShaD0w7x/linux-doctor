@@ -1,14 +1,14 @@
 import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { run, runPool, slugify } from "./utils.js";
+import { run, runPool, slugify, lines } from "./utils.js";
 import { checks as CHECKS } from "./checks/index.js";
 import { systemInfo } from "./checks/system.js";
-import { renderReport, renderJson, renderPlain, SEV_ORDER } from "./report.js";
+import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER } from "./report.js";
 import { aiSummary } from "./llm.js";
 import { pushReport } from "./fleet.js";
 import { startWeb } from "./web.js";
-import { score, loadHistory, diffSinceLast, saveRun } from "./history.js";
+import { score, loadHistory, diffSinceLast, saveRun, previousScore } from "./history.js";
 import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored } from "./ignore.js";
 import { loadConfig } from "./config.js";
 import { loadThresholds } from "./thresholds.js";
@@ -59,6 +59,40 @@ function formatChecksForSystem(checks, profile) {
     }
   }
   return lines.join("\n");
+}
+
+/** --self-test: explain the environment — distro, profile, tools, and which
+ * checks will actually run (and why others will not). Read-only, no run. */
+async function runSelfTest(checks) {
+  const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
+  const out = [];
+  out.push("# linux-doctor --self-test");
+  out.push("");
+  out.push(`Distro: ${system.distro} (family: ${system.family}${system.imageBased ? ", image-based: yes" : ""})`);
+  out.push(`Profile: ${profile.kind}`);
+  out.push(`Kernel: ${system.kernel} · ${system.cores} core(s) · up ${system.uptime}`);
+
+  const toolsRes = await run(
+    "for t in systemctl journalctl coredumpctl loginctl timedatectl lspci lsblk smartctl free nproc glxinfo pactl ip nft podman docker dnf apt pacman zypper rpm-ostree borg restic; do command -v \"$t\" 2>/dev/null; done"
+  );
+  const present = lines(toolsRes.stdout).map((p) => p.split("/").pop()).filter(Boolean);
+  out.push(`Tools present: ${present.length > 0 ? present.join(", ") : "(none found)"}`);
+  out.push("");
+
+  const willRun = [];
+  const skipped = [];
+  for (const c of checks) {
+    (c.appliesTo.includes(profile.kind) ? willRun : skipped).push(c);
+  }
+  out.push(`Checks: ${willRun.length} will run here, ${skipped.length} will not.`);
+  out.push("");
+  if (skipped.length > 0) {
+    out.push("Checks that will NOT run on this machine:");
+    for (const c of skipped) out.push(`  ${c.id} — ${c.title} (applies to ${c.appliesTo.join("/")})`);
+    out.push("");
+  }
+  out.push(`Checks that will run:\n  ${willRun.map((c) => c.id).join(", ")}`);
+  return out.join("\n");
 }
 
 /** Starter config with commented thresholds — written by --init-config. */
@@ -171,6 +205,8 @@ OPTIONS
   --json         print findings as JSON (machine-readable)
   --plain        print plain, tab-separated text (no colors/emoji; grep-friendly)
   --summary      one-liner: score + severity counts (for cron/scripts)
+  --todo         numbered, copy-pasteable list of what to run, in order
+  --self-test    explain the environment: distro, profile, which checks run
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
   --html <path>  save a standalone HTML report (open in any browser)
@@ -292,6 +328,11 @@ export async function main(argv) {
     return 0;
   }
 
+  if (args.selfTest) {
+    console.log(await runSelfTest(checks));
+    return 0;
+  }
+
   const unknown = args.checkIds.find((id) => !checks.some((c) => c.id === id));
   if (unknown) {
     console.error(`Unknown check "${unknown}". Run with --help to list checks.`);
@@ -364,12 +405,14 @@ export async function main(argv) {
     const counts = { high: 0, medium: 0, info: 0 };
     for (const f of data.findings) if (f.severity in counts) counts[f.severity] += 1;
     const sc = score(data.findings);
+    const prevSc = previousScore(runs);
+    const scoreDelta = typeof sc === "number" && typeof prevSc === "number" ? sc - prevSc : null;
 
     // Subset runs (--check) are not comparable to a full run — their findings
     // differ by construction — so they neither move the history forward nor
     // claim things are new or fixed. Full runs only.
     if (args.checkIds.length > 0) {
-      return { ...data, score: sc, counts, newCount: 0, fixedCount: 0, diffSinceLast: { added: [], fixed: [] } };
+      return { ...data, score: sc, scoreDelta: null, previousScore: null, counts, newCount: 0, fixedCount: 0, diffSinceLast: { added: [], fixed: [] } };
     }
 
     const diff = diffSinceLast(data.findings, runs);
@@ -387,6 +430,8 @@ export async function main(argv) {
     return {
       ...data,
       score: sc,
+      scoreDelta,
+      previousScore: prevSc,
       counts,
       newCount: diff.added.length,
       fixedCount: diff.fixed.length,
@@ -427,11 +472,20 @@ export async function main(argv) {
   if (args.summary) {
     const { high, medium, info } = report.counts;
     const parts = [`score=${sc}`];
+    if (typeof report.scoreDelta === "number") {
+      parts.push(report.scoreDelta > 0 ? `delta=+${report.scoreDelta}` : `delta=${report.scoreDelta}`);
+    }
     if (high > 0) parts.push(`high=${high}`);
     if (medium > 0) parts.push(`medium=${medium}`);
     if (info > 0) parts.push(`info=${info}`);
     if (newCount > 0) parts.push(`new=${newCount}`);
     console.log(parts.join(" "));
+    return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
+  }
+
+  // --todo: just the fix steps, numbered, in priority order.
+  if (args.todo) {
+    console.log(renderTodo(findings));
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
@@ -469,6 +523,8 @@ export async function main(argv) {
       const jsonPayload = renderJson(findings, system, {
         generatedAt: report.generatedAt,
         score: sc,
+        scoreDelta: report.scoreDelta,
+        previousScore: report.previousScore,
         newCount,
         fixedCount: report.fixedCount,
         diffSinceLast: report.diffSinceLast,
@@ -494,6 +550,8 @@ export async function main(argv) {
     console.log(renderJson(displayFindings, system, {
       generatedAt: report.generatedAt,
       score: sc,
+      scoreDelta: report.scoreDelta,
+      previousScore: report.previousScore,
       newCount,
       fixedCount: report.fixedCount,
       diffSinceLast: report.diffSinceLast,
@@ -509,7 +567,7 @@ export async function main(argv) {
   }
 
   if (args.plain) {
-    let out = renderPlain(displayFindings, { system, score: sc, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
+    let out = renderPlain(displayFindings, { system, score: sc, scoreDelta: report.scoreDelta, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
     if (args.profile) out += "\n" + formatPlainDurations(report.checkDurations);
     console.log(out);
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;

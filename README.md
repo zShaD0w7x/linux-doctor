@@ -71,7 +71,9 @@ sudo systemctl enable --now linux-doctor.timer
 --check-list      list checks as JSON (id, title, category, appliesTo)
 --json            machine-readable JSON output (great for scripting)
 --plain           plain, tab-separated text — no colors/emoji, grep-friendly
---summary         one-liner: score + severity counts (for cron/scripts)
+--summary         one-liner: score + severity counts + delta (for cron/scripts)
+--todo            numbered, copy-pasteable list of what to run, in order
+--self-test       explain the environment: distro, profile, which checks run
 --web             open the visual dashboard in your browser (recommended)
 --ai              add an AI summary in plain English (needs LLM_API_KEY)
 --html <path>     save a standalone HTML report (open in any browser)

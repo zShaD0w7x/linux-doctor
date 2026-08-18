@@ -104,17 +104,44 @@ export async function renderReport(findings, { aiSummary, system, score, newCoun
 }
 
 /**
+ * --todo: a flat, numbered, severity-ordered list of the actionable steps —
+ * just the findings that come with a fix. One line per step, copy-pasteable,
+ * so a user gets "what do I run, in order" without reading the full report.
+ */
+export function renderTodo(findings) {
+  const out = [];
+  out.push("# linux-doctor --todo");
+  out.push("# Steps to fix the issues found, in priority order.");
+  out.push("");
+  let n = 0;
+  for (const sev of SEV_ORDER) {
+    for (const f of findings.filter((x) => x.severity === sev)) {
+      if (!f.fix) continue;
+      n += 1;
+      out.push(`${n}. [${sev}] ${f.title}`);
+      out.push(`   ${f.fix}`);
+      out.push("");
+    }
+  }
+  if (n === 0) out.push("Nothing to fix — no findings came with an action.");
+  return out.join("\n");
+}
+
+/**
  * Render findings as plain, tab-separated lines — no colors, no emoji, no
  * box drawing — so the output plays well with grep/awk and dumb terminals.
  * Metadata goes to `#` comment lines; each finding is one row of
  * `severity<TAB>number<TAB>title`, with `detail`/`fix` rows right after it.
  */
-export function renderPlain(findings, { system, score, newCount, fixedCount, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped } = {}) {
+export function renderPlain(findings, { system, score, scoreDelta, newCount, fixedCount, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped } = {}) {
   const flat = (s) => String(s ?? "").replace(/\t/g, " ").replace(/\s*\n\s*/g, " | ").trim();
   const out = [];
   out.push("# linux-doctor");
   if (system) out.push(`# system: ${system.distro} · kernel ${system.kernel} · ${system.cores} core(s) · up ${system.uptime}`);
-  if (typeof score === "number") out.push(`# score: ${score}/100`);
+  if (typeof score === "number") {
+    const delta = typeof scoreDelta === "number" ? (scoreDelta >= 0 ? ` (+${scoreDelta})` : ` (${scoreDelta})`) : "";
+    out.push(`# score: ${score}/100${delta}`);
+  }
   if (newCount > 0) out.push(`# new: ${newCount}`);
   if (fixedCount > 0) out.push(`# fixed: ${fixedCount}`);
   if (ignoredCount > 0) out.push(`# ignored: ${ignoredCount}`);

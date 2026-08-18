@@ -30,7 +30,15 @@ Print findings as JSON (machine-readable, schema version 1).
 Print plain, tab-separated text (no colors/emoji; grep-friendly).
 .TP
 .BR \-\-summary
-Print a one-liner with score and severity counts (for cron/scripts).
+Print a one-liner with score, severity counts, and score delta vs the
+previous run (for cron/scripts).
+.TP
+.BR \-\-todo
+Print a numbered, copy-pasteable list of the fix steps, in priority order.
+.TP
+.BR \-\-self\-test
+Explain the environment: distro, profile, tools present, and which checks
+will run (and why others will not).
 .TP
 .BR \-\-web
 Open the visual dashboard in your browser.

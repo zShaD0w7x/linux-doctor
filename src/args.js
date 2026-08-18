@@ -4,7 +4,7 @@
  * typo like `--jsonn` must never quietly run a full report.
  */
 const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity", "--compare"]);
-const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list"]);
+const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--todo", "--self-test"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -29,6 +29,8 @@ export function parseArgs(argv) {
     initConfig: false,
     checkList: false,
     comparePath: null,
+    todo: false,
+    selfTest: false,
     error: null,
   };
 

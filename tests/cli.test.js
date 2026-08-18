@@ -305,6 +305,59 @@ test("--check-list prints check metadata as JSON", () => {
   assert.equal(typeof mem.appliesHere, "boolean");
 });
 
+test("--todo prints a numbered fix list, ordered by severity", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-todo-"));
+  try {
+    writeFileSync(
+      join(dir, "fixes.js"),
+      "export default { id: 'fixes', title: 'Fixes', async run() { return [\n" +
+        "  { severity: 'info', title: 'Low thing', detail: null, evidence: null, fix: 'Run low-fix', confidence: 'high' },\n" +
+        "  { severity: 'medium', title: 'Med thing', detail: null, evidence: null, fix: 'Run med-fix', confidence: 'high' },\n" +
+        "  { severity: 'high', title: 'High thing', detail: null, evidence: null, fix: 'Run high-fix', confidence: 'high' }\n" +
+        "]; } };\n"
+    );
+    const env = { ...process.env, LINUX_DOCTOR_PLUGINS: dir };
+    const res = spawnSync(process.execPath, [bin, "--check", "fixes", "--todo"], { encoding: "utf8", timeout: 60000, env });
+    assert.equal(res.status, 1, res.stderr);
+    const out = res.stdout;
+    const hi = out.indexOf("[high] High thing");
+    const med = out.indexOf("[medium] Med thing");
+    const lo = out.indexOf("[info] Low thing");
+    assert.ok(hi >= 0 && med >= 0 && lo >= 0, "all three findings listed");
+    assert.ok(hi < med && med < lo, "steps ordered high → medium → info");
+    assert.match(out, /1\. \[high\]/);
+    assert.match(out, /Run high-fix/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--self-test explains the environment and which checks run", () => {
+  const res = run("--self-test");
+  assert.equal(res.status, 0);
+  assert.match(res.stdout, /^Distro:/m);
+  assert.match(res.stdout, /^Profile:/m);
+  assert.match(res.stdout, /Checks: \d+ will run here/);
+  assert.match(res.stdout, /Checks that will run:/);
+});
+
+test("--summary shows a score delta vs the previous run", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-delta-"));
+  const env = { ...process.env, LINUX_DOCTOR_HISTORY: join(dir, "history.json") };
+  try {
+    const first = spawnSync(process.execPath, [bin, "--summary"], { encoding: "utf8", timeout: 60000, env });
+    assert.equal(first.status, 1, "a full run on a real system usually has findings; exit 1 expected otherwise");
+    assert.match(first.stdout, /^score=\d+/);
+    assert.doesNotMatch(first.stdout, /delta=/, "first run has no previous score to compare against");
+
+    const second = spawnSync(process.execPath, [bin, "--summary"], { encoding: "utf8", timeout: 60000, env });
+    assert.equal(second.status, first.status);
+    assert.match(second.stdout, /delta=-?\d+/, "second run must carry a score delta");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("--init-config creates a starter config file", () => {
   const dir = mkdtempSync(join(tmpdir(), "ld-cli-initconfig-"));
   const prevConfig = process.env.LINUX_DOCTOR_CONFIG;
