@@ -8,6 +8,22 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **History v2 (Faza 2 — history as the core)**:
+  - The file wrapper now carries `version: 2` (v1 files still read fine).
+    Every saved finding is guaranteed to have its stable `code`; diffing
+    among coded entries is code-only, so rewritten titles can no longer
+    churn NEW/FIXED markers.
+  - **Repair-on-read**: a partially corrupted history keeps its well-formed
+    runs and drops only the broken entries (and broken finding rows inside
+    them); a truncated file degrades to "no history" instead of failing.
+  - **Upgrade bridge**: v1 entries stored without codes are matched by
+    title for their remaining lifetime in the window, so upgrading never
+    reads as everything-new-plus-everything-fixed at once. Reworded issues
+    surface exactly once during the transition, then identity is permanent.
+  - New `tests/output-parity.test.js` pins the one-computation contract:
+    CLI text, `--plain` and `--json` (and therefore the dashboard) must
+    render identical new/fixed/unchanged numbers from the same diff object,
+    and the score stays severity-driven regardless of history content.
 - **Severity rubric enforced (Faza 1 — findings trust)**: new
   [docs/severity.md](docs/severity.md) defines when a finding is high /
   medium / info, and `tests/codes-registry.test.js` pins every built-in code

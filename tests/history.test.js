@@ -192,3 +192,70 @@ test("loadHistory: missing or corrupt file returns an empty list", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("history v2: saveRun writes a versioned wrapper", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-hist-v2-"));
+  const file = join(dir, "history.json");
+  try {
+    saveRun({ at: "2026-08-22T00:00:00Z", score: 80, counts: {}, findings: [{ code: "a/b", severity: "info", title: "t" }] }, file);
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    assert.equal(parsed.version, 2);
+    assert.equal(loadHistory(file).length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("history repair-on-read: malformed entries drop, well-formed survive", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-hist-fix-"));
+  const file = join(dir, "history.json");
+  try {
+    writeFileSync(file, JSON.stringify({
+      version: 2,
+      runs: [
+        null,
+        { at: "no-score" },
+        { at: "2026-08-21T00:00:00Z", score: 90, findings: [{ code: "a/b", severity: "info", title: "ok" }, null, 42] },
+        { at: "2026-08-22T00:00:00Z", score: "garbage", findings: [] },
+        "not-an-object",
+      ],
+    }));
+    const runs = loadHistory(file);
+    assert.equal(runs.length, 1, "only the well-formed run survives");
+    assert.equal(runs[0].findings.length, 1, "broken finding entries are dropped, not the run");
+    // Truncated JSON → no history at all, never a throw.
+    writeFileSync(file, '{"version": 2, "runs": [{"at": "2026-08');
+    assert.deepEqual(loadHistory(file), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("upgrade path: v1 title-only history bridges where titles survive", () => {
+  const prevRuns = [{
+    at: "2026-08-01T00:00:00Z",
+    score: 70,
+    findings: [{ title: "3 services failed to start" }, { title: "Disk is getting full" }],
+  }];
+  const current = [
+    { code: "services/failed", severity: "medium", title: "2 services failed to start" }, // reworded → surfaces ONCE
+    { code: "disk/full", severity: "high", title: "Disk is getting full" }, // same wording → seamless
+    { code: "memory/low", severity: "high", title: "Low memory" }, // genuinely new
+  ];
+  const diff = diffSinceLast(current, prevRuns);
+  // Not an all-storm: identical-title legacy entries keep their identity…
+  assert.ok(diff.added.some((f) => f.code === "disk/full") === false);
+  // …while genuinely-new and REWORDED issues show up — bounded to the one
+  // transition run, never repeated afterwards (both sides now carry codes).
+  assert.deepEqual(diff.added.map((f) => f.code).sort(), ["memory/low", "services/failed"]);
+  assert.deepEqual(diff.fixed.map((f) => f.title), ["3 services failed to start"]);
+  assert.equal(diff.unchanged, 1);
+
+  // Once BOTH sides carry codes, identity is the code alone: a rewritten
+  // title with the same code stays unchanged forever.
+  const codedPrev = [{ at: "x", score: 70, findings: [{ code: "services/failed", severity: "medium", title: "old wording" }] }];
+  const d2 = diffSinceLast([{ code: "services/failed", severity: "medium", title: "brand new wording" }], codedPrev);
+  assert.deepEqual(d2.added, []);
+  assert.deepEqual(d2.fixed, []);
+  assert.equal(d2.unchanged, 1);
+});

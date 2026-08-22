@@ -18,6 +18,9 @@ export { historyFile };
 /** Keep only this many runs so the history file stays tiny. */
 export const HISTORY_LIMIT = 50;
 
+/** Wrapper schema version. v2 guarantees per-finding `code`; v1 files predate it. */
+export const HISTORY_VERSION = 2;
+
 /**
  * 0-100 health score: start at 100 and subtract the configured penalty per
  * finding (15 per high-severity, 8 per medium-severity), floor at 0.
@@ -44,11 +47,37 @@ export function score(findings) {
   return Math.max(0, 100 - penalty);
 }
 
-/** Load the list of past runs (oldest first). Never throws. */
+/**
+ * Shape-check one stored run. Returns a cleaned copy, or null when the run is
+ * too broken to use. Individual findings missing BOTH code and title are
+ * dropped rather than invalidating the whole run — partial corruption should
+ * lose as little history as possible.
+ */
+function coerceRun(run) {
+  if (!run || typeof run !== "object") return null;
+  if (typeof run.at !== "string" || run.at === "") return null;
+  if (typeof run.score !== "number" || !Number.isFinite(run.score)) return null;
+  if (!Array.isArray(run.findings)) return null;
+  const findings = run.findings.filter(
+    (f) => f && typeof f === "object" && (typeof f.code === "string" || typeof f.title === "string")
+  );
+  return { ...run, findings };
+}
+
+/** Load the list of past runs (oldest first). Never throws.
+ *
+ * Corruption policy: a truncated or garbage file yields [] (history is a
+ * bonus), but a file with SOME malformed entries keeps the well-formed ones —
+ * repair-on-read loses as little continuity as possible.
+ */
 export function loadHistory(file = historyFile()) {
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8"));
-    if (parsed && Array.isArray(parsed.runs)) return parsed.runs;
+    if (parsed && Array.isArray(parsed.runs)) {
+      // v2 files carry { version: 2, runs }; v1 files are just { runs }.
+      // Both are read the same way — the marker documents what writers emit.
+      return parsed.runs.map(coerceRun).filter(Boolean);
+    }
   } catch {
     /* missing or corrupt file — treat as no history */
   }
@@ -66,7 +95,7 @@ export function saveRun(run, file = historyFile()) {
     const trimmed = runs.slice(-HISTORY_LIMIT);
     mkdirSync(dirname(file), { recursive: true });
     const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ runs: trimmed }, null, 2) + "\n");
+    writeFileSync(tmp, JSON.stringify({ version: HISTORY_VERSION, runs: trimmed }, null, 2) + "\n");
     renameSync(tmp, file); // atomic on POSIX: readers see old or new, never partial
   } catch {
     try {
@@ -86,14 +115,27 @@ export function previousScore(runs) {
 }
 
 /**
- * Stable identity of a finding for history diffing: its explicit `code` when
- * one exists, otherwise the title. Matching by code matters because many
- * titles embed a volatile count ("3 services failed" → "2 services failed")
- * — comparing titles alone would mark the same issue as new + fixed on every
- * run. Older history entries predate `code`, so title stays as the fallback.
+ * Match sets built from a previous run's findings. v2 entries carry a stable
+ * `code`; entries saved before codes existed (v1 history) are indexed by
+ * title so a version upgrade never reads as "everything new + everything
+ * fixed at once". Title matching applies ONLY to codeless previous entries —
+ * among coded entries, identity is the code alone, so volatile titles
+ * ("3 services failed" → "2 services failed") never churn the diff.
  */
-function findingKey(f) {
-  return f && typeof f.code === "string" && f.code !== "" ? f.code : f.title;
+function matchSets(prevFindings) {
+  const codes = new Set();
+  const titles = new Set();
+  for (const f of prevFindings) {
+    if (typeof f.code === "string" && f.code !== "") codes.add(f.code);
+    else if (typeof f.title === "string") titles.add(f.title);
+  }
+  return { codes, titles };
+}
+
+/** Does the current finding exist in the previous run's match sets? */
+function hadFinding(f, sets) {
+  if (typeof f.code === "string" && f.code !== "" && sets.codes.has(f.code)) return true;
+  return sets.titles.has(f.title); // legacy title fallback (codeless prev entries)
 }
 
 /**
@@ -103,8 +145,8 @@ function findingKey(f) {
 export function newFindings(findings, runs) {
   const prev = runs[runs.length - 1];
   if (!prev || !Array.isArray(prev.findings)) return [];
-  const prevKeys = new Set(prev.findings.map(findingKey));
-  return findings.filter((f) => !prevKeys.has(findingKey(f)));
+  const sets = matchSets(prev.findings);
+  return findings.filter((f) => !hadFinding(f, sets));
 }
 
 /**
@@ -119,12 +161,20 @@ export function newFindings(findings, runs) {
 export function diffSinceLast(findings, runs) {
   const prev = runs[runs.length - 1];
   if (!prev || !Array.isArray(prev.findings)) return { added: [], fixed: [], unchanged: findings.length };
-  const prevKeys = new Set(prev.findings.map(findingKey));
-  const curKeys = new Set(findings.map(findingKey));
+  const sets = matchSets(prev.findings);
   return {
-    added: findings.filter((f) => !prevKeys.has(findingKey(f))).map((f) => ({ code: findingKey(f), severity: f.severity, title: f.title })),
-    fixed: prev.findings.filter((f) => !curKeys.has(findingKey(f))).map((f) => ({ code: findingKey(f), severity: f.severity, title: f.title })),
-    unchanged: findings.filter((f) => prevKeys.has(findingKey(f))).length,
+    added: findings.filter((f) => !hadFinding(f, sets)).map((f) => ({ code: f.code ?? f.title, severity: f.severity, title: f.title })),
+    fixed: prev.findings
+      .filter((p) => {
+        // A previous entry is "fixed" when NO current finding matches it:
+        // by code for coded entries, by title for legacy codeless ones.
+        if (typeof p.code === "string" && p.code !== "") {
+          return !findings.some((f) => f.code === p.code);
+        }
+        return !findings.some((f) => f.title === p.title);
+      })
+      .map((f) => ({ code: f.code ?? f.title, severity: f.severity, title: f.title })),
+    unchanged: findings.filter((f) => hadFinding(f, sets)).length,
   };
 }
 
