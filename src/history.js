@@ -193,6 +193,23 @@ export function changeMessage({ newCount = 0, fixedCount = 0 } = {}) {
 }
 
 /**
+ * How many consecutive trailing runs were clean (zero high AND zero medium),
+ * oldest-break-first: the streak stops at the most recent non-clean run.
+ * Callers add the current run themselves when it is also clean. Pure,
+ * exported for tests; a healthy machine earns a visible "N clean runs" so
+ * the good state feels rewarded, not silent.
+ */
+export function cleanStreak(runs) {
+  let n = 0;
+  for (let i = (runs || []).length - 1; i >= 0; i -= 1) {
+    const c = runs[i] && runs[i].counts;
+    if (c && c.high === 0 && c.medium === 0) n += 1;
+    else break;
+  }
+  return n;
+}
+
+/**
  * Whether history is explicitly turned off. `LINUX_DOCTOR_NO_HISTORY=1` is the
  * env override (handy in CI/cron where a writable data dir may not exist); the
  * CLI `--no-history` flag is OR-ed in by the caller. When disabled, runs are

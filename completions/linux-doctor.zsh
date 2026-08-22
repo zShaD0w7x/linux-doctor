@@ -20,6 +20,8 @@ _linux_doctor() {
     '--severity=[only findings at this severity]:severity:(high medium info)' \
     '--ignore=[hide findings by title]:pattern:' \
     '--ignore-code=[hide findings by stable code]:code:' \
+    '--ignore-add=[persistently ignore a code or title fragment]:value:' \
+    '--ignore-remove=[remove a previously ignored code or title fragment]:value:' \
     '--ignore-list[show configured ignore patterns]' \
     '--summary[one-line score + severity counts]' \
     '--todo[numbered fix list, ordered by severity]' \

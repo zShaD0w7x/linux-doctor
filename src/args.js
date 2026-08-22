@@ -3,7 +3,7 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity", "--compare", "--license-gen", "--alert", "--interval"]);
+export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--license-gen", "--alert", "--interval"]);
 export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify"]);
 
 export function parseArgs(argv) {
@@ -42,6 +42,8 @@ export function parseArgs(argv) {
     yes: false,
     interactive: false,
     notify: false,
+    ignoreAdd: null,
+    ignoreRemove: null,
     error: null,
   };
 
@@ -52,6 +54,8 @@ export function parseArgs(argv) {
   const assign = (flag, val) => {
     if (flag === "--check") out.checkIds.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
     else if (flag === "--ignore") out.ignore.push(val);
+    else if (flag === "--ignore-add") out.ignoreAdd = val;
+    else if (flag === "--ignore-remove") out.ignoreRemove = val;
     else if (flag === "--ignore-code") out.ignoreCodes.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
     else if (flag === "--severity") out.severity = val.toLowerCase();
     else if (flag === "--push") out.pushUrl = val;
@@ -70,6 +74,8 @@ export function parseArgs(argv) {
       : flag === "--license-gen" ? "you@example.com"
       : flag === "--alert" ? "https://ntfy.sh/your-topic"
       : flag === "--interval" ? "3600"
+      : flag === "--ignore-add" ? "services/failed"
+      : flag === "--ignore-remove" ? "fw-fanctrl"
       : "fw-fanctrl";
 
   for (let i = 0; i < args.length; i += 1) {

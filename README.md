@@ -95,6 +95,8 @@ sudo systemctl enable --now linux-doctor.timer
 --ignore <txt>    hide findings whose title contains <txt>
 --ignore-code <c> hide findings by stable code (e.g. services/failed)
 --ignore-list     show configured ignore patterns and exit
+--ignore-add <v>  persistently ignore a code or title fragment (saved to config)
+--ignore-remove <v> remove a previously ignored code or title fragment
 --init-config     create a starter config file with commented thresholds
 --schema          print the JSON Schema for --json output (v1)
 --support         write a privacy-scrubbed support bundle for bug reports
@@ -315,7 +317,17 @@ cat > ~/.config/linux-doctor/config.json <<'EOF'
 EOF
 ```
 
-Matches are case-insensitive substrings of the finding title, so a short fragment like `fw-fanctrl` works. Ignored findings are dropped from the report, the score, and the history — they simply stop existing. The dashboard has an **Ignore** button on every finding that saves the pattern for you. To un-ignore, edit the config file. The config is a bonus, never a dependency — if it cannot be read, nothing is ignored.
+Matches are case-insensitive substrings of the finding title, so a short fragment like `fw-fanctrl` works. Ignored findings are dropped from the report, the score, and the history — they simply stop existing. The dashboard has an **Ignore** button on every finding that saves the pattern for you.
+
+Manage the persistent list without editing JSON:
+
+```bash
+linux-doctor --ignore-add fw-fanctrl          # title fragment
+linux-doctor --ignore-add services/failed     # code-shaped values go to the exact-match code list
+linux-doctor --ignore-remove fw-fanctrl
+```
+
+The config is a bonus, never a dependency — if it cannot be read, nothing is ignored.
 
 Ignore is never silent: hidden findings are counted (`# ignored: N` in `--plain`, `ignoredCount` in `--json`, "N finding(s) hidden" in the terminal report), and a pattern that matches nothing warns on stderr — so a stale ignore (e.g. after a finding title changed) rots loudly, not silently.
 

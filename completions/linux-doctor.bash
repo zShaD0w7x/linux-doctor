@@ -24,7 +24,7 @@ _linux_doctor() {
   esac
 
   if [[ "$cur" == -* ]]; then
-    COMPREPLY=($(compgen -W "--check --ignore --ignore-code --push --html --severity --compare --license-gen --alert --interval --json --plain --web --ai --list --schema --profile --ignore-list --summary --init-config --check-list --todo --fix --yes --interactive --notify --self-test --license --daemon --support --no-history --help --version" -- "$cur"))
+    COMPREPLY=($(compgen -W "--check --ignore --ignore-code --ignore-add --ignore-remove --push --html --severity --compare --license-gen --alert --interval --json --plain --web --ai --list --schema --profile --ignore-list --summary --init-config --check-list --todo --fix --yes --interactive --notify --self-test --license --daemon --support --no-history --help --version" -- "$cur"))
   fi
 }
 

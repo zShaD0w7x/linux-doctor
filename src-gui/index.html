@@ -1237,7 +1237,9 @@ function render(data) {
   let msgCls, msgTxt;
   if (high + med === 0) {
     msgCls = "ok";
-    msgTxt = "All checks passed — system looks healthy.";
+    msgTxt = findings.length === 0
+      ? (data.cleanStreak >= 2 ? "All clear — " + data.cleanStreak + " clean run" + (data.cleanStreak === 1 ? "" : "s") + " in a row." : "All checks passed — system looks healthy.")
+      : "No high or medium issues — informational notes below.";
   } else {
     const parts = [];
     if (high) parts.push(high + " high-severity " + (high === 1 ? "issue" : "issues"));
@@ -1323,7 +1325,7 @@ function render(data) {
     }
     html += "</div></details>";
   }
-  $("#report").innerHTML = html || '<div class="empty">No issues found — system looks healthy.</div>';
+  $("#report").innerHTML = html || '<div class="empty">' + (data.cleanStreak >= 2 ? "✅ All clear — " + esc(String(data.cleanStreak)) + " clean runs in a row. Keep it up." : "No issues found — system looks healthy.") + "</div>";
   // Evidence: show expand when content is long (scrollHeight not reliable while <details> closed, so use length fallback)
   document.querySelectorAll(".evidence").forEach(ev => {
     const btn = ev.parentElement.querySelector(".ev-expand");

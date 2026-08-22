@@ -6,6 +6,22 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Ignore management from the CLI (Faza 3)**: `--ignore-add <value>` /
+  `--ignore-remove <value>` write the same config keys as the dashboard's
+  Ignore button. Code-shaped values (`check/reason`) land in the
+  exact-match code list; anything else is a title fragment. Both commands
+  print the resulting list using the same format as `--ignore-list` (one
+  vocabulary everywhere).
+- **Healthy-state streak**: when a machine is clean, the report says so with
+  momentum — "✅ Everything is clean — N clean run(s) in a row" — computed
+  from history and exposed to the dashboard via `cleanStreak` in the JSON
+  payload. Info-only systems read "No high or medium issues — N
+  informational notes below" instead of pretending there is nothing.
+- **Support bundle hardening**: `diffSinceLast` titles now go through the
+  same redaction (IPs, home paths) as finding text.
+
 ### Changed
 
 - **History v2 (Faza 2 — history as the core)**:

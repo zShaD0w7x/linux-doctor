@@ -70,6 +70,49 @@ export function addIgnoreCode(code, file = configFile()) {
   }
 }
 
+/**
+ * Remove a title pattern from the config file. Matches exactly first, then
+ * case-insensitively (the list is displayed lowercased-free, but users often
+ * retype patterns in a different case). Returns true when something was
+ * removed; false when the pattern was not present or the file is unwritable.
+ */
+export function removeIgnore(pattern, file = configFile()) {
+  try {
+    if (typeof pattern !== "string" || pattern.trim() === "") return false;
+    const config = loadConfig(file);
+    const patterns = Array.isArray(config.ignore) ? config.ignore.filter((p) => typeof p === "string") : [];
+    const next = patterns.filter((p) => p !== pattern);
+    if (next.length === patterns.length) {
+      const lower = String(pattern).toLowerCase();
+      const ci = new Set(patterns.filter((p) => p.toLowerCase() === lower));
+      if (ci.size === 0) return false;
+      next.length = 0;
+      next.push(...patterns.filter((p) => !ci.has(p)));
+    }
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ ...config, ignore: next }, null, 2) + "\n");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Remove a stable-code ignore from the config file. Exact match only. */
+export function removeIgnoreCode(code, file = configFile()) {
+  try {
+    if (typeof code !== "string" || code.trim() === "") return false;
+    const config = loadConfig(file);
+    const codes = Array.isArray(config.ignoreCodes) ? config.ignoreCodes.filter((c) => typeof c === "string") : [];
+    const next = codes.filter((c) => c !== code);
+    if (next.length === codes.length) return false;
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ ...config, ignoreCodes: next }, null, 2) + "\n");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** True if the finding code matches any code-ignore pattern (exact match). */
 export function isCodeIgnored(code, codes) {
   if (!codes || codes.length === 0) return false;

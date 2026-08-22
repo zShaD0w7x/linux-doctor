@@ -67,6 +67,12 @@ export function buildSupportBundle({ system, findings = [], score = null, newCou
     evidence: scrub(f.evidence),
     fix: scrub(f.fix),
   }));
+  // Diff entries carry finding titles too — same redaction rules apply.
+  const safeDiff = diffSinceLast ? {
+    added: (Array.isArray(diffSinceLast.added) ? diffSinceLast.added : []).map((f) => ({ ...f, title: scrub(f.title) })),
+    fixed: (Array.isArray(diffSinceLast.fixed) ? diffSinceLast.fixed : []).map((f) => ({ ...f, title: scrub(f.title) })),
+    unchanged: diffSinceLast.unchanged ?? 0,
+  } : diffSinceLast;
   const tail = (Array.isArray(history) ? history : []).slice(-BUNDLE_HISTORY_LIMIT).map((r) => ({
     at: r.at,
     score: r.score,
@@ -82,7 +88,7 @@ export function buildSupportBundle({ system, findings = [], score = null, newCou
     score,
     newCount,
     fixedCount,
-    diffSinceLast,
+    diffSinceLast: safeDiff,
     counts,
     checksRun,
     checksSkipped,

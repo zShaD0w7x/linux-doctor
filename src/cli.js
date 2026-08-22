@@ -11,9 +11,9 @@ import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySe
 import { aiSummary } from "./llm.js";
 import { pushReport, validatePushUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
-import { score, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled } from "./history.js";
+import { score, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled, cleanStreak } from "./history.js";
 import { buildSupportBundle, writeSupportBundle, supportMessage } from "./support.js";
-import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored } from "./ignore.js";
+import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored, addIgnore, addIgnoreCode, removeIgnore, removeIgnoreCode } from "./ignore.js";
 import { loadConfig } from "./config.js";
 import { loadThresholds, DEFAULT_THRESHOLDS } from "./thresholds.js";
 import { detectDistro } from "./distro.js";
@@ -147,6 +147,7 @@ function jsonOptions(r, extra = {}) {
     skippedChecks: r.skippedChecks,
     historyDisabled: r.historyDisabled,
     changeMessage: r.changeMessage,
+    cleanStreak: r.cleanStreak,
     ...extra,
   };
 }
@@ -340,9 +341,11 @@ OPTIONS
   --compare <f>  diff a previous JSON report against the current run
   --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
   --severity <s> show only findings at this severity (high, medium, info)
-  --ignore <txt> hide findings whose title contains <txt>
-  --ignore-code <c> hide findings by stable code (e.g. services/failed)
-  --ignore-list  show configured ignore patterns and exit
+   --ignore <txt> hide findings whose title contains <txt>
+   --ignore-code <c> hide findings by stable code (e.g. services/failed)
+   --ignore-add <v>  persistently ignore a code or title fragment (saved to config)
+   --ignore-remove <v> remove a previously ignored code or title fragment
+   --ignore-list  show configured ignore patterns and exit
   --init-config  create a starter config file at ~/.config/linux-doctor/config.json
   --schema       print the JSON Schema for --json output (v1)
   --profile      append per-check durations to the report
@@ -468,6 +471,55 @@ export async function main(argv) {
     return 0;
   }
 
+  /** Shared renderer for the persistent ignore lists — one vocabulary everywhere. */
+function printIgnoreLists(titles, codes) {
+  if (titles.length === 0 && codes.length === 0) {
+    console.log("No ignore patterns configured.");
+    return;
+  }
+  if (titles.length > 0) {
+    console.log("Title patterns:");
+    for (const p of titles) console.log(`  - ${p}`);
+  }
+  if (codes.length > 0) {
+    console.log("Code patterns:");
+    for (const c of codes) console.log(`  - ${c}`);
+  }
+}
+
+// --ignore-add / --ignore-remove: manage the persistent ignore list from
+  // the CLI (the dashboard's Ignore button writes the same config keys).
+  // A value shaped like a stable code ("check/reason") targets ignoreCodes
+  // (exact match); anything else is a title fragment (substring match).
+  if (args.ignoreAdd !== null || args.ignoreRemove !== null) {
+    const looksLikeCode = (v) => /^[a-z0-9-]+\/[a-z0-9-]+$/.test(v);
+    let ok = true;
+    for (const [mode, value] of [["add", args.ignoreAdd], ["remove", args.ignoreRemove]]) {
+      if (value === null || value === undefined) continue;
+      const isCode = looksLikeCode(value);
+      const res = mode === "add"
+        ? (isCode ? addIgnoreCode(value) : addIgnore(value))
+        : (isCode ? removeIgnoreCode(value) : removeIgnore(value));
+      const kind = isCode ? "code" : "title pattern";
+      if (res) {
+        console.log(`${mode === "add" ? "✓ Added" : "✓ Removed"} ${kind}: ${value}`);
+      } else {
+        ok = false;
+        console.error(mode === "add"
+          ? `linux-doctor: could not add ${kind} "${value}" (config file not writable?)`
+          : `linux-doctor: ${kind} "${value}" was not in the ignore list`);
+      }
+    }
+    const titles = loadIgnore();
+    const codes = loadIgnoreCodes();
+    if (titles.length === 0 && codes.length === 0) {
+      console.log("Ignore list is now empty.");
+    } else {
+      printIgnoreLists(titles, codes);
+    }
+    return ok ? 0 : 2;
+  }
+
   // --compare: diff two JSON report files and exit.
   if (args.comparePath) {
     try {
@@ -486,20 +538,7 @@ export async function main(argv) {
 
   // --ignore-list: show configured ignore patterns and exit.
   if (args.ignoreList) {
-    const titlePatterns = loadIgnore();
-    const codePatterns = loadIgnoreCodes();
-    if (titlePatterns.length === 0 && codePatterns.length === 0) {
-      console.log("No ignore patterns configured.");
-    } else {
-      if (titlePatterns.length > 0) {
-        console.log("Title patterns:");
-        for (const p of titlePatterns) console.log(`  - ${p}`);
-      }
-      if (codePatterns.length > 0) {
-        console.log("Code patterns:");
-        for (const c of codePatterns) console.log(`  - ${c}`);
-      }
-    }
+    printIgnoreLists(loadIgnore(), loadIgnoreCodes());
     return 0;
   }
 
@@ -575,6 +614,7 @@ export async function main(argv) {
         historyDisabled: historyOff,
         changeMessage: null,
         historyRuns: [],
+        cleanStreak: 0,
         findings: data.findings.map((f) => ({ ...f, isNew: false })),
       };
     }
@@ -596,6 +636,7 @@ export async function main(argv) {
     // Match by stable code, not title — volatile titles ("3 services failed"
     // vs "2 services failed") must not churn the new/fixed markers.
     const addedKeys = new Set(diff.added.map((f) => f.code));
+    const curClean = counts.high === 0 && counts.medium === 0;
     return {
       ...data,
       score: sc,
@@ -610,6 +651,7 @@ export async function main(argv) {
       historyDisabled: false,
       changeMessage: changeMessage({ newCount: diff.added.length, fixedCount: diff.fixed.length }),
       historyRuns: runs,
+      cleanStreak: curClean ? cleanStreak(runs) + 1 : 0,
       findings: data.findings.map((f) => ({ ...f, isNew: addedKeys.has(f.code) })),
     };
   };

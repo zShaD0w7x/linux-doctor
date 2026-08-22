@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { SEV_ORDER, SEV_LABEL, countBySeverity } from "./severities.js";
+import { cleanStreak } from "./history.js";
 
 export { SEV_ORDER, SEV_LABEL, countBySeverity };
 
@@ -72,7 +73,17 @@ export async function renderReport(findings, { aiSummary, system, score, newCoun
   const inf = counts.find((c) => c.severity === "info").count;
 
   if (high === 0 && med === 0) {
-    out.push("✅ Your system looks healthy. No high or medium issues found.");
+    // Healthy state gets the premium treatment, not a bare "OK": name what
+    // IS present (informational notes) and reward momentum when history
+    // shows a streak of clean runs.
+    const streak = cleanStreak((history || []).filter((r) => typeof r.score === "number")) + 1;
+    if (findings.length === 0) {
+      out.push(streak >= 2
+        ? `✅ Everything is clean — ${streak} clean run(s) in a row. Keep it up.`
+        : "✅ Everything is clean. No issues found.");
+    } else {
+      out.push(`✅ No high or medium issues — ${inf} informational note${inf === 1 ? "" : "s"} below.`);
+    }
   } else {
     out.push(`Found ${high} high-severity, ${med} medium-severity, and ${inf} informational finding(s).`);
   }
