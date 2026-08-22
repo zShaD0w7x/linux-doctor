@@ -50,6 +50,10 @@ and, for Enterprise, on-prem deployment plus signed agreements for SLAs,
 volume terms, and proprietary embedding of the community edition
 (MySQL/Qt-style dual licensing).
 
+**Like Pro, their implementations live only in private repositories.** No
+paid-tier code is ever published publicly — this documentation describes
+what each tier offers; it never ships its code.
+
 ## Contact
 
 Open an issue on [GitHub](https://github.com/zShaD0w7x/linux-doctor/issues)
