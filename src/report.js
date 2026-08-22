@@ -36,6 +36,24 @@ export function spark(scores) {
 
 /**
  * The single most useful thing to do first: the highest-severity finding (in
+ * report order — severity sections, then clustered by category exactly like
+ * the printed report) that comes with an action. Identity-only shape (no
+ * display numbers), so the same pick can travel in --json (`nextAction`) and
+ * drive the dashboard's banner without recomputing client-side. Pure.
+ */
+export function pickNextFinding(findings, categoryByCheck = null) {
+  const cat = (f) => (categoryByCheck && f.check ? categoryByCheck.get(f.check) || "" : "");
+  for (const sev of SEV_ORDER) {
+    const group = findings.filter((f) => f.severity === sev);
+    if (group.length === 0) continue;
+    const hit = [...group].sort((a, b) => cat(a).localeCompare(cat(b))).find((f) => f.fix);
+    if (hit) return { code: hit.code ?? null, severity: hit.severity, title: hit.title, fix: hit.fix };
+  }
+  return null;
+}
+
+/**
+ * The single most useful thing to do first: the highest-severity finding (in
  * report order) that comes with an action. Returns { n, finding } or null.
  * Pure and exported so --todo and tests share the same pick.
  */

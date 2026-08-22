@@ -6,8 +6,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderReport, renderPlain, renderJson } from "../src/report.js";
+import { renderReport, renderPlain, renderJson, pickNextFinding } from "../src/report.js";
 import { score } from "../src/history.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const SYSTEM = { distro: "Test 1", kernel: "6.1.0", cores: 4, uptime: "1h" };
 
@@ -65,4 +68,74 @@ test("parity: score is severity-driven only — history content cannot bend it",
   const a = score([{ severity: "high" }, { severity: "medium" }]);
   const b = score([{ severity: "medium" }, { severity: "high" }]);
   assert.equal(a, b);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4: shared vocabulary + nextAction agreement.
+
+const HTML = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src-gui", "index.html"), "utf8");
+
+test("vocabulary: the same phrases exist in CLI output and the dashboard HTML", async () => {
+  const mixed = [
+    { id: 1, check: "disk", code: "disk/full", severity: "high", title: "Disk nearly full", fix: "clean space" },
+    { id: 2, check: "zram", code: "zram/ok", severity: "info", title: "zram is enabled" },
+  ];
+  const pretty = await renderReport(mixed, { system: SYSTEM, score: 70, newCount: 0, fixedCount: 0, unchanged: 2, checksRun: 30, skippedChecks: [{ id: "reboot", title: "Reboot", reason: "Not applicable on an immutable/atomic system." }], checkErrors: [{ check: "smart", error: "smartctl unavailable" }] });
+  // Info-only systems read the honest "notes below" line…
+  const infoOnly = await renderReport(
+    [{ id: 2, check: "zram", code: "zram/ok", severity: "info", title: "zram is enabled" }],
+    { system: SYSTEM, score: 100, newCount: 0, fixedCount: 0, unchanged: 1 }
+  );
+  // …while a spotless machine with history earns the streak phrasing.
+  const streaky = await renderReport([], {
+    system: SYSTEM, score: 100, newCount: 0, fixedCount: 0, unchanged: 0,
+    history: [
+      { at: "a", score: 100, counts: { high: 0, medium: 0, info: 0 } },
+      { at: "b", score: 100, counts: { high: 0, medium: 0, info: 0 } },
+    ],
+  });
+
+  const phrases = [
+    ["SINCE LAST RUN", pretty, /SINCE LAST RUN/],
+    ["Changes since last run (GUI)", null, /Changes since last run/],
+    ["START HERE (CLI)", pretty, /START HERE/],
+    ["START HERE (GUI)", null, /START HERE/],
+    ["No high or medium issues (CLI)", infoOnly, /No high or medium issues/],
+    ["No high or medium issues (GUI)", null, /No high or medium issues/],
+    ["Skipped checks (CLI)", pretty, /not applicable on this immutable/],
+    ["checkErrors (CLI)", pretty, /failed to run: smart/],
+    ["Skipped checks (GUI)", null, /Skipped checks/],
+    ["Failed checks (CLI)", pretty, /failed to run|failed\(/],
+    ["Failed checks (GUI)", null, /Failed checks/],
+    ["clean run streak (CLI)", streaky, /3 clean run\(s\) in a row/],
+    ["clean run streak (GUI)", null, /clean run/],
+  ];
+  for (const [name, text, re] of phrases) {
+    if (text !== null) assert.ok(re.test(text), `CLI report missing "${name}"`);
+    else assert.ok(re.test(HTML), `dashboard HTML missing "${name}"`);
+  }
+});
+
+test("nextAction: --json pick matches the ▶ START HERE line in the report", async () => {
+  const cat = new Map([["services", "system"], ["memory", "performance"]]);
+  const findings = [
+    { id: 1, check: "services", code: "services/failed", severity: "medium", title: "Services failed", fix: "restart them" },
+    { id: 2, check: "memory", code: "memory/low", severity: "medium", title: "Low memory", fix: "close apps" },
+    { id: 3, check: "disk", code: "disk/full", severity: "high", title: "Disk nearly full", fix: "clean space" },
+  ];
+  const next = pickNextFinding(findings, cat);
+  assert.equal(next.code, "disk/full");
+
+  const pretty = await renderReport(findings, { system: SYSTEM, score: 60, categoryByCheck: cat });
+  const startLine = pretty.split("\n").find((l) => l.includes("▶ START HERE"));
+  assert.match(startLine, new RegExp("#\\d+ " + next.title.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")));
+
+  // And exactly what --json ships (renderJson is a pass-through for extra).
+  const json = JSON.parse(renderJson(findings, SYSTEM, { nextAction: next }));
+  assert.equal(json.nextAction.title, next.title);
+  assert.equal(json.nextAction.fix, "clean space");
+});
+
+test("nextAction: null when nothing has a fix (banner hides too)", async () => {
+  assert.equal(pickNextFinding([{ id: 1, code: "x/y", severity: "high", title: "t" }]), null);
 });

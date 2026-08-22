@@ -7,7 +7,7 @@ import { PRO_CHECKS } from "./checks/pro/index.js";
 import { systemInfo } from "./checks/system.js";
 import { isPro, proInfo, generateKey } from "./license.js";
 import { shouldAlert, buildAlert, sendAlert } from "./alert.js";
-import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity } from "./report.js";
+import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding } from "./report.js";
 import { aiSummary } from "./llm.js";
 import { pushReport, validatePushUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
@@ -148,6 +148,9 @@ function jsonOptions(r, extra = {}) {
     historyDisabled: r.historyDisabled,
     changeMessage: r.changeMessage,
     cleanStreak: r.cleanStreak,
+    // The ▶ START HERE pick, as data — the dashboard renders this instead of
+    // recomputing it, so banner and report can never disagree.
+    nextAction: pickNextFinding(r.findings, r.categoryByCheck ?? null),
     ...extra,
   };
 }
@@ -615,6 +618,7 @@ function printIgnoreLists(titles, codes) {
         changeMessage: null,
         historyRuns: [],
         cleanStreak: 0,
+        categoryByCheck,
         findings: data.findings.map((f) => ({ ...f, isNew: false })),
       };
     }
@@ -652,6 +656,7 @@ function printIgnoreLists(titles, codes) {
       changeMessage: changeMessage({ newCount: diff.added.length, fixedCount: diff.fixed.length }),
       historyRuns: runs,
       cleanStreak: curClean ? cleanStreak(runs) + 1 : 0,
+      categoryByCheck,
       findings: data.findings.map((f) => ({ ...f, isNew: addedKeys.has(f.code) })),
     };
   };

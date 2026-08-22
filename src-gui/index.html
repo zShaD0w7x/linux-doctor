@@ -640,6 +640,10 @@
       <summary>Skipped checks <b id="skipped-count"></b><span class="chev">▸</span></summary>
       <div class="group-body" id="skipped-body"></div>
     </details>
+    <details id="checkerrors" class="group" hidden>
+      <summary>Failed checks · <b id="checkerrors-count"></b><span class="chev">▸</span></summary>
+      <div class="group-body" id="checkerrors-body"></div>
+    </details>
     <details id="diff" class="group" hidden>
       <summary>Changes since last run · <b id="diff-count"></b> <span style="font-weight:500; color:var(--muted)">new vs fixed</span><span class="chev">▸</span></summary>
       <div class="group-body" id="diff-body"></div>
@@ -1334,6 +1338,7 @@ function render(data) {
   });
    applyFilters();
    renderNextStep(data);
+   renderCheckErrors(data);
    renderFixed(data);
    renderDiff(data);
    maybeNotify(data);
@@ -1350,9 +1355,13 @@ function firstSentence(text) {
 function renderNextStep(data) {
   const el = $("#nexthep");
   if (!el) return;
+  // Prefer the server-computed pick (--json's nextAction) so the banner can
+  // never disagree with the CLI report; fall back to a client-side pick for
+  // payloads generated before the field existed.
   const order = { high: 0, medium: 1, info: 2 };
-  const pick = [...(data.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9)).find((f) => f.fix);
-  if (!pick) { el.hidden = true; return; }
+  const pick = data.nextAction
+    || [...(data.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9)).find((f) => f.fix);
+  if (!pick || !pick.fix) { el.hidden = true; return; }
   const hint = firstSentence(pick.fix);
   el.hidden = false;
   el.innerHTML =
@@ -1390,6 +1399,23 @@ document.addEventListener("click", async (e) => {
     }
   }
 });
+
+// "Failed checks": a check that threw must be visible with the same wording
+// as the CLI ("check(s) failed to run") — a partially-broken run is never
+// silently rendered as a clean one. Parity with the CLI's checkErrors line.
+function renderCheckErrors(data) {
+  const el = $("#checkerrors");
+  if (!el) return;
+  const errors = data.checkErrors || [];
+  el.hidden = !errors.length;
+  if (!errors.length) return;
+  $("#checkerrors-count").textContent = errors.length;
+  $("#checkerrors-body").innerHTML = errors.map((e) =>
+    '<div class="card medium"><summary><span class="badge medium">failed</span>' +
+    '<h3>' + esc(e.check) + '</h3><span class="chev">▸</span></summary>' +
+    '<div class="card-body"><div class="detail">' + esc(e.error || "unknown error") + '</div></div></div>'
+  ).join("");
+}
 
 // "Fixed since last check": the diffSinceLast.fixed entries are findings that
 // disappeared between runs (resolved). Green, celebratory, self-reinforcing.

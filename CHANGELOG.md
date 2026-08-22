@@ -8,6 +8,19 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
+- **Output parity contract (Faza 4)**: [docs/output-parity.md](docs/output-parity.md)
+  documents the one-message-four-channels rule (CLI / `--plain` / `--json` /
+  dashboard) with a per-state verification matrix. The vocabulary is pinned
+  by tests that grep both the CLI output and the dashboard HTML; a new test
+  guarantees `nextAction` in `--json` always matches the report's ▶ START
+  HERE line.
+- **`nextAction` in the JSON payload**: the ▶ START HERE pick now travels as
+  data (`{code, severity, title, fix}`), and the dashboard renders it
+  directly instead of recomputing — banner and report can never disagree
+  (older payloads keep the client-side fallback).
+- **"Failed checks" in the dashboard**: checks that threw are now visible in
+  the GUI with the same wording as the CLI, so a partially-broken run is
+  never silently rendered as a clean one.
 - **Ignore management from the CLI (Faza 3)**: `--ignore-add <value>` /
   `--ignore-remove <value>` write the same config keys as the dashboard's
   Ignore button. Code-shaped values (`check/reason`) land in the
