@@ -1,4 +1,6 @@
-import { lines } from "../utils.js";
+import { journalLines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks the kernel log for hardware errors: machine check exceptions (MCE —
@@ -6,7 +8,6 @@ import { lines } from "../utils.js";
  * caught and fixed a bit flip, which repeated often means a failing DIMM).
  * Read-only; same journalctl separator filtering as the other log checks.
  */
-import { defineCheck } from "./define.js";
 
 export const hardware = defineCheck({
   id: "hardware",
@@ -16,15 +17,15 @@ export const hardware = defineCheck({
     const findings = [];
 
     const [mce, edc] = await Promise.all([
-      ctx.run('journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5'),
-      ctx.run('journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5'),
+      ctx.run('journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null'),
+      ctx.run('journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null'),
     ]);
 
-    const mceLines = mce.ok ? lines(mce.stdout) : [];
-    const edcLines = edc.ok ? lines(edc.stdout) : [];
+    const mceLines = mce.ok ? journalLines(mce.stdout, { tail: 5 }) : [];
+    const edcLines = edc.ok ? journalLines(edc.stdout, { tail: 5 }) : [];
 
     if (mceLines.length > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "high",
         code: "hardware/mce",
         title: "Machine check exceptions detected",
@@ -32,9 +33,9 @@ export const hardware = defineCheck({
         evidence: mceLines.join("\n"),
         fix: "Back up your data now, then test the hardware: run a memory test (e.g. Memtest86+ from your boot menu) and check the CPU temperature and cooling. If the errors persist, replace the suspect component.",
         confidence: "high",
-      });
+      }));
     } else if (edcLines.length > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "hardware/ecc",
         title: "Corrected hardware errors (ECC)",
@@ -42,9 +43,9 @@ export const hardware = defineCheck({
         evidence: edcLines.join("\n"),
         fix: "If these repeat often, test the memory (Memtest86+) and reseat or replace the suspect DIMM.",
         confidence: "medium",
-      });
+      }));
     } else if (mce.ok || edc.ok) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "hardware/ok",
         title: "No hardware errors logged",
@@ -52,7 +53,7 @@ export const hardware = defineCheck({
         evidence: "mce: none · edac/ecc: none",
         fix: null,
         confidence: "high",
-      });
+      }));
     }
 
     return findings;

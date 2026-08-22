@@ -1,6 +1,7 @@
 import { lines, plural } from "../utils.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const services = defineCheck({
   id: "services",
@@ -27,7 +28,7 @@ export const services = defineCheck({
       // display, a daemon) is a real fault; user autostart failures are the
       // user's own apps and rarely worth a scary "high".
       const hasSystemFailure = failed.some((f) => f.scope === "system");
-      findings.push({
+      findings.push(finding({
         severity: hasSystemFailure ? "high" : "medium",
         code: "services/failed",
         title: `${failed.length} service${failed.length > 1 ? "s" : ""} failed to start`,
@@ -35,12 +36,12 @@ export const services = defineCheck({
         evidence: failed.map((f) => `${f.name}\t${f.scope}`).join("\n"),
         fix: `Inspect one with \`systemctl status ${failed[0].name}\` (or \`systemctl --user status ${failed[0].name}\` for user services). If it is not something you need, disable it with \`systemctl disable ${failed[0].name}\`.`,
         confidence: "high",
-      });
+      }));
     } else if (sys.missing && user.missing) {
       // Non-systemd distros (Alpine/OpenRC, Void/runit, Gentoo/OpenRC) have no
       // systemctl; say so instead of silently skipping.
       const init = await ctx.run("ps -p 1 -o comm= 2>/dev/null");
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "services/skipped",
         title: "Non-systemd system — services check skipped",
@@ -48,7 +49,7 @@ export const services = defineCheck({
         evidence: init.stdout.trim() || "init unknown",
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

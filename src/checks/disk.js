@@ -1,4 +1,6 @@
 import { lines, pct, num } from "../utils.js";
+import { finding } from "../findings.js";
+import { defineCheck } from "./define.js";
 
 /**
  * Real partitions only. We deliberately exclude pseudo-filesystems and the
@@ -22,7 +24,7 @@ function diskFinding({ mount, use, avail, evidence, root = false, t, device }) {
   const label = root ? "Root partition" : `Partition ${mount}`;
   const free = `${Math.round(avail / 1024 ** 3)} GB free`;
   if (use >= t.diskFullPct) {
-    return {
+    return finding({
       severity: "high",
       code: "disk/full",
       dedupeKey: `disk:${device}`,
@@ -33,10 +35,10 @@ function diskFinding({ mount, use, avail, evidence, root = false, t, device }) {
         ? "Free up space: `sudo journalctl --vacuum-size=500M`, clean the package cache (`sudo dnf clean all` or `sudo apt-get clean`), then find large files with `du -xh / | sort -rh | head -20`."
         : `Find large files with \`du -xh ${mount} | sort -rh | head -20\` and delete or move what you no longer need.`,
       confidence: "high",
-    };
+    });
   }
   if (use >= t.diskWarnPct) {
-    return {
+    return finding({
       severity: "medium",
       code: "disk/full",
       dedupeKey: `disk:${device}`,
@@ -45,12 +47,10 @@ function diskFinding({ mount, use, avail, evidence, root = false, t, device }) {
       evidence,
       fix: `Check \`du -xh ${mount} | sort -rh | head -20\` and clean up large files or logs.`,
       confidence: "high",
-    };
+    });
   }
   return null;
 }
-
-import { defineCheck } from "./define.js";
 
 export const disk = defineCheck({
   id: "disk",

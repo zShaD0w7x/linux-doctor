@@ -1,4 +1,6 @@
-import { lines, plural } from "../utils.js";
+import { lines, plural, shq } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Scheduled tasks (systemd timers). The classic silent failure is a timer
@@ -7,7 +9,6 @@ import { lines, plural } from "../utils.js";
  * broken; disabled timers also show n/a and are explicitly excluded via
  * `systemctl is-enabled`. Reads only.
  */
-import { defineCheck } from "./define.js";
 
 export const timers = defineCheck({
   id: "timers",
@@ -40,12 +41,12 @@ export const timers = defineCheck({
       if (!missing.test(col(l, 0)) || !missing.test(col(l, 2))) continue;
       // Enabled but never fired and not scheduled = broken schedule.
       // (Disabled timers also show "-" and are perfectly fine.)
-      const en = await ctx.run(`systemctl is-enabled ${unit} 2>/dev/null`);
+      const en = await ctx.run(`systemctl is-enabled ${shq(unit)} 2>/dev/null`);
       if (en.ok && en.stdout.trim() === "enabled") broken.push(unit);
     }
 
     if (broken.length > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "timers/broken",
         title: `${plural(broken.length, "scheduled task")} enabled but never running`,
@@ -53,9 +54,9 @@ export const timers = defineCheck({
         evidence: broken.join("\n"),
         fix: `Inspect one with \`systemctl status ${broken[0]}\` and \`journalctl -u ${broken[0]} -b\`, then re-arm it with \`sudo systemctl restart ${broken[0]}\` (use \`systemctl --user ...\` for user timers).`,
         confidence: "medium",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "timers/ok",
         title: "Scheduled tasks look healthy",
@@ -63,7 +64,7 @@ export const timers = defineCheck({
         evidence: `${plural(raw.length - 2, "timer")} listed`,
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

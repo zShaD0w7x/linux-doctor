@@ -1,5 +1,7 @@
 import { lines } from "../utils.js";
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
+import { pkgInstall } from "../distro.js";
 
 /**
  * Audio state: is a sound server (PipeWire or PulseAudio) running, and is
@@ -22,15 +24,8 @@ export const audio = defineCheck({
     const serverUp = up(pipewire) || up(pwPulse) || up(pulse);
 
     if (!serverUp) {
-      const install =
-        ctx.dist.pkg === "apt"
-          ? "sudo apt install pipewire pipewire-pulse wireplumber"
-          : ctx.dist.pkg === "pacman"
-            ? "sudo pacman -S pipewire pipewire-pulse wireplumber"
-            : ctx.dist.pkg === "zypper"
-              ? "sudo zypper install pipewire pipewire-pulse wireplumber"
-              : "sudo dnf install pipewire pipewire-pulse wireplumber";
-      findings.push({
+      const install = pkgInstall(ctx.dist, "pipewire pipewire-pulse wireplumber");
+      findings.push(finding({
         severity: "medium",
         code: "audio/no-server",
         title: "No sound server is running",
@@ -38,7 +33,7 @@ export const audio = defineCheck({
         evidence: `pipewire: ${pipewire.stdout.trim()}\npipewire-pulse: ${pwPulse.stdout.trim()}\npulseaudio: ${pulse.stdout.trim()}`,
         fix: `${install}, then start it with \`systemctl --user enable --now pipewire pipewire-pulse wireplumber\`.`,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -46,7 +41,7 @@ export const audio = defineCheck({
     // dummy sink PipeWire creates when nothing else exists.)
     const pactl = await ctx.run("command -v pactl >/dev/null 2>&1 && echo yes || echo no");
     if (!/^yes\s*$/.test(pactl.stdout)) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "audio/sinks-skipped",
         title: "Audio output devices not checked",
@@ -54,14 +49,14 @@ export const audio = defineCheck({
         evidence: "pactl: not found",
         fix: "Install pulseaudio-utils (or pipewire-utils) if you want this check to verify output devices.",
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
     const sinks = await ctx.run("pactl list sinks short 2>/dev/null");
     const real = lines(sinks.stdout).filter((l) => !/auto_null/.test(l));
     if (real.length === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "audio/no-output",
         title: "No audio output device detected",
@@ -69,9 +64,9 @@ export const audio = defineCheck({
         evidence: `sinks:\n${sinks.stdout.trim() || "(none)"}`,
         fix: "Check that a sound card exists (`lspci | grep -i audio`) and that its driver is loaded (`lsmod | grep snd`). If it is a USB device, try unplugging and replugging it.",
         confidence: "medium",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "audio/ok",
         title: "Audio is working",
@@ -79,7 +74,7 @@ export const audio = defineCheck({
         evidence: `sinks:\n${real.join("\n")}`,
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

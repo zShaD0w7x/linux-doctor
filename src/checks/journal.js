@@ -1,4 +1,6 @@
-import { lines, plural } from "../utils.js";
+import { journalLines, plural } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Messages that look scary but are routine noise on most distros.
@@ -50,8 +52,6 @@ const MEANINGFUL_PATTERNS = [
   /kernel panic/i,
 ];
 
-import { defineCheck } from "./define.js";
-
 export const journal = defineCheck({
   id: "journal",
   title: "System log errors (last 24 hours)",
@@ -61,9 +61,14 @@ export const journal = defineCheck({
     // Strip journalctl's "-- Boot ... --" separators: they appear once per
     // boot even when there are no errors, and counting them would inflate the
     // error count on systems that rebooted within the window.
-    const res = await ctx.run(`journalctl -p err --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- "`);
+    //
+    // The capture ceiling is raised to 64 MB: a noisy system easily exceeds
+    // the 4 MB default, and losing that output silently would make the exact
+    // machine this check exists for look "clean". Truncated output is still
+    // processed — the partial lines we did capture are real errors.
+    const res = await ctx.run(`journalctl -p err --since "-24 hours" --no-pager -o short 2>/dev/null`, { maxBuffer: 64 * 1024 * 1024 });
     if (res.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "journal/skipped",
         title: "System log check skipped",
@@ -71,15 +76,17 @@ export const journal = defineCheck({
         evidence: "journalctl: not found",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
-    if (!res.ok || !res.stdout.trim()) return findings;
+    if (!res.ok && !res.truncated) return findings;
+    if (!res.stdout.trim()) return findings;
 
+    const logLines = journalLines(res.stdout);
     const noise = [];
     const meaningful = [];
     const unknown = [];
-    for (const l of lines(res.stdout)) {
+    for (const l of logLines) {
       if (DEFERRED_PATTERNS.some((re) => re.test(l))) {
         continue; // owned by a dedicated check (suspend, hardware)
       }
@@ -111,7 +118,7 @@ export const journal = defineCheck({
         .slice(0, 5)
         .map(([msg, count]) => `${msg}  (×${count})`);
       const extra = unknown.length > 0 ? ` Plus ${plural(unknown.length, "unrecognized entry")} (possibly benign).` : "";
-      findings.push({
+      findings.push(finding({
         severity: meaningful.length > 3 ? "medium" : "info",
         code: "journal/errors",
         title: `${plural(meaningful.length, "recognized error")} in the last 24 hours (${counts.size} unique)`,
@@ -119,7 +126,7 @@ export const journal = defineCheck({
         evidence: top.join("\n"),
         fix: "Look up the exact message on your distro's docs or forums. For suspend/resume failures, see the 'Suspend hooks are failing' finding.",
         confidence: "low",
-      });
+      }));
     } else if (unknown.length > 0) {
       // Aggregate duplicates so 60 copies of the same message become one line.
       const counts = new Map();
@@ -131,7 +138,7 @@ export const journal = defineCheck({
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([msg, count]) => `${msg}  (×${count})`);
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "journal/unknown",
         title: `${unknown.length} unrecognized log ${unknown.length === 1 ? "entry" : "entries"} in the last 24 hours`,
@@ -139,11 +146,11 @@ export const journal = defineCheck({
         evidence: top.join("\n"),
         fix: null,
         confidence: "low",
-      });
+      }));
     }
 
     if (noise.length > 0 && meaningful.length === 0 && unknown.length === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "journal/no-noise",
         title: "No significant errors — only routine noise",
@@ -151,7 +158,7 @@ export const journal = defineCheck({
         evidence: `Filtered out ${noise.length} known-benign entries.`,
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

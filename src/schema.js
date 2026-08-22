@@ -48,7 +48,34 @@ export const reportSchema = {
       properties: {
         added: { type: "array", items: { $ref: "#/definitions/briefFinding" } },
         fixed: { type: "array", items: { $ref: "#/definitions/briefFinding" } },
+        unchanged: { type: "integer", minimum: 0, description: "current findings whose key also appeared in the previous run" },
       },
+    },
+    historyDisabled: {
+      type: "boolean",
+      description: "true when --no-history / LINUX_DOCTOR_NO_HISTORY suppressed history read+write this run",
+    },
+    changeMessage: {
+      type: ["string", "null"],
+      description: "human one-liner summarizing the change since the last run, or null when nothing changed",
+    },
+    skippedChecks: {
+      type: "array",
+      description: "checks that were intentionally skipped (not failed) with a reason — e.g. not applicable on an immutable system",
+      items: {
+        type: "object",
+        required: ["id", "title", "reason"],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+    },
+    checksAtomicSkipped: {
+      type: "integer",
+      minimum: 0,
+      description: "checks skipped because they do not apply to an immutable/atomic system",
     },
     system: {
       type: "object",
@@ -57,10 +84,22 @@ export const reportSchema = {
         family: { type: "string" },
         kind: { enum: ["desktop", "laptop", "server"] },
         kernel: { type: "string" },
-        cores: { type: ["string", "number"] },
+        cores: { type: ["integer", "string"], description: "CPU core count (string when nproc is unavailable)" },
         uptime: { type: "string" },
         immutable: { type: "boolean" },
         imageBased: { type: "boolean" },
+        atomicVariant: { type: ["string", "null"], description: "specific atomic variant (bazzite, silverblue, ...) or null" },
+        atomic: {
+          type: "object",
+          description: "structured immutable/atomic profile so consumers adapt once",
+          properties: {
+            immutable: { type: "boolean" },
+            imageBased: { type: "boolean" },
+            bootc: { type: "boolean" },
+            variant: { type: ["string", "null"] },
+            pkg: { type: "string" },
+          },
+        },
       },
     },
     findings: { type: "array", items: { $ref: "#/definitions/finding" } },

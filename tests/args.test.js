@@ -54,6 +54,14 @@ test("parseArgs: boolean flags parse", () => {
   assert.equal(out.profile, true);
 });
 
+test("parseArgs: --support and --no-history are booleans", () => {
+  const out = parse("--support", "--no-history", "--json");
+  assert.equal(out.support, true);
+  assert.equal(out.noHistory, true);
+  assert.equal(out.json, true);
+  assert.equal(out.error, null);
+});
+
 test("parseArgs: --help wins even with bad flags after it", () => {
   const out = parse("--help", "--bogus");
   assert.equal(out.help, true);

@@ -1,4 +1,6 @@
 import { lines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks Bluetooth health: whether any controller exists, whether the
@@ -8,7 +10,6 @@ import { lines } from "../utils.js";
  * daemon (a side effect), and its power state is often a deliberate user choice
  * anyway.
  */
-import { defineCheck } from "./define.js";
 
 export const bluetooth = defineCheck({
   id: "bluetooth",
@@ -27,7 +28,7 @@ export const bluetooth = defineCheck({
     const ctrls = lines(controllers.stdout);
 
     if (ctrls.length === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "bluetooth/none",
         title: "No Bluetooth hardware detected",
@@ -35,12 +36,12 @@ export const bluetooth = defineCheck({
         evidence: "no /sys/class/bluetooth entries",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
     if (isFailed.ok && isFailed.stdout.trim() === "failed") {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "bluetooth/failed",
         title: "Bluetooth service is in a failed state",
@@ -48,12 +49,12 @@ export const bluetooth = defineCheck({
         evidence: "systemctl is-failed bluetooth → failed",
         fix: "See why it failed with `systemctl status bluetooth` and `journalctl -u bluetooth -b`, then fix the cause and restart it with `sudo systemctl restart bluetooth`.",
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
     if (!(daemon.ok && daemon.stdout.trim() !== "")) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "bluetooth/stopped",
         title: "Bluetooth service is not running",
@@ -63,11 +64,11 @@ export const bluetooth = defineCheck({
           ? "Start it with `sudo systemctl enable --now bluetooth` (or `rc-service bluetooth start` on non-systemd systems)."
           : "Start it with `sudo systemctl enable --now bluetooth` (on non-systemd systems, start the bluetooth service for your init system).",
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
-    findings.push({
+    findings.push(finding({
       severity: "info",
       code: "bluetooth/ok",
       title: "Bluetooth is working",
@@ -75,7 +76,7 @@ export const bluetooth = defineCheck({
       evidence: "controller: " + ctrls.join(", ") + "\nbluetoothd: running",
       fix: null,
       confidence: "high",
-    });
+    }));
     return findings;
   },
 });

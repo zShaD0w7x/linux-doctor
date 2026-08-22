@@ -1,4 +1,6 @@
 import { defineCheck } from "./define.js";
+import { parseSize } from "../utils.js";
+import { finding } from "../findings.js";
 
 /**
  * Container storage: Podman/Docker image storage fills disks silently —
@@ -6,14 +8,6 @@ import { defineCheck } from "./define.js";
  * Parses the plain-text output of `podman system df` / `docker system df`
  * so it works across versions without relying on --format json.
  */
-function parseSize(text) {
-  const m = String(text || "").match(/([\d.]+)\s*([KMGTP]?B?)/i);
-  if (!m) return 0;
-  const unit = (m[2] || "").replace("B", "").toUpperCase() || "B";
-  const mult = { B: 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }[unit] || 1;
-  return Math.round(parseFloat(m[1]) * mult);
-}
-
 export const containerdisk = defineCheck({
   id: "containerdisk",
   title: "Container storage",
@@ -31,7 +25,7 @@ export const containerdisk = defineCheck({
     const runtime = podman.ok ? "podman" : docker.ok ? "docker" : null;
 
     if (!runtime) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "containerdisk/skipped",
         title: "Container storage check skipped",
@@ -39,7 +33,7 @@ export const containerdisk = defineCheck({
         evidence: "podman: not found · docker: not found",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -62,7 +56,7 @@ export const containerdisk = defineCheck({
     const highGB = (t.containerHighGB) || 50;
 
     if (totalBytes >= highGB * 1024 ** 3) {
-      findings.push({
+      findings.push(finding({
         severity: "high",
         code: "containerdisk/high",
         title: `Container image storage is very large (${GB(totalBytes)} GB)`,
@@ -70,9 +64,9 @@ export const containerdisk = defineCheck({
         evidence: imageLine.trim(),
         fix: `Run \`${runtime} image prune -a\` to remove unused images, or \`${runtime} system prune\` to also remove stopped containers and unused volumes.`,
         confidence: "high",
-      });
+      }));
     } else if (totalBytes >= warnGB * 1024 ** 3) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "containerdisk/warn",
         title: `Container image storage is getting large (${GB(totalBytes)} GB)`,
@@ -80,9 +74,9 @@ export const containerdisk = defineCheck({
         evidence: imageLine.trim(),
         fix: `Run \`${runtime} image prune -a\` to remove unused images.`,
         confidence: "high",
-      });
+      }));
     } else if (totalBytes > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "containerdisk/ok",
         title: `Container image storage is fine (${GB(totalBytes)} GB)`,
@@ -90,7 +84,7 @@ export const containerdisk = defineCheck({
         evidence: imageLine.trim(),
         fix: null,
         confidence: "high",
-      });
+      }));
     }
 
     return findings;

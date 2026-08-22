@@ -9,11 +9,10 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { homedir } from "node:os";
 
-export function cacheDir() {
-  return process.env.LINUX_DOCTOR_CACHE || join(homedir() || ".", ".cache", "linux-doctor");
-}
+import { cacheDir } from "./paths.js";
+
+export { cacheDir };
 
 export function cacheFile(key) {
   return join(cacheDir(), `${key}.json`);

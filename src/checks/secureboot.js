@@ -1,10 +1,11 @@
 import { lines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks UEFI boot mode, Secure Boot state, and TPM presence. All reads are
  * from sysfs/efivars or mokutil — nothing is modified.
  */
-import { defineCheck } from "./define.js";
 
 export const secureboot = defineCheck({
   id: "secureboot",
@@ -21,7 +22,7 @@ export const secureboot = defineCheck({
     ]);
 
     if (!efi.ok || efi.stdout.trim() === "") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "secureboot/bios",
         title: "Legacy BIOS boot",
@@ -29,7 +30,7 @@ export const secureboot = defineCheck({
         evidence: "no /sys/firmware/efi",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -46,7 +47,7 @@ export const secureboot = defineCheck({
     }
 
     if (sbEnabled === true) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "secureboot/enabled",
         title: "Secure Boot is enabled",
@@ -54,11 +55,11 @@ export const secureboot = defineCheck({
         evidence: "SecureBoot enabled",
         fix: null,
         confidence: "high",
-      });
+      }));
     } else if (sbEnabled === false) {
       // Disabled Secure Boot is a hardware/config choice, not a detected
       // fault — informational so it does not drag down the health score.
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "secureboot/disabled",
         title: "Secure Boot is disabled",
@@ -66,11 +67,11 @@ export const secureboot = defineCheck({
         evidence: "SecureBoot disabled",
         fix: "Enable it in your firmware (BIOS/UEFI) setup, or with: `sudo mokutil --enable-validation`",
         confidence: "medium",
-      });
+      }));
     }
 
     if (tpm.ok && tpm.stdout.trim() !== "") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "secureboot/tpm",
         title: "TPM is present",
@@ -78,10 +79,10 @@ export const secureboot = defineCheck({
         evidence: "/sys/class/tpm/tpm0",
         fix: null,
         confidence: "high",
-      });
+      }));
     } else {
       // A missing TPM is a hardware limitation, not a fault — informational.
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "secureboot/no-tpm",
         title: "No TPM detected",
@@ -89,7 +90,7 @@ export const secureboot = defineCheck({
         evidence: "no /sys/class/tpm/tpm0",
         fix: "Enable the TPM in your firmware (BIOS/UEFI) settings, or add a discrete TPM module.",
         confidence: "medium",
-      });
+      }));
     }
 
     return findings;

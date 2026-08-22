@@ -1,20 +1,12 @@
-import { fmtBytes } from "../utils.js";
-
-/** Parse "3.2G", "512.0M", "1024B" into a byte count (0 when unparseable). */
-export function parseSize(text) {
-  const m = String(text || "").match(/([\d.]+)\s*([KMGTP]?B?)/i);
-  if (!m) return 0;
-  const unit = (m[2] || "").replace("B", "").toUpperCase() || "B";
-  const mult = { B: 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }[unit] || 1;
-  return Math.round(parseFloat(m[1]) * mult);
-}
+import { fmtBytes, parseSize, TIMEOUT_MS } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Journal (systemd log) disk usage. A runaway journal is a classic cause of
  * "my disk filled up overnight" — the log grows silently until it hits its
  * size cap, and there is no visible warning. Reads only.
  */
-import { defineCheck } from "./define.js";
 
 export const journald = defineCheck({
   id: "journald",
@@ -23,9 +15,9 @@ export const journald = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    const res = await ctx.run("journalctl --disk-usage 2>/dev/null", { timeoutMs: 15000 });
+    const res = await ctx.run("journalctl --disk-usage 2>/dev/null", { timeoutMs: TIMEOUT_MS.JOURNAL });
     if (res.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "journald/skipped",
         title: "Journal size check skipped",
@@ -33,7 +25,7 @@ export const journald = defineCheck({
         evidence: "journalctl: not found",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
     if (!res.ok) {
@@ -46,7 +38,7 @@ export const journald = defineCheck({
 
     const friendly = fmtBytes(size);
     if (size >= ctx.thresholds.journalWarnBytes) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "journald/large",
         title: "System journal is large",
@@ -54,9 +46,9 @@ export const journald = defineCheck({
         evidence: res.stdout.trim(),
         fix: "Trim it now with `sudo journalctl --vacuum-size=500M`, then cap it permanently: add `SystemMaxUse=500M` to /etc/systemd/journald.conf and run `sudo systemctl restart systemd-journald`.",
         confidence: "high",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "journald/ok",
         title: "Journal size is fine",
@@ -64,7 +56,7 @@ export const journald = defineCheck({
         evidence: res.stdout.trim(),
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

@@ -6,14 +6,10 @@
  * defaults apply.
  */
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 
-/** Path of the config file. */
-export function configFile() {
-  if (process.env.LINUX_DOCTOR_CONFIG) return process.env.LINUX_DOCTOR_CONFIG;
-  const base = process.env.XDG_CONFIG_HOME || join(process.env.HOME || ".", ".config");
-  return join(base, "linux-doctor", "config.json");
-}
+import { configFile } from "./paths.js";
+
+export { configFile };
 
 /** Load the config file. Never throws; returns {} when missing or corrupt. */
 export function loadConfig(file = configFile()) {

@@ -1,10 +1,11 @@
 import { lines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks whether the system uses full-disk encryption. Reads `lsblk` output
  * looking for `crypto_LUKS` partitions or opened `crypt` mappers. Read-only.
  */
-import { defineCheck } from "./define.js";
 
 export const luks = defineCheck({
   id: "luks",
@@ -23,7 +24,7 @@ export const luks = defineCheck({
     const encrypted = devices.filter((l) => /crypto_luks|crypt/i.test(l));
 
     if (encrypted.length > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "luks/encrypted",
         title: "Disk encryption is active",
@@ -31,11 +32,11 @@ export const luks = defineCheck({
         evidence: encrypted.slice(0, 3).join("\n"),
         fix: null,
         confidence: "high",
-      });
+      }));
     } else if (devices.length > 0) {
       // Running unencrypted is a deliberate choice, not a detected fault —
       // informational so a healthy install is not penalized in the score.
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "luks/none",
         title: "No full-disk encryption detected",
@@ -43,7 +44,7 @@ export const luks = defineCheck({
         evidence: "lsblk: no crypto_LUKS / crypt devices",
         fix: "Re-encrypting in place is risky; the clean path is to back up, then reinstall with disk encryption enabled (LUKS). For laptops this is strongly recommended.",
         confidence: "medium",
-      });
+      }));
     }
 
     return findings;

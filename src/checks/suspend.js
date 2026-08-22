@@ -1,6 +1,7 @@
-import { lines } from "../utils.js";
+import { journalLines } from "../utils.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const suspend = defineCheck({
   id: "suspend",
@@ -12,11 +13,11 @@ export const suspend = defineCheck({
     // journalctl -g prints "-- Boot ... --" separators for every boot in the
     // window even when nothing matches, so without the filter this check would
     // report a failure on any system that booted more than once in 7 days.
-    const res = await ctx.run(`journalctl -g "system-sleep.*failed" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- "`);
+    const res = await ctx.run(`journalctl -g "system-sleep.*failed" --since "-7 days" --no-pager -o short 2>/dev/null`);
     if (!res.ok || !res.stdout.trim()) return findings;
 
-    const entries = lines(res.stdout).slice(-5);
-    findings.push({
+    const entries = journalLines(res.stdout, { tail: 5 });
+    findings.push(finding({
       severity: "medium",
       code: "suspend/failed",
       title: "Suspend hooks are failing",
@@ -27,7 +28,7 @@ export const suspend = defineCheck({
       // Shared with the journal check's deferred system-sleep lines: if that
       // finding ever reappears, dedupe() keeps this specialized one.
       dedupeKey: "system-sleep-hooks",
-    });
+    }));
     return findings;
   },
 });

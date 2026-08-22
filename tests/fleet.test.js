@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pushReport, machineId } from "../src/fleet.js";
+import { pushReport, machineId, validatePushUrl } from "../src/fleet.js";
 
 test("machineId: reads /etc/machine-id or returns null", () => {
   const id = machineId();
@@ -54,4 +54,17 @@ test("pushReport: guards against a hung server with a fetch timeout", async () =
   }
   assert.ok(signal instanceof AbortSignal, "fetch must carry an abort signal");
   assert.equal(typeof signal.aborted, "boolean");
+});
+
+test("validatePushUrl: clear errors for typos, null for usable URLs", () => {
+  assert.match(validatePushUrl("example.com/reports"), /forget https/);
+  assert.match(validatePushUrl(""), /requires a URL/);
+  assert.match(validatePushUrl("ftp://example.com"), /only http/);
+  assert.match(validatePushUrl("https://"), /invalid URL/); // unparseable → the friendly typo hint
+  assert.equal(validatePushUrl("https://fleet.example.com/reports"), null);
+  assert.equal(validatePushUrl("http://127.0.0.1:8080/push"), null);
+});
+
+test("pushReport: rejects an invalid URL instead of a generic fetch error", async () => {
+  await assert.rejects(() => pushReport("notaurl", {}), /invalid URL/);
 });

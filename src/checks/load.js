@@ -1,6 +1,7 @@
 import { lines, num, plural } from "../utils.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const load = defineCheck({
   id: "load",
@@ -19,7 +20,7 @@ export const load = defineCheck({
 
     const ratio = load1 / cpus;
     if (ratio >= t.loadHighRatio) {
-      findings.push({
+      findings.push(finding({
         severity: ratio >= t.loadCriticalRatio ? "high" : "medium",
         code: "load/overloaded",
         title: "CPU is overloaded",
@@ -27,9 +28,9 @@ export const load = defineCheck({
         evidence: `load average: ${fields.join(" ")}\ncores: ${cpus}`,
         fix: "Find the process using the most CPU with `ps aux --sort=-%cpu | head` and close or restart it. Common culprits: browsers with many tabs, video encoding, or runaway processes.",
         confidence: "high",
-      });
+      }));
     } else if (ratio >= t.loadWarnRatio) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "load/busy",
         title: "CPU is busy but not overloaded",
@@ -37,7 +38,7 @@ export const load = defineCheck({
         evidence: `load average: ${fields.join(" ")}`,
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

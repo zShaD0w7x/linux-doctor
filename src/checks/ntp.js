@@ -1,11 +1,12 @@
 import { lines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Time synchronization. A drifting clock silently breaks HTTPS, cron jobs,
  * and time-based tokens — and "no NTP daemon" is one of the most common
  * causes. Reads only; skipped on systems without timedatectl (non-systemd).
  */
-import { defineCheck } from "./define.js";
 
 export const ntp = defineCheck({
   id: "ntp",
@@ -16,7 +17,7 @@ export const ntp = defineCheck({
 
     const td = await ctx.run("timedatectl show -p NTPSynchronized 2>/dev/null");
     if (td.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "ntp/skipped",
         title: "Time sync check skipped",
@@ -24,7 +25,7 @@ export const ntp = defineCheck({
         evidence: "timedatectl: not found",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
     if (!td.ok || td.stdout.trim() === "") return findings;
@@ -32,7 +33,7 @@ export const ntp = defineCheck({
     const synced = /^NTPSynchronized=yes$/im.test(td.stdout);
 
     if (synced) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "ntp/ok",
         title: "Time is synchronized",
@@ -40,7 +41,7 @@ export const ntp = defineCheck({
         evidence: td.stdout.trim(),
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -50,7 +51,7 @@ export const ntp = defineCheck({
     const daemonActive = daemon.ok && /^active$/m.test(daemon.stdout);
 
     if (!daemonActive) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "ntp/unsynced",
         title: "Clock is not kept in sync",
@@ -59,9 +60,9 @@ export const ntp = defineCheck({
         evidence: "no active NTP daemon",
         fix: "Enable one: `sudo systemctl enable --now systemd-timesyncd` (most systems) or `sudo systemctl enable --now chronyd` (Fedora/RHEL).",
         confidence: "high",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "ntp/pending",
         title: "NTP daemon is running but time is not synchronized yet",
@@ -70,7 +71,7 @@ export const ntp = defineCheck({
         evidence: td.stdout.trim(),
         fix: "Check `timedatectl timesync-status` and `timedatectl status`. If it stays unsynchronized, check DNS and that UDP/123 is not blocked.",
         confidence: "medium",
-      });
+      }));
     }
     return findings;
   },

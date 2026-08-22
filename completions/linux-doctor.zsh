@@ -15,9 +15,30 @@ _linux_doctor() {
     '--web[open visual dashboard in browser]' \
     '--ai[add AI summary (needs LLM_API_KEY)]' \
     '--push=[post report to fleet server]:url:' \
+    '--html=[save a standalone HTML report]:file:_files' \
+    '--compare=[diff against a previous JSON report]:file:_files' \
+    '--severity=[only findings at this severity]:severity:(high medium info)' \
     '--ignore=[hide findings by title]:pattern:' \
+    '--ignore-code=[hide findings by stable code]:code:' \
+    '--ignore-list[show configured ignore patterns]' \
+    '--summary[one-line score + severity counts]' \
+    '--todo[numbered fix list, ordered by severity]' \
+    '--fix[dry run: show safe-fix commands for the findings]' \
+    "--yes[with --fix: execute the [apply] safe-fix commands]" \
+    '--interactive[browse findings in an interactive terminal UI]' \
+    '--notify[desktop notification when new issues appear]' \
+    '--self-test[explain the environment]' \
+    '--init-config[create a starter config file]' \
+    '--check-list[list checks as JSON]' \
     '--schema[print the JSON Schema]' \
     '--profile[show check durations]' \
+    '--license[show Pro license status]' \
+    '--license-gen=[issue a Pro license key]:subscriber:' \
+    '--alert=[POST an alert webhook]:url:' \
+    '--daemon[run continuously as a scheduled agent]' \
+    '--interval=[seconds between --daemon runs]:seconds:' \
+    '--support[write a privacy-safe support bundle (JSON)]' \
+    '--no-history[do not read or write run history]' \
     '--help[show help]' \
     '--version[show version]' \
     '*:: :->args'

@@ -1,9 +1,36 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer } from "node:net";
 import { startWeb } from "../src/web.js";
+
+// Raw request helper — fetch() treats Host and Origin as forbidden header
+// names, and these tests must control both headers exactly.
+function rawRequest(port, path, { method = "GET", headers = {}, body = null } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port, path, method, headers }, (res) => {
+      let data = "";
+      res.on("data", (c) => (data += c));
+      res.on("end", () => resolve({ status: res.statusCode, body: data }));
+    });
+    req.on("error", reject);
+    if (body !== null) req.write(body);
+    req.end();
+  });
+}
+
+// Is 43901 (the dashboard's default port) currently free? Used to pin the
+// default in tests without flaking when a live dashboard is running.
+const portFree = (p) =>
+  new Promise((resolve) => {
+    const s = createServer();
+    s.once("error", () => resolve(false));
+    s.once("listening", () => s.close(() => resolve(true)));
+    s.listen(p, "127.0.0.1");
+  });
 
 test("web dashboard serves the page and a fresh report via /api/report", async () => {
   const collect = async () => ({
@@ -66,6 +93,23 @@ test("web dashboard serves run history via /api/history", async () => {
   }
 });
 
+test("web dashboard defaults to port 43901 and falls back when it is taken", async () => {
+  const collect = async () => ({ findings: [] });
+  const first = await startWeb({ collect, open: false, quiet: true });
+  const second = await startWeb({ collect, open: false, quiet: true });
+  try {
+    if (await portFree(43901)) {
+      assert.equal(first.address().port, 43901, "default port is 43901 when free");
+    }
+    assert.notEqual(second.address().port, first.address().port, "second instance falls back to another port");
+    const ok = await (await fetch(`http://127.0.0.1:${second.address().port}/api/report`)).ok;
+    assert.ok(ok, "fallback server still serves the report");
+  } finally {
+    first.close();
+    second.close();
+  }
+});
+
 test("POST /api/ignore writes the pattern to the config file", async () => {
   const dir = mkdtempSync(join(tmpdir(), "ld-web-"));
   const config = join(dir, "config.json");
@@ -83,6 +127,70 @@ test("POST /api/ignore writes the pattern to the config file", async () => {
       assert.equal(res.status, 200);
       const saved = JSON.parse(readFileSync(config, "utf8"));
       assert.deepEqual(saved.ignore, ["Suspend hooks are failing"]);
+    } finally {
+      server.close();
+    }
+  } finally {
+    if (prev === undefined) delete process.env.LINUX_DOCTOR_CONFIG;
+    else process.env.LINUX_DOCTOR_CONFIG = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("web rejects non-loopback Host headers (DNS rebinding)", async () => {
+  const server = await startWeb({ collect: async () => ({ findings: [] }), open: false, port: 0, quiet: true });
+  try {
+    // An attacker page whose domain rebinds to 127.0.0.1 arrives with an
+    // attacker-chosen Host header — it must not be served.
+    const rebound = await rawRequest(server.address().port, "/", { headers: { Host: "evil.example" } });
+    assert.equal(rebound.status, 403);
+    const report = await rawRequest(server.address().port, "/api/report", { headers: { Host: "evil.example" } });
+    assert.equal(report.status, 403);
+    // A normal loopback visit keeps working.
+    const local = await rawRequest(server.address().port, "/");
+    assert.equal(local.status, 200);
+  } finally {
+    server.close();
+  }
+});
+
+test("web rejects cross-origin POSTs to config-writing endpoints (CSRF)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-web-csrf-"));
+  const prev = process.env.LINUX_DOCTOR_CONFIG;
+  process.env.LINUX_DOCTOR_CONFIG = join(dir, "config.json");
+  try {
+    const server = await startWeb({ collect: async () => ({ findings: [] }), open: false, port: 0, quiet: true });
+    const port = server.address().port;
+    try {
+      // A forged cross-site POST always carries the attacker's Origin.
+      const body = JSON.stringify({ pattern: "Suspend hooks are failing" });
+      const forged = await rawRequest(port, "/api/ignore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "https://evil.example" },
+        body,
+      });
+      assert.equal(forged.status, 403);
+      // A "null" origin (sandboxed iframe) is equally untrusted.
+      const nulled = await rawRequest(port, "/api/ignore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "null" },
+        body,
+      });
+      assert.equal(nulled.status, 403);
+      // The dashboard itself posts from a loopback origin — still allowed.
+      const local = await rawRequest(port, "/api/ignore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: `http://127.0.0.1:${port}` },
+        body,
+      });
+      assert.equal(local.status, 200);
+      // Non-browser clients (curl, scripts) send no Origin at all — allowed.
+      const noOrigin = await rawRequest(port, "/api/ignore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      assert.equal(noOrigin.status, 200);
     } finally {
       server.close();
     }

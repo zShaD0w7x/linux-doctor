@@ -7,7 +7,7 @@ Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Plain-English health checks for your Linux system
 License:        GPL-3.0-or-later
-URL:            https://github.com/zShaD0w7x/linux-doctor-cli
+URL:            https://github.com/zShaD0w7x/linux-doctor
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 Requires:       nodejs >= 20

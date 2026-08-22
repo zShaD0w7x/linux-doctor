@@ -43,7 +43,7 @@ git add . && git commit -m "linux-doctor 0.2.0" && git push
 ```bash
 copr-cli create linux-doctor --chroot fedora-42-x86_64
 copr-cli build linux-doctor packaging/linux-doctor.spec \
-  --srpm --spec packaging/linux-doctor.spec --git-url https://github.com/zShaD0w7x/linux-doctor-cli
+  --srpm --spec packaging/linux-doctor.spec --git-url https://github.com/zShaD0w7x/linux-doctor
 ```
 
 (Or drop the tarball into `~/rpmbuild/SOURCES/` and `rpmbuild -ba` locally.)

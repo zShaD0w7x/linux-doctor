@@ -17,6 +17,10 @@ test("npm package ships every file the runtime reads", () => {
   assert.ok(files.includes("src"), "src must be shipped");
   assert.ok(files.includes("README.md"), "README.md must be shipped");
   assert.ok(files.includes("LICENSE"), "LICENSE must be shipped");
+  // The README links the dual-license docs; a published tarball without them
+  // ships a README with broken links (and hides the commercial-license option).
+  assert.ok(files.includes("COMMERCIAL-LICENSE.md"), "COMMERCIAL-LICENSE.md must be shipped");
+  assert.ok(files.includes("CONTRIBUTING.md"), "CONTRIBUTING.md must be shipped");
 });
 
 test("web.js' dashboard page exists on disk", () => {

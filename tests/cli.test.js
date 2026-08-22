@@ -14,10 +14,18 @@ function run(...args) {
   return spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", timeout: 60000 });
 }
 
+function runEnv(env, ...args) {
+  return spawnSync(process.execPath, [bin, ...args], {
+    encoding: "utf8",
+    timeout: 60000,
+    env: { ...process.env, ...env },
+  });
+}
+
 test("--list prints every check id grouped by category without running them", () => {
   const res = run("--list");
   assert.equal(res.status, 0);
-  for (const id of ["memory", "load", "disk", "services", "timers", "journal", "journald", "suspend", "security", "secureboot", "network", "ntp", "updates", "firmware", "flatpak", "reboot", "processes", "thermal", "battery", "gpu", "bluetooth", "wayland", "backup", "hardware", "smart", "luks", "audio", "containers", "containerdisk", "crash"]) {
+  for (const id of ["memory", "load", "disk", "processes", "thermal", "journal", "journald", "suspend", "security", "ssh", "autologin", "secureboot", "network", "ntp", "updates", "snap", "firmware", "flatpak", "reboot", "battery", "gpu", "bluetooth", "wayland", "backup", "hardware", "smart", "luks", "audio", "containers", "containerdisk", "crash", "zram", "locales"]) {
     assert.match(res.stdout, new RegExp(`^  ${id} — `, "m"), `--list should include ${id}`);
   }
   // Category headers group the list.
@@ -205,6 +213,66 @@ test("--ignore counts hidden findings and warns when a pattern matches nothing",
   }
 });
 
+test("--ignore-code matches a dedupeKey-derived code (identity is normalized before filtering)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-igncode-"));
+  try {
+    writeFileSync(
+      join(dir, "dedupeonly.js"),
+      "export default { id: 'dedupeonly', title: 'Dedupe-only', async run() { return [{ severity: 'medium', title: 'Shared root cause', detail: null, evidence: null, fix: null, confidence: 'high', dedupeKey: 'shared-root' }]; } };\n"
+    );
+    const env = { ...process.env, LINUX_DOCTOR_PLUGINS: dir };
+    const res = spawnSync(process.execPath, [bin, "--check", "dedupeonly", "--ignore-code", "shared-root", "--plain"], {
+      encoding: "utf8", timeout: 60000, env,
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /^# ignored: 1$/m);
+    assert.doesNotMatch(res.stdout, /Shared root cause/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--ignore-code matches the slug fallback code (plugin without any code)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-igncode-slug-"));
+  try {
+    writeFileSync(
+      join(dir, "slugger.js"),
+      "export default { id: 'slugger', title: 'Slugger', async run() { return [{ severity: 'info', title: 'A curious thing', detail: null, evidence: null, fix: null, confidence: 'high' }]; } };\n"
+    );
+    const env = { ...process.env, LINUX_DOCTOR_PLUGINS: dir };
+    const json = spawnSync(process.execPath, [bin, "--check", "slugger", "--json"], { encoding: "utf8", timeout: 60000, env });
+    assert.equal(json.status, 0, json.stderr);
+    const code = JSON.parse(json.stdout).findings[0].code;
+    assert.equal(code, "slugger/a-curious-thing");
+
+    const res = spawnSync(process.execPath, [bin, "--check", "slugger", "--ignore-code", code, "--plain"], { encoding: "utf8", timeout: 60000, env });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /^# ignored: 1$/m);
+    assert.doesNotMatch(res.stdout, /A curious thing/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--compare includes plugin findings (same pipeline as a normal run)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-cli-compare-plugins-"));
+  try {
+    writeFileSync(
+      join(dir, "cmp.js"),
+      "export default { id: 'cmp', title: 'Cmp plugin', async run() { return [{ severity: 'info', title: 'Plugin-only finding', detail: null, evidence: null, fix: null, confidence: 'high', code: 'cmp/plugin-only' }]; } };\n"
+    );
+    const reportPath = join(dir, "prev.json");
+    writeFileSync(reportPath, JSON.stringify({ findings: [] }), "utf8");
+    const env = { ...process.env, LINUX_DOCTOR_PLUGINS: dir };
+    const res = spawnSync(process.execPath, [bin, "--compare", reportPath], { encoding: "utf8", timeout: 60000, env });
+    assert.ok(res.status === 0 || res.status === 1, `exit ${res.status}: ${res.stderr}`);
+    assert.match(res.stdout, /new finding/);
+    assert.match(res.stdout, /Plugin-only finding/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("low-confidence findings get a visible marker in the text report", () => {
   const dir = mkdtempSync(join(tmpdir(), "ld-cli-shaky-"));
   try {
@@ -245,8 +313,9 @@ test("--html writes a standalone HTML file that contains the report data", () =>
     const html = readFileSync(htmlPath, "utf8");
     assert.ok(html.includes("__DATA__"), "HTML contains embedded data");
     assert.ok(html.includes("linux-doctor"), "HTML contains the dashboard");
+    assert.ok(!html.includes("window.fetch ="), "no window.fetch monkey-patching");
     // Extract the JSON data and validate it
-    const match = html.match(/const __DATA__ = ({.*?});/s);
+    const match = html.match(/window\.__DATA__ = ({.*?});/s);
     assert.ok(match, "embedded data is valid JS");
     const data = JSON.parse(match[1]);
     assert.equal(data.schemaVersion, 1);
@@ -278,7 +347,7 @@ test("--ignore-list shows configured patterns", () => {
 test("--summary prints a one-liner with score and counts", () => {
   const res = run("--summary");
   assert.ok(res.status === 0 || res.status === 1, `exit ${res.status}`);
-  assert.match(res.stdout, /^score=\d+/);
+  assert.match(res.stdout, /^health \d+\/100/);
   // No multi-line output — it's a single line
   assert.equal(res.stdout.trim().split("\n").length, 1);
 });
@@ -303,6 +372,69 @@ test("--check-list prints check metadata as JSON", () => {
   assert.equal(typeof mem.category, "string");
   assert.ok(Array.isArray(mem.appliesTo));
   assert.equal(typeof mem.appliesHere, "boolean");
+});
+
+test("premium checks are invisible without a Pro license key", () => {
+  delete process.env.LINUX_DOCTOR_LICENSE;
+  const list = run("--list");
+  assert.equal(list.status, 0);
+  assert.ok(!list.stdout.includes("hardening"), "premium checks must not appear in free --list");
+
+  const list2 = run("--check-list");
+  assert.equal(list2.status, 0);
+  const meta = JSON.parse(list2.stdout);
+  assert.ok(!meta.some((c) => c.premium), "no premium metadata without a key");
+
+  const check = run("--check", "hardening");
+  assert.equal(check.status, 2);
+  assert.match(check.stderr, /Unknown check "hardening"/);
+});
+
+test("--license without a key reports Pro not active", () => {
+  delete process.env.LINUX_DOCTOR_LICENSE;
+  const res = run("--license");
+  assert.equal(res.status, 1);
+  assert.match(res.stdout, /not active/i);
+});
+
+test("--license-gen issues a key that activates Pro via LINUX_DOCTOR_LICENSE", () => {
+  delete process.env.LINUX_DOCTOR_LICENSE;
+  const gen = run("--license-gen", "test@example.com");
+  assert.equal(gen.status, 0);
+  const key = gen.stdout.trim();
+  assert.match(key, /^ldpro\.v1\./);
+
+  const info = runEnv({ LINUX_DOCTOR_LICENSE: key }, "--license");
+  assert.equal(info.status, 0);
+  assert.match(info.stdout, /Pro license active/i);
+  assert.match(info.stdout, /test@example\.com/);
+
+  const list = runEnv({ LINUX_DOCTOR_LICENSE: key }, "--check-list");
+  assert.equal(list.status, 0);
+  const meta = JSON.parse(list.stdout);
+  assert.ok(meta.some((c) => c.id === "hardening" && c.premium), "premium checks appear with a key");
+});
+
+test("Pro-only flags are rejected without a license key", () => {
+  delete process.env.LINUX_DOCTOR_LICENSE;
+  const alertRes = run("--check", "memory", "--alert", "https://example.com/hook");
+  assert.equal(alertRes.status, 2);
+  assert.match(alertRes.stderr, /Pro features/);
+
+  const daemonRes = run("--daemon");
+  assert.equal(daemonRes.status, 2);
+  assert.match(daemonRes.stderr, /Pro features/);
+
+  const intervalRes = run("--check", "memory", "--interval", "10");
+  assert.equal(intervalRes.status, 2);
+  assert.match(intervalRes.stderr, /Pro features/);
+});
+
+test("--interval rejects non-numeric values", () => {
+  const key = run("--license-gen", "test@example.com").stdout.trim();
+  const res = runEnv({ LINUX_DOCTOR_LICENSE: key }, "--check", "memory", "--interval", "abc");
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /--interval/);
 });
 
 test("--todo prints a numbered fix list, ordered by severity", () => {
@@ -347,12 +479,12 @@ test("--summary shows a score delta vs the previous run", () => {
   try {
     const first = spawnSync(process.execPath, [bin, "--summary"], { encoding: "utf8", timeout: 60000, env });
     assert.equal(first.status, 1, "a full run on a real system usually has findings; exit 1 expected otherwise");
-    assert.match(first.stdout, /^score=\d+/);
+    assert.match(first.stdout, /^health \d+\/100/);
     assert.doesNotMatch(first.stdout, /delta=/, "first run has no previous score to compare against");
 
     const second = spawnSync(process.execPath, [bin, "--summary"], { encoding: "utf8", timeout: 60000, env });
     assert.equal(second.status, first.status);
-    assert.match(second.stdout, /delta=-?\d+/, "second run must carry a score delta");
+    assert.match(second.stdout, /delta=[+-]?\d+/, "second run must carry a score delta (which may be +N when the score improved)");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

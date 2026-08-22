@@ -1,5 +1,7 @@
-import { lines, num, plural } from "../utils.js";
+import { lines, num, plural, TIMEOUT_MS } from "../utils.js";
 import { readCache, writeCache } from "../cache.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Counts pending updates using the distro's package manager.
@@ -11,8 +13,6 @@ import { readCache, writeCache } from "../cache.js";
  * the result is cached for 30 minutes (override LINUX_DOCTOR_UPDATES_TTL_MS;
  * 0 disables the cache). The TTL is read at call time so tests can control it.
  */
-import { defineCheck } from "./define.js";
-
 const UPDATES_CACHE_MS = 30 * 60 * 1000;
 
 export const updates = defineCheck({
@@ -55,7 +55,7 @@ export const updates = defineCheck({
     }
 
     if (!cmd) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "updates/skipped",
         title: "Update check skipped",
@@ -63,14 +63,14 @@ export const updates = defineCheck({
         evidence: null,
         fix: null,
         confidence: "medium",
-      });
+      }));
       if (useCache) writeCache("updates", findings);
       return findings;
     }
 
-    const res = await ctx.run(cmd, { timeoutMs: label === "rpm-ostree" ? 30000 : 20000 });
+    const res = await ctx.run(cmd, { timeoutMs: label === "rpm-ostree" ? TIMEOUT_MS.OSTREE : TIMEOUT_MS.PKGMGR });
     if (res.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "updates/skipped",
         title: "Update check skipped",
@@ -78,7 +78,7 @@ export const updates = defineCheck({
         evidence: `${label}: not found`,
         fix: null,
         confidence: "high",
-      });
+      }));
       if (useCache) writeCache("updates", findings);
       return findings;
     }
@@ -114,7 +114,7 @@ export const updates = defineCheck({
     const rebootNote = label === "rpm-ostree" ? " Reboot to activate it." : "";
 
     if (count === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "updates/none",
         title: "System is up to date",
@@ -122,9 +122,9 @@ export const updates = defineCheck({
         evidence: `${label}: 0 updates`,
         fix: null,
         confidence: "high",
-      });
+      }));
     } else if (count <= 10) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "updates/pending",
         title: `${plural(count, "update")} available`,
@@ -132,9 +132,9 @@ export const updates = defineCheck({
         evidence: `${label}: ${count} pending`,
         fix: `Apply ${count === 1 ? "it" : "them"} with: \`sudo ${fixCmd}\`${rebootNote}`,
         confidence: "high",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "updates/pending",
         title: `${count} updates available`,
@@ -142,7 +142,7 @@ export const updates = defineCheck({
         evidence: `${label}: ${count} pending`,
         fix: `Apply them with: \`sudo ${fixCmd}\`${rebootNote}`,
         confidence: "high",
-      });
+      }));
     }
     if (useCache) writeCache("updates", findings);
     return findings;

@@ -1,4 +1,6 @@
 import { lines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /** Split a kernel version into its numeric parts, e.g. "6.8.9-300.fc40" → [6, 8, 9, 300, 40]. */
 export function parseKernelVersion(v) {
@@ -30,15 +32,21 @@ export function versionGt(a, b) {
  * rpm-ostree (see the "updates" check) and /boot only shows the deployed
  * kernel, so a version comparison would be meaningless.
  */
-import { defineCheck } from "./define.js";
-
 export const reboot = defineCheck({
   id: "reboot",
   title: "Reboot required / kernel updates",
   category: "updates",
+  // Atomic (ostree/bootc) systems deploy a single image and /boot only shows
+  // the deployed kernel, so comparing the booted kernel to installed ones is
+  // meaningless — the "updates" check covers image upgrades instead.
+  skipOnAtomic: true,
+  atomicReason: "Atomic systems deploy a single image; kernel comparison against /boot is meaningless (see the 'updates' check for image upgrades).",
   async run(ctx) {
     const findings = [];
 
+    // The runner already skips this via `skipOnAtomic` on atomic systems and
+    // records a reason; this guard is a belt-and-suspenders so the check is
+    // also self-contained (e.g. when called directly in tests or by plugins).
     if (ctx.dist.imageBased) return findings;
 
     const [bootedRes, kernelsRes, rebootFile] = await Promise.all([
@@ -54,7 +62,7 @@ export const reboot = defineCheck({
     const rebootRequired = rebootFile.ok && rebootFile.stdout.trim() !== "";
 
     if (!newer && !rebootRequired) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "reboot/ok",
         title: "No reboot needed",
@@ -62,7 +70,7 @@ export const reboot = defineCheck({
         evidence: `booted: ${booted}`,
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -74,7 +82,7 @@ export const reboot = defineCheck({
       parts.push("/var/run/reboot-required indicates a restart is needed to finish applying updates.");
     }
 
-    findings.push({
+    findings.push(finding({
       severity: "medium",
       code: "reboot/required",
       title: "A reboot is required",
@@ -84,7 +92,7 @@ export const reboot = defineCheck({
         .join("\n"),
       fix: "Reboot when convenient to activate the new kernel. Check what changed after booting with `journalctl -b -1 | head`.",
       confidence: "high",
-    });
+    }));
     return findings;
   },
 });

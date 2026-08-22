@@ -3,20 +3,36 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { score, historyFile, loadHistory, saveRun, newFindings, diffSinceLast } from "../src/history.js";
+import { score, historyFile, loadHistory, saveRun, newFindings, diffSinceLast, changeMessage, isHistoryDisabled } from "../src/history.js";
 
 test("score: healthy system is 100", () => {
   assert.equal(score([]), 100);
   assert.equal(score([{ severity: "info" }, { severity: "info" }]), 100);
 });
 
-test("score: subtracts 15 per high and 8 per medium, floors at 0", () => {
+test("score: flat penalties for small counts, floors at 0", () => {
   assert.equal(score([{ severity: "high" }]), 85);
   assert.equal(score([{ severity: "medium" }]), 92);
-  assert.equal(score([{ severity: "high" }, { severity: "medium" }]), 77);
-  assert.equal(score([{ severity: "high" }, { severity: "high" }, { severity: "medium" }, { severity: "medium" }]), 54);
+  assert.equal(score([{ severity: "high" }, { severity: "medium" }]), 77); // tiers don't interact
+  assert.equal(score([{ severity: "medium" }, { severity: "medium" }, { severity: "medium" }]), 76); // first three flat
   const many = Array.from({ length: 20 }, () => ({ severity: "high" }));
   assert.equal(score(many), 0);
+});
+
+test("score: penalties escalate within a tier so criticals stand apart", () => {
+  // 4 high: 15+20+25+30 = 90 — must be clearly worse than any medium pile.
+  assert.equal(score(Array.from({ length: 4 }, () => ({ severity: "high" }))), 10);
+  // 2 high: 15+20.
+  assert.equal(score(Array.from({ length: 2 }, () => ({ severity: "high" }))), 65);
+  // 7 medium: 8·3 + (9+10+11+12) = 66 — a pile of minors starts to bite, but stays above the critical case.
+  assert.equal(score(Array.from({ length: 7 }, () => ({ severity: "medium" }))), 34);
+  assert.ok(score(Array.from({ length: 7 }, () => ({ severity: "medium" }))) > score(Array.from({ length: 4 }, () => ({ severity: "high" }))));
+});
+
+test("score: escalation is order-independent", () => {
+  const a = [{ severity: "high" }, { severity: "medium" }, { severity: "high" }, { severity: "high" }];
+  const b = [...a].reverse();
+  assert.equal(score(a), score(b));
 });
 
 test("newFindings: flags findings whose title is not in the previous run", () => {
@@ -67,7 +83,41 @@ test("newFindings: matches by code when present, so volatile titles do not churn
 });
 
 test("diffSinceLast: no previous run means nothing changed", () => {
-  assert.deepEqual(diffSinceLast([{ title: "X" }], []), { added: [], fixed: [] });
+  assert.deepEqual(diffSinceLast([{ title: "X" }], []), { added: [], fixed: [], unchanged: 1 });
+});
+
+test("diffSinceLast: reports unchanged as the third count", () => {
+  const runs = [{ findings: [{ severity: "medium", code: "a", title: "A" }, { severity: "info", code: "b", title: "B" }] }];
+  const current = [
+    { severity: "medium", code: "a", title: "A" },
+    { severity: "high", code: "c", title: "C" },
+  ];
+  const diff = diffSinceLast(current, runs);
+  assert.equal(diff.added.length, 1);
+  assert.equal(diff.fixed.length, 1);
+  assert.equal(diff.unchanged, 1);
+});
+
+test("changeMessage: null when nothing changed", () => {
+  assert.equal(changeMessage({ newCount: 0, fixedCount: 0 }), null);
+  assert.equal(changeMessage({}), null);
+});
+
+test("changeMessage: human one-liner for new and fixed", () => {
+  assert.equal(changeMessage({ newCount: 1, fixedCount: 0 }), "Since last run: 1 new issue.");
+  assert.equal(changeMessage({ newCount: 2, fixedCount: 1 }), "Since last run: 2 new issues, 1 fixed.");
+  assert.equal(changeMessage({ newCount: 0, fixedCount: 3 }), "Since last run: 3 fixed.");
+});
+
+test("isHistoryDisabled: false by default, true via env or flag", () => {
+  assert.equal(isHistoryDisabled(), false);
+  assert.equal(isHistoryDisabled({ cliFlag: true }), true);
+  process.env.LINUX_DOCTOR_NO_HISTORY = "1";
+  try {
+    assert.equal(isHistoryDisabled(), true);
+  } finally {
+    delete process.env.LINUX_DOCTOR_NO_HISTORY;
+  }
 });
 
 test("saveRun: writes atomically via temp file and leaves no residue", () => {

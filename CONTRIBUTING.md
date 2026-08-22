@@ -35,6 +35,21 @@ project — keep it that way.
    system commands in tests.
 4. Run `npm test`, update the README checks table if needed.
 
+## Adding a Pro (premium) check
+
+Premium checks live in `src/checks/pro/` and are gated behind the license key —
+they must never run or even be listed in the free edition. Differences from a
+free check:
+
+1. Set `premium: true` in the `defineCheck` object (see `define.js`), so the
+   CLI only merges it into the registry when a valid key is configured.
+2. Register it in `src/checks/pro/index.js` (exported as `PRO_CHECKS`).
+3. Test it in `tests/prochecks.test.js` with `stubCtx`, and assert the check
+   is flagged `premium`.
+4. Run `npm test`. The free-edition tests (`--list`, `--check-list`,
+   `--check <id>`) guard that premium checks stay invisible without a key —
+   a premium check that leaks into free output fails the suite on purpose.
+
 ## License & CLA (important)
 
 Linux Doctor is **dual-licensed**:
@@ -42,6 +57,10 @@ Linux Doctor is **dual-licensed**:
 1. **GPL-3.0-or-later** — for open-source use (see [LICENSE](LICENSE)).
 2. **A commercial license** — for companies that need to use it inside
    proprietary products (see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)).
+
+On top of that, the Pro license key (`--license-gen`, signed HMAC) unlocks
+premium features already shipped in the repo. Pro keys are issued by the
+maintainer; contributors never need one to work on the free edition.
 
 To keep this possible, **by submitting a pull request you agree that your
 contributions are offered under both licenses and that the maintainer may

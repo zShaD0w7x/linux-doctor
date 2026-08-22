@@ -34,7 +34,8 @@ import { containerdisk } from "../src/checks/containerdisk.js";
 import { crash } from "../src/checks/crash.js";
 import { network } from "../src/checks/network.js";
 import { reboot, versionGt } from "../src/checks/reboot.js";
-import { journald, parseSize } from "../src/checks/journald.js";
+import { journald } from "../src/checks/journald.js";
+import { parseSize } from "../src/utils.js";
 import { countBySeverity } from "../src/report.js";
 import { detectDistro } from "../src/distro.js";
 import { loadThresholds } from "../src/thresholds.js";
@@ -60,7 +61,9 @@ function stubCtx(map, osRelease = { id: "bazzite", id_like: "fedora" }) {
     dist: detectDistro(osRelease),
     thresholds: loadThresholds({}),
     run: async (cmd) => {
-      const entry = map[cmd];
+      // Fixture keys are written unquoted; the checks quote interpolated
+      // values (shq), so strip quotes before lookup.
+      const entry = map[cmd] ?? map[cmd.replaceAll("'", "")];
       if (entry === undefined) return { ok: false, code: 1, stdout: "", stderr: "" };
       return { ok: true, code: 0, stdout: entry, stderr: "" };
     },
@@ -175,7 +178,7 @@ test("services: only user-scope failures are medium, not high", async () => {
 
 test("journal: known noise is filtered into an informational finding", async () => {
   const ctx = stubCtx({
-    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 14:32:47 bazzite systemd-udevd[465]: /usr/lib/udev/rules.d/50-udev-default.rules:105 Failed to resolve group 'disk', ignoring: Unknown group\nAug 15 14:33:01 bazzite setroubleshoot[1807]: SELinux is preventing bootupctl from read access on the directory /proc.\nAug 15 14:36:58 bazzite cupsd[1512]: Returning IPP client-error-bad-request for Create-Printer-Subscriptions (ipp://localhost/) from localhost.`,
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite systemd-udevd[465]: /usr/lib/udev/rules.d/50-udev-default.rules:105 Failed to resolve group 'disk', ignoring: Unknown group\nAug 15 14:33:01 bazzite setroubleshoot[1807]: SELinux is preventing bootupctl from read access on the directory /proc.\nAug 15 14:36:58 bazzite cupsd[1512]: Returning IPP client-error-bad-request for Create-Printer-Subscriptions (ipp://localhost/) from localhost.`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 1);
@@ -185,7 +188,7 @@ test("journal: known noise is filtered into an informational finding", async () 
 
 test("journal: system-sleep failures are deferred to the suspend check", async () => {
   const ctx = stubCtx({
-    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 15:49:09 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.`,
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 15:49:09 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 0, "the suspend check owns system-sleep failures");
@@ -193,7 +196,7 @@ test("journal: system-sleep failures are deferred to the suspend check", async (
 
 test("journal: MCE lines are deferred to the hardware check", async () => {
   const ctx = stubCtx({
-    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged`,
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 0, "the hardware check owns MCE lines");
@@ -201,7 +204,7 @@ test("journal: MCE lines are deferred to the hardware check", async () => {
 
 test("journal: unit failures are deferred to the services check", async () => {
   const ctx = stubCtx({
-    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 16:02:11 bazzite systemd[1]: homebrew.clamav.service: Failed with result 'exit-code'.\nAug 15 16:02:11 bazzite systemd[1]: Failed to start Homebrew ClamAV.`,
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 16:02:11 bazzite systemd[1]: homebrew.clamav.service: Failed with result 'exit-code'.\nAug 15 16:02:11 bazzite systemd[1]: Failed to start Homebrew ClamAV.`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 0, "the services check owns unit failures — one problem, one finding");
@@ -596,7 +599,7 @@ test("processes: healthy memory usage produces an info finding", async () => {
 
 test("suspend: failing system-sleep hooks are surfaced as medium", async () => {
   const ctx = stubCtx({
-    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 10 22:11:03 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.\nAug 11 07:30:12 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.`,
+    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null": `Aug 10 22:11:03 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.\nAug 11 07:30:12 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.`,
   });
   const findings = await suspend.run(ctx);
   assert.equal(findings.length, 1);
@@ -606,7 +609,7 @@ test("suspend: failing system-sleep hooks are surfaced as medium", async () => {
 
 test("suspend: clean log produces no finding", async () => {
   const ctx = stubCtx({
-    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": "",
+    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null": "",
   });
   const findings = await suspend.run(ctx);
   assert.equal(findings.length, 0);
@@ -616,7 +619,7 @@ test("suspend: boot separators alone are NOT a failing hook", async () => {
   // journalctl -g prints "-- Boot ... --" separators for every boot in the
   // window even when nothing matched — this used to produce a false positive.
   const ctx = stubCtx({
-    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": "",
+    "journalctl -g \"system-sleep.*failed\" --since \"-7 days\" --no-pager -o short 2>/dev/null": "",
   });
   const findings = await suspend.run(ctx);
   assert.equal(findings.length, 0, "separator-only output must not be a finding");
@@ -624,7 +627,7 @@ test("suspend: boot separators alone are NOT a failing hook", async () => {
 
 test("journal: benign kernel noise (i2c address) is not an error finding", async () => {
   const ctx = stubCtx({
-    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 14:32:47 bazzite kernel: i2c i2c-1: Invalid 7-bit I2C address 0xffff`,
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite kernel: i2c i2c-1: Invalid 7-bit I2C address 0xffff`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 1);
@@ -635,7 +638,7 @@ test("journal: benign kernel noise (i2c address) is not an error finding", async
 
 test("journal: unrecognized entries stay informational, not medium", async () => {
   const ctx = stubCtx({
-    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null | grep -v \"^-- \"": `Aug 15 14:32:47 bazzite app[123]: Something unknown and weird happened\nAug 15 14:33:01 bazzite app[456]: Another unknown message\n`,
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite app[123]: Something unknown and weird happened\nAug 15 14:33:01 bazzite app[456]: Another unknown message\n`,
   });
   const findings = await journal.run(ctx);
   assert.equal(findings.length, 1);
@@ -809,7 +812,7 @@ test("thermal: normal temperature is informational", async () => {
 test("thermal: throttling events in the journal are medium", async () => {
   const ctx = stubCtx({
     'for z in /sys/class/thermal/thermal_zone*; do [ -f "$z/type" ] && [ -f "$z/temp" ] && echo "$(cat "$z/type"):$(cat "$z/temp")"; done 2>/dev/null': "x86_pkg_temp:45000\n",
-    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "Aug 15 10:00:00 bazzite kernel: CPU3: Core temperature above threshold, cpu clock throttled\n",
+    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null': "Aug 15 10:00:00 bazzite kernel: CPU3: Core temperature above threshold, cpu clock throttled\n",
   });
   const findings = await thermal.run(ctx);
   const throttle = findings.find((f) => /throttling/i.test(f.title));
@@ -822,7 +825,7 @@ test("thermal: app-level messages containing 'throttle' are NOT CPU throttling",
   // "setStartupThrottle" (Roblox, Chromium) — a false positive.
   const ctx = stubCtx({
     'for z in /sys/class/thermal/thermal_zone*; do [ -f "$z/type" ] && [ -f "$z/temp" ] && echo "$(cat "$z/type"):$(cat "$z/temp")"; done 2>/dev/null': "x86_pkg_temp:45000\n",
-    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "Aug 18 13:39:06 bazzite flatpak[143639]: info: Roblox: ... setStartupThrottle: false\n",
+    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null': "Aug 18 13:39:06 bazzite flatpak[143639]: info: Roblox: ... setStartupThrottle: false\n",
   });
   const findings = await thermal.run(ctx);
   assert.ok(!findings.some((f) => f.title.includes("throttling")), "app-level throttle messages must not be reported as CPU throttling");
@@ -830,7 +833,7 @@ test("thermal: app-level messages containing 'throttle' are NOT CPU throttling",
 
 test("thermal: journalctl boot separators alone are NOT throttling", async () => {
   const ctx = stubCtx({
-    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3': "",
+    'journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null': "",
   });
   const findings = await thermal.run(ctx);
   assert.ok(!findings.some((f) => f.title.includes("throttling")), "separator-only output must not be a throttling finding");
@@ -1026,7 +1029,7 @@ test("backup: snapper configs count as a snapshot system", async () => {
 
 test("hardware: machine check exceptions are high", async () => {
   const ctx = stubCtx({
-    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5': "Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged\n",
+    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null': "Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged\n",
   });
   const findings = await hardware.run(ctx);
   const high = findings.filter((f) => f.severity === "high");
@@ -1037,7 +1040,7 @@ test("hardware: machine check exceptions are high", async () => {
 
 test("hardware: corrected ECC errors are medium", async () => {
   const ctx = stubCtx({
-    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
+    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
   });
   const findings = await hardware.run(ctx);
   const med = findings.filter((f) => f.severity === "medium");
@@ -1047,8 +1050,8 @@ test("hardware: corrected ECC errors are medium", async () => {
 
 test("hardware: clean kernel log is informational", async () => {
   const ctx = stubCtx({
-    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5': "",
-    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5': "",
+    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
+    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
   });
   const findings = await hardware.run(ctx);
   assert.equal(findings.length, 1);
@@ -1059,8 +1062,8 @@ test("hardware: clean kernel log is informational", async () => {
 test("hardware: boot separators alone are NOT hardware errors", async () => {
   // journalctl -k -g prints "-- Boot ... --" separators even with no matches.
   const ctx = stubCtx({
-    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5': "",
-    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -5': "",
+    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
+    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
   });
   const findings = await hardware.run(ctx);
   assert.ok(!findings.some((f) => f.severity === "high" || f.severity === "medium"), "separator-only output must not be an error finding");
@@ -1608,6 +1611,45 @@ test("crash: many reboots in a week is flagged", async () => {
   assert.ok(findings.length > 0, "expected at least one finding");
   assert.match(findings[0].title, /reboot/i);
   assert.equal(findings[0].severity, "high");
+});
+
+test("crash: many reboots explained by an auto-update mechanism are not alarming", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) {
+      const l = Array.from({ length: 25 }, (_, i) => `  -${i}  ...`).join("\n");
+      return { ok: true, code: 0, stdout: l + "\n", stderr: "" };
+    }
+    if (cmd.includes("journalctl -k")) return { ok: true, code: 0, stdout: "", stderr: "" };
+    if (cmd.includes("systemctl list-timers")) return { ok: true, code: 0, stdout: "  uupd.timer ...\n", stderr: "" };
+    if (cmd.includes("command -v uupd")) return { ok: true, code: 0, stdout: "/usr/bin/uupd\n/usr/bin/rpm-ostree\n", stderr: "" };
+    if (cmd.includes("coredumpctl")) return { ok: false, code: 1, stdout: "", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.notEqual(findings[0].severity, "high");
+  assert.match(findings[0].title, /reboot/i);
+  assert.match(findings[0].detail, /automatic updates/);
+});
+
+test("crash: a real kernel panic is high even when an auto-update mechanism exists", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) {
+      const l = Array.from({ length: 25 }, (_, i) => `  -${i}  ...`).join("\n");
+      return { ok: true, code: 0, stdout: l + "\n", stderr: "" };
+    }
+    if (cmd.includes("journalctl -k")) return { ok: true, code: 0, stdout: "Aug 19 10:00:00 host kernel: Kernel panic - not syncing: Fatal exception\n", stderr: "" };
+    if (cmd.includes("systemctl list-timers")) return { ok: true, code: 0, stdout: "  uupd.timer ...\n", stderr: "" };
+    if (cmd.includes("coredumpctl")) return { ok: false, code: 1, stdout: "", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  const panic = findings.find((f) => f.code === "crash/panic");
+  assert.ok(panic, "expected a panic finding");
+  assert.equal(panic.severity, "high");
+  assert.match(panic.evidence, /Kernel panic/);
 });
 
 test("crash: coredumps are reported", async () => {

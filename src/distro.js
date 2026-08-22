@@ -15,6 +15,11 @@ export function detectDistro(osRelease = {}) {
   // and their root filesystem is virtual. Checked before family detection.
   const imageBased = /bazzite|silverblue|kinoite|sericea|bluefin|atomic|ostree/.test(all);
 
+  // The specific atomic variant, so messages can name the distro ("Bazzite"
+  // instead of a generic "immutable system"). null on classic distros.
+  const variantMatch = all.match(/(bazzite|silverblue|kinoite|sericea|bluefin|aurora|cosmic-atomic|ublue|bootc)/);
+  const atomicVariant = variantMatch ? variantMatch[1] : (imageBased ? "atomic" : null);
+
   let family = "other";
   if (id === "alpine") family = "alpine";
   else if (id === "void") family = "void";
@@ -32,5 +37,33 @@ export function detectDistro(osRelease = {}) {
   else if (family === "suse") pkg = "zypper";
   else if (family === "alpine") pkg = "apk";
 
-  return { id, idLike, variant, family, pkg, imageBased, all };
+  return { id, idLike, variant, family, pkg, imageBased, atomicVariant, all };
+}
+
+/**
+ * Central distro-specific install helper — single source of truth for fix strings.
+ * `pkgs` can be:
+ *   - a string ("pipewire") or array (["podman","buildah"]) when the package
+ *     has the same name everywhere, or
+ *   - an object mapping package-manager/family → name for packages that are
+ *     named differently across distros ({ fedora: "procps-ng", "*": "procps" }).
+ *     Keys are matched against dist.pkg first (dnf/apt/pacman/zypper/apk/
+ *     rpm-ostree), then dist.family, then "*" as the fallback.
+ * Returns a copy-pasteable `sudo ... install` line for the current distro.
+ * Keeps fix messages from drifting across 20+ checks.
+ */
+export function pkgInstall(dist, pkgs) {
+  if (pkgs && typeof pkgs === "object" && !Array.isArray(pkgs)) {
+    const pick = pkgs[dist?.pkg] ?? pkgs[dist?.family] ?? pkgs["*"];
+    if (!pick) throw new Error(`pkgInstall: no package name for ${dist?.pkg || dist?.family || "unknown"} and no "*" fallback`);
+    return pkgInstall(dist, pick);
+  }
+  const list = Array.isArray(pkgs) ? pkgs.join(" ") : String(pkgs);
+  const p = dist?.pkg || "dnf";
+  if (p === "apt") return `sudo apt install ${list}`;
+  if (p === "apk") return `sudo apk add ${list}`;
+  if (p === "pacman") return `sudo pacman -S ${list}`;
+  if (p === "zypper") return `sudo zypper install ${list}`;
+  if (p === "rpm-ostree") return `sudo rpm-ostree install ${list}`;
+  return `sudo dnf install ${list}`;
 }

@@ -1,4 +1,6 @@
 import { lines, num, fmtBytes } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /** Friendly names for common app processes. */
 const FRIENDLY = {
@@ -15,8 +17,6 @@ const FRIENDLY = {
   plasma: "the KDE desktop shell",
   gnome: "the GNOME desktop shell",
 };
-
-import { defineCheck } from "./define.js";
 
 export const processes = defineCheck({
   id: "processes",
@@ -47,7 +47,7 @@ export const processes = defineCheck({
     const ratio = total > 0 ? top.rss / total : 0;
 
     if (top.rss > 0 && ratio > t.procHighRatio) {
-      findings.push({
+      findings.push(finding({
         severity: "high",
         code: "processes/high",
         title: "A single app is using a huge amount of memory",
@@ -55,9 +55,9 @@ export const processes = defineCheck({
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
         fix: "Close unused tabs or quit that app now, then re-run this check.",
         confidence: "high",
-      });
+      }));
     } else if (top.rss > 0 && ratio > t.procWarnRatio) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "processes/warn",
         title: "A single app is using a lot of memory",
@@ -65,9 +65,9 @@ export const processes = defineCheck({
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
         fix: "Close unused tabs or quit that app and re-run this check.",
         confidence: "high",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "processes/ok",
         title: "Top memory consumers",
@@ -75,7 +75,7 @@ export const processes = defineCheck({
         evidence: rows.map((r) => `${r.name}\t${fmtBytes(r.rss)}`).join("\n"),
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

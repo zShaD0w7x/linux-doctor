@@ -3,9 +3,13 @@
  * browser at 127.0.0.1. Zero dependencies: plain node:http + inline HTML/CSS/JS.
  */
 import http from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { exec } from "node:child_process";
+import { dirname } from "node:path";
 import { addIgnore } from "./ignore.js";
+import { loadConfig, configFile } from "./config.js";
+import { DEFAULT_THRESHOLDS } from "./thresholds.js";
+import { shq } from "./utils.js";
 
 /**
  * Start the dashboard. `collect` must return { system, findings, generatedAt }.
@@ -14,8 +18,50 @@ import { addIgnore } from "./ignore.js";
  * `quiet` suppresses the URL banner on stdout — needed when embedding the
  * server in tests, where stdout must stay a clean TAP stream.
  */
-export async function startWeb({ collect, history = () => [], checkList = async () => [], port = 0, open = true, quiet = false, render = (d) => d }) {
+
+// The only hostnames the dashboard accepts in the Host header. Binding to
+// 127.0.0.1 alone does not stop a DNS-rebinding attack: a page at
+// http://evil.example (resolving to 127.0.0.1) would otherwise be served with
+// an attacker-chosen Host header and could read the report from the victim's
+// browser. Rejecting non-loopback Host headers closes that hole.
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
+/** "127.0.0.1:43901" / "[::1]:43901" → loopback? Missing Host → not allowed. */
+function isLoopbackHost(hostHeader) {
+  if (!hostHeader) return false;
+  const h = String(hostHeader).trim().toLowerCase();
+  const name = h.startsWith("[") ? h.slice(1, h.indexOf("]")) : h.replace(/:\d+$/, "");
+  return LOOPBACK_HOSTS.has(name);
+}
+
+/**
+ * Browsers always send Origin on POST requests; curl/scripts do not. A POST
+ * whose Origin names a non-loopback site is a cross-site request forged
+ * against the config-writing endpoints (/api/ignore, /api/thresholds) and is
+ * rejected. No Origin header means a non-browser client — allowed.
+ */
+function isLoopbackOrigin(origin) {
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    return LOOPBACK_HOSTS.has(u.hostname.replace(/^\[|\]$/g, ""));
+  } catch {
+    return false;
+  }
+}
+
+export async function startWeb({ collect, history = () => [], checkList = async () => [], port = 43901, open = true, quiet = false, render = (d) => d }) {
   const server = http.createServer(async (req, res) => {
+    if (!isLoopbackHost(req.headers.host)) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden — the dashboard answers to loopback Host headers only");
+      return;
+    }
+    if (req.method !== "GET" && req.method !== "HEAD" && req.headers.origin && !isLoopbackOrigin(req.headers.origin)) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden — cross-origin requests are not accepted");
+      return;
+    }
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/report") {
       try {
@@ -62,6 +108,40 @@ export async function startWeb({ collect, history = () => [], checkList = async 
       }
       return;
     }
+    if (url.pathname === "/api/thresholds" && req.method === "GET") {
+      try {
+        const cfg = loadConfig();
+        const thresholds = { ...DEFAULT_THRESHOLDS, ...(cfg.thresholds || {}) };
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ thresholds, defaults: DEFAULT_THRESHOLDS }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+    if (url.pathname === "/api/thresholds" && req.method === "POST") {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      try {
+        const incoming = JSON.parse(body || "{}").thresholds || JSON.parse(body || "{}");
+        const cfg = loadConfig();
+        const next = { ...cfg, thresholds: { ...(cfg.thresholds || {}), ...incoming } };
+        // only allow known keys
+        const clean = {};
+        for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in next.thresholds) clean[k] = Number(next.thresholds[k]);
+        next.thresholds = clean;
+        const file = configFile();
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, thresholds: clean }));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(PAGE);
@@ -71,12 +151,25 @@ export async function startWeb({ collect, history = () => [], checkList = async 
     res.end("Not found");
   });
 
-  await new Promise((resolve) => server.listen(port, "127.0.0.1", resolve));
+  // The default port (43901) gives the dashboard a stable, predictable URL —
+  // it survives across runs and across browsers. If it is already taken (a
+  // second instance), fall back to a random free port instead of crashing.
+  const listen = (p) =>
+    new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(p, "127.0.0.1", resolve);
+    });
+  try {
+    await listen(port);
+  } catch {
+    await listen(0);
+  }
   const url = `http://127.0.0.1:${server.address().port}`;
 
   if (open) {
     try {
-      exec(`xdg-open "${url}" >/dev/null 2>&1 &`, () => {});
+      const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? 'start ""' : "xdg-open";
+      exec(`${opener} ${shq(url)} >/dev/null 2>&1 &`, () => {});
     } catch {
       /* browser may not exist; the printed URL is enough */
     }

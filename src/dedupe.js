@@ -10,7 +10,7 @@
  * wins; on a tie the first finding in check order wins (the specialized
  * check is listed before the aggregator one in src/cli.js).
  */
-const SEVERITY = { high: 3, medium: 2, info: 1 };
+import { SEV_WEIGHT } from "./severities.js";
 
 export function dedupe(findings) {
   const kept = [];
@@ -21,7 +21,7 @@ export function dedupe(findings) {
       continue;
     }
     const prev = byKey.get(f.dedupeKey);
-    if (!prev || (SEVERITY[f.severity] ?? 0) > (SEVERITY[prev.severity] ?? 0)) {
+    if (!prev || (SEV_WEIGHT[f.severity] ?? 0) > (SEV_WEIGHT[prev.severity] ?? 0)) {
       byKey.set(f.dedupeKey, f);
     }
   }

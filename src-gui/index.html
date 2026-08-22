@@ -7,109 +7,112 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
 <style>
   :root {
-    --bg: #0b0e14; --bg2: #11151e; --card: #161b26; --card2: #1e2432; --border: #262d3d;
-    --text: #e8ebf2; --muted: #8b95a8;
-    --red: #ff5f6a; --yellow: #ffc94d; --green: #34e08a; --blue: #6ea8ff; --purple: #b78bff;
-    --accent: #3b6dff; --accent2: #7aa7ff; --hover: #232a3a; --evidence-bg: #0e1220;
-    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.28);
-    --radius: 13px;
+    --bg: #0b0e14; --bg2: #0f131c; --card: #151a25; --card2: #1b2130; --border: #232b3a;
+    --text: #eef1f7; --muted: #8a93a6;
+    --red: #ff6b74; --yellow: #ffce5a; --green: #3ee29a; --blue: #74acff; --purple: #c08bff;
+    --accent: #4a7bff; --accent2: #7aa7ff; --hover: #1f2737; --evidence-bg: #0d111c;
+    --shadow: 0 1px 2px rgba(0,0,0,.18), 0 6px 20px rgba(0,0,0,.16);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.22);
+    --radius: 14px; --radius-sm: 10px;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   :root[data-theme="light"] {
-    --bg: #eef1f6; --bg2: #e6eaf1; --card: #ffffff; --card2: #f1f4f9; --border: #dfe4ee;
-    --text: #171c26; --muted: #5b6577;
-    --red: #d63a4b; --yellow: #9a6f00; --green: #0e8a4e; --blue: #2f66d0; --purple: #7a3fd0;
-    --hover: #e8ecf4; --evidence-bg: #f4f6fa;
-    --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 8px 24px rgba(23,28,38,.08);
+    --bg: #f4f6fa; --bg2: #eef1f6; --card: #ffffff; --card2: #f5f7fb; --border: #e2e7f0;
+    --text: #1a1f2b; --muted: #5e6878;
+    --red: #e0464f; --yellow: #b07d00; --green: #0e9c5a; --blue: #2f6ad6; --purple: #843fe0;
+    --hover: #eef1f7; --evidence-bg: #f7f9fc;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.08);
+    --shadow-sm: 0 1px 2px rgba(20,30,50,.1);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
   body {
     background: var(--bg);
     color: var(--text);
-    font: 14.5px/1.5 -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-    padding: 22px 18px 56px;
-    background-image: radial-gradient(900px 480px at 18% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
-                      radial-gradient(700px 420px at 100% 0%, color-mix(in srgb, var(--blue) 9%, transparent), transparent 55%);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    padding: 40px 22px 80px;
+    background-image: radial-gradient(1000px 520px at 12% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
+                      radial-gradient(820px 460px at 100% -5%, color-mix(in srgb, var(--blue) 7%, transparent), transparent 50%);
     background-attachment: fixed;
-    font-feature-settings: "cv02", "cv03", "cv11", "ss01";
   }
-  .wrap { max-width: 980px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 30px; position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2); margin: -14px -22px 30px; padding: 14px 22px; border-bottom: 1px solid transparent; transition: border-color .2s ease, box-shadow .2s ease; }
+  header.scrolled { border-bottom-color: var(--border); box-shadow: 0 4px 20px rgba(0,0,0,.08); }
   header .logo {
-    font-size: 22px; width: 40px; height: 40px; display: grid; place-items: center;
-    background: linear-gradient(160deg, var(--card2), var(--card));
-    border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+    font-size: 22px; width: 42px; height: 42px; display: grid; place-items: center;
+    background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
   }
-  h1 { font-size: 20px; font-weight: 750; letter-spacing: -0.025em; line-height: 1.2; }
+  h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
   .sysinfo { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
   .sysinfo .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); vertical-align: 1px; margin-right: 5px; }
   .sysinfo .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 20%, transparent); }
   .sysinfo .ver { font-family: var(--mono); }
-  .actions { margin-left: auto; display: flex; gap: 7px; }
+  .actions { margin-left: auto; display: flex; gap: 8px; }
   button {
     background: var(--card2); color: var(--text); border: 1px solid var(--border);
-    padding: 7px 12px; border-radius: 9px; font-size: 12.5px; cursor: pointer;
+    padding: 8px 13px; border-radius: var(--radius-sm); font-size: 12.5px; cursor: pointer; font-weight: 550;
     transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
-    box-shadow: 0 1px 2px rgba(0,0,0,.12);
   }
-  button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--border) 60%, var(--text) 40%); transform: translateY(-1px); }
+  button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--border) 50%, var(--text) 50%); transform: translateY(-1px); }
   button:active { transform: translateY(0); }
-  button.primary { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; box-shadow: 0 1px 2px rgba(51,98,240,.4), 0 4px 14px rgba(51,98,240,.28); }
+  button.primary { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; box-shadow: 0 2px 10px rgba(51,98,240,.3); }
   button.primary:hover { background: linear-gradient(180deg, #5a88ff, #3b6dff); }
-  button:disabled { opacity: .55; cursor: default; transform: none; }
-  .banner { border-radius: var(--radius); padding: 6px 14px; margin-bottom: 10px; font-size: 13px; border: 1px solid var(--border); }
-  .banner.ok { background: color-mix(in srgb, var(--green) 8%, var(--card)); border-color: color-mix(in srgb, var(--green) 30%, var(--border)); color: var(--green); }
-  .banner.warn { background: color-mix(in srgb, var(--red) 8%, var(--card)); border-color: color-mix(in srgb, var(--red) 30%, var(--border)); color: var(--red); }
-  .banner.running { background: var(--card); color: var(--muted); }
+  button:disabled { opacity: .5; cursor: default; transform: none; }
+  #autorefresh.on { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card2)); }
+  /* Zona 2 · Status: gauge + health on the left, status message on the right. */
+  .status { display: flex; align-items: center; gap: 26px; padding: 26px 30px; margin-bottom: 28px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-sm); }
+  .status.running { justify-content: center; color: var(--muted); }
+  .status.warn { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
+  .status-main { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+  .status-body { flex: 1; min-width: 0; }
+  .statusmsg { font-size: 16px; font-weight: 700; line-height: 1.45; }
+  .statusmsg.ok { color: var(--green); }
+  .statusmsg.warn { color: var(--red); }
+  .status-meta { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
   .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .newbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #14101e; background: var(--purple); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; }
-  .fixedbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #0d2418; background: var(--green); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; }
+  .newbadge, .fixedbadge { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 7px; flex-shrink: 0; }
+  .newbadge { color: #1a0f2e; background: var(--purple); }
+  .fixedbadge { color: #06231a; background: var(--green); }
   .lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; }
   .checkid { font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; background: var(--card); }
-  /* Hero bar: one compact row = gauge + severity stats. */
-  #summary { display: flex; align-items: center; gap: 18px; padding: 12px 18px; margin-bottom: 10px; background: linear-gradient(165deg, var(--card2), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-  .gauge { position: relative; width: 62px; height: 62px; flex-shrink: 0; }
+  /* Hero status bar: gauge + health, then the status message. */
+  .gauge { position: relative; width: 68px; height: 68px; flex-shrink: 0; }
   .gauge svg { width: 100%; height: 100%; }
-  .gauge .track { fill: none; stroke: var(--card2); stroke-width: 8; }
-  .gauge .ring { fill: none; stroke-width: 8; stroke-linecap: round; }
+  .gauge .track { fill: none; stroke: var(--border); stroke-width: 7; }
+  .gauge .ring { fill: none; stroke-width: 7; stroke-linecap: round; }
   .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .scorenum { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .scoreout { font-size: 9px; color: var(--muted); margin-top: 1px; font-weight: 600; }
+  .scorenum { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .scoreout { font-size: 9px; color: var(--muted); margin-top: 2px; font-weight: 600; letter-spacing: .04em; }
   .hero-main { min-width: 0; }
   .hero-main .k { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
   .scoredelta { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
   .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
-  .hero-stats { flex: 1; margin-left: 24px; display: flex; gap: 8px; align-items: stretch; }
-  .stat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 5px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; }
-  .stat b { font-size: 18px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
-  .stat span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; }
-  .stat.red b { color: var(--red); } .stat.yellow b { color: var(--yellow); }
-  .stat.blue b { color: var(--blue); } .stat.new b { color: var(--purple); } .stat.fixed b { color: var(--green); }
-  .stat[data-sev].active { border-color: var(--accent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
-  /* Toolbar: severity filters + live search. */
-  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-  .filters { display: flex; gap: 5px; }
-  .fpill { padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-  .fpill.active { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; }
-  .fpill.high.active { background: linear-gradient(180deg, color-mix(in srgb, var(--red) 70%, #000), var(--red)); border-color: var(--red); }
-  .fpill.medium.active { background: linear-gradient(180deg, color-mix(in srgb, var(--yellow) 70%, #000), var(--yellow)); border-color: var(--yellow); color: #201400; }
-  .fpill.info.active { background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 70%, #000), var(--blue)); border-color: var(--blue); }
-  .fpill:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
-  #search { flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 6px 12px; color: var(--text); font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
-  .toolbtn { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+  /* Toolbar: the control strip — severity filters + live search + actions. */
+  .toolbar { display: flex; gap: 10px; align-items: center; margin: 0 0 26px; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); flex-wrap: wrap; position: sticky; top: 70px; z-index: 19; transition: box-shadow .2s ease, border-color .2s ease; }
+  .toolbar.scrolled { box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--border) 80%, var(--text) 20%); }
+  .filters { display: flex; gap: 6px; }
+  .fpill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card2); color: var(--muted); cursor: pointer; transition: all .15s ease; }
+  .fpill:hover { color: var(--text); border-color: color-mix(in srgb, var(--border) 50%, var(--text) 50%); }
+  .fpill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .fpill.high.active { background: var(--red); border-color: var(--red); color: #2a0c0f; }
+  .fpill.medium.active { background: var(--yellow); border-color: var(--yellow); color: #2a2000; }
+  .fpill.info.active { background: var(--blue); border-color: var(--blue); color: #06182f; }
+  .fpill:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
+  #search { flex: 1; min-width: 160px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 13px; color: var(--text); font-size: 13px; }
+  .toolbtn { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: var(--card2); }
   #search::placeholder { color: var(--muted); }
-  #search:focus { outline: none; border-color: var(--accent); }
-  /* Findings: single column, centered for readability. Groups stack cleanly. */
-  #report { display: flex; flex-direction: column; gap: 10px; max-width: 720px; margin: 0 auto; }
-  #report > .empty { text-align: center; color: var(--muted); padding: 40px 0; }
-  #nomatch { text-align: center; color: var(--muted); padding: 24px 0; font-size: 13px; }
-  #drillhint { text-align: center; color: var(--muted); padding: 32px 0; font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 10px; }
-  .filterbar { display: flex; align-items: center; gap: 10px; max-width: 720px; margin: 0 auto 10px; font-size: 12.5px; color: var(--muted); }
-  .filterbar b { color: var(--text); font-weight: 700; }
-  .filterbar button { padding: 2px 10px; font-size: 11.5px; border-radius: 7px; }
-  .group { background: linear-gradient(180deg, var(--card), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
-  .group summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 13px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
+  #search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  /* Findings: modern bento — nu o coloană lipită */
+  #report { display: flex; flex-direction: column; gap: 20px; max-width: 1040px; margin: 0 auto; width: 100%; }
+  #report > .empty { text-align: center; color: var(--muted); padding: 64px 0; font-size: 14px; }
+  #nomatch { text-align: center; color: var(--muted); padding: 28px 0; font-size: 13px; }
+  #drillhint { text-align: center; color: var(--muted); padding: 28px 0; font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 4px; }
+  /* Main modern: grid respirabil, nu coloană îngustă */
+  .content { display: grid; gap: 28px; max-width: 1040px; margin: 0 auto; width: 100%; }
+  .group { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm); }
+  .group summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 650; color: var(--muted); border-bottom: 1px solid transparent; transition: background .15s ease; }
+  .group[open] summary { border-bottom-color: var(--border); background: color-mix(in srgb, var(--card2) 60%, var(--card)); }
   .group.high summary { color: var(--red); }
   .group.medium summary { color: var(--yellow); }
   .group.info summary { color: var(--blue); }
@@ -117,8 +120,11 @@
   .group summary b { color: var(--text); }
   .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .18s ease; color: var(--muted); }
   .group[open] summary .chev { transform: rotate(90deg); }
-  .group-body { padding: 0 8px 8px; }
-  .group .card { border: none; background: var(--card2); margin-bottom: 6px; }
+  .group-body { padding: 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
+  /* bento: 2 coloane pe desktop, 1 pe mobil — nu mai e coloană lipită urâtă */
+  @media (min-width: 860px) { .group-body { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .group .card { border: 1px solid var(--border); border-left-width: 3px; background: var(--card2); margin-bottom: 0; height: 100%; display: flex; flex-direction: column; }
+  .group .card .card-body { flex: 1; }
   .group .card:last-child { margin-bottom: 0; }
   .crow { border-left: 3px solid var(--blue); border-radius: 6px; margin-bottom: 3px; background: transparent; transition: background .15s ease; }
   .crow:hover { background: var(--card); }
@@ -130,24 +136,28 @@
   .crow[open] { background: var(--card); }
   .crow .card-body { padding: 0 10px 9px 12px; }
   .crow .fix .fixtext { font-size: 11.5px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 10px; margin-bottom: 8px; overflow: hidden; transition: border-color .15s ease, transform .12s ease; }
-  .card:hover { border-color: color-mix(in srgb, var(--border) 55%, var(--text) 45%); }
+  .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 14px; margin-bottom: 10px; overflow: hidden; transition: border-color .15s ease, transform .12s ease, box-shadow .15s ease; }
+  .card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--border) 40%, var(--text) 60%); box-shadow: var(--shadow-sm); }
   .card.high { border-left-color: var(--red); }
   .card.medium { border-left-color: var(--yellow); }
   .card.info { border-left-color: var(--blue); }
-  .card summary { list-style: none; display: flex; align-items: center; gap: 9px; padding: 9px 12px; cursor: pointer; user-select: none; }
-  .card summary::-webkit-details-marker { display: none; }
-  .card summary h3 { font-size: 13.5px; font-weight: 620; flex: 1; letter-spacing: -0.01em; }
+  .card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
+  .card summary h3 { font-size: 14.5px; font-weight: 650; flex: 1; letter-spacing: -0.01em; }
   .card summary .chev { color: var(--muted); font-size: 12px; transition: transform .18s ease; }
   .card[open] summary .chev { transform: rotate(90deg); }
-  .card-body { padding: 0 12px 11px; animation: fadein .2s ease; }
+  .card-body { padding: 0 16px 14px; animation: fadein .2s ease; }
   @keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
-  .badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px; flex-shrink: 0; }
+  .badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 7px; flex-shrink: 0; }
   .badge.high { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
   .badge.medium { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
   .badge.info { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
-  .card .detail { color: var(--text); margin-top: 7px; font-size: 13.5px; }
-  .evidence { margin-top: 9px; background: var(--evidence-bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  .card .detail { color: var(--text); margin-top: 8px; font-size: 13.5px; line-height: 1.55; }
+  .evidence { margin-top: 9px; background: var(--evidence-bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .evidence.expanded { max-height: none; }
+  .evidence::-webkit-scrollbar { width: 6px; height: 6px; }
+  .evidence::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+  .ev-expand { margin-top: 6px; font-size: 11px; color: var(--blue); background: none; border: 1px solid transparent; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+  .ev-expand:hover { background: var(--hover); border-color: var(--border); }
   .card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: var(--card2); }
   details.ev { margin-top: 9px; }
@@ -157,24 +167,430 @@
   .fix button { flex-shrink: 0; }
   .fix .reportbtn { flex-shrink: 0; align-self: center; font-size: 12px; color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
   .fix .reportbtn:hover { color: var(--text); background: var(--hover); }
-  footer { margin-top: 32px; color: var(--muted); font-size: 12px; text-align: center; }
-  #trend { background: linear-gradient(180deg, var(--card2), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
+  footer { margin-top: 44px; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
+  #trend { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow-sm); }
   .trendtitle { font-size: 12px; color: var(--muted); }
   .trendtitle b { color: var(--text); }
   .trendtitle .delta-up, .trendtitle .delta-down, .trendtitle .delta-flat { font-weight: 700; margin-left: 2px; }
   .trendrange { color: var(--muted); font-size: 11px; }
   #trend svg { flex-shrink: 0; }
-  #trend .trend-wrap { display: flex; align-items: center; gap: 14px; width: 100%; }
-  #trend { max-width: 720px; margin-left: auto; margin-right: auto; }
-  #fixed, #skipped { max-width: 720px; margin-left: auto; margin-right: auto; }
-  #fixed, #skipped { margin-bottom: 10px; }
+  #trend .trend-wrap { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; width: 100%; }
+  #trend .trendchart { display: flex; flex-direction: column; gap: 4px; }
+  #trend .sevlegend { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px 5px; flex-wrap: wrap; }
+  #trend .sevlegend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-left: 8px; }
+  #trend .sevlegend .lg.high { background: var(--red); }
+  #trend .sevlegend .lg.medium { background: var(--yellow); }
+  #trend .sevlegend .lg.info { background: var(--blue); }
+  #trend { max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
+  #fixed, #skipped { max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
+  /* Toast */
+  #toast-wrap { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; box-shadow: var(--shadow); animation: toastin .25s ease, toastout .25s ease 2.7s forwards; max-width: 92vw; }
+  .toast button { pointer-events: auto; background: var(--accent); color: #fff; border-color: transparent; padding: 4px 10px; font-size: 12px; }
+  @keyframes toastin { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform:none;} }
+  @keyframes toastout { to { opacity:0; transform: translateY(8px);} }
+  /* Search highlight */
+  mark.hl { background: color-mix(in srgb, var(--yellow) 32%, transparent); color: inherit; padding: 0 2px; border-radius: 3px; border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent); }
+  /* Severity icons */
+  .sevicon { font-size: 13px; line-height: 1; flex-shrink:0; }
+  .pill-icon { font-size: 11px; margin-right: 2px; }
+  /* History: secondary, recessed, colapsabil — jos, nu amestecat în findings */
+  .history { max-width: 1040px; margin: 44px auto 0; width: 100%; }
+  .history .hist-details { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card2); box-shadow: var(--shadow); overflow: hidden; }
+  .history .hist-summary { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: baseline; gap: 8px; padding: 12px 15px; font-size: 13px; font-weight: 650; color: var(--muted); }
+  .history .hist-summary::-webkit-details-marker { display: none; }
+  .history .hist-summary .hist-sub { font-size: 11.5px; font-weight: 500; }
+  .history .hist-summary .chev { margin-left: auto; transition: transform .18s ease; color: var(--muted); }
+  .history .hist-details[open] .chev { transform: rotate(90deg); }
+  .history #trend { margin: 0; border: none; box-shadow: none; background: transparent; padding: 4px 15px 16px; max-width: none; }
+  .thresh-panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px; margin: -18px 0 26px; box-shadow: var(--shadow-sm);
+    max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%;
+  }
+  .thresh-head { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:10px; }
+  .thresh-body { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
+  .thresh-field { display:flex; flex-direction:column; gap:4px; }
+  .thresh-field label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+  .thresh-field input { background: var(--bg2); border:1px solid var(--border); border-radius:8px; padding:6px 8px; color:var(--text); font-size:12px; font-family: var(--mono); }
+  .thresh-field input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+  .thresh-actions { display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  @media print {
+    header .actions, .toolbar, #toast-wrap, footer, .history, #fixed, #skipped, #diff { display: none !important; }
+    body { background: #fff !important; color: #111 !important; padding: 12px !important; background-image: none !important; }
+    .status, .group, .card, .crow { box-shadow: none !important; break-inside: avoid; border: 1px solid #ddd !important; }
+    .card-body { animation: none !important; }
+  }
   @media (max-width: 700px) {
     header { flex-wrap: wrap; }
     .actions { margin-left: 0; width: 100%; }
-    .hero-stats { gap: 4px; margin-left: 0; margin-top: 10px; }
-    .stat { min-width: 0; padding: 3px 8px; }
-    #summary { flex-wrap: wrap; gap: 12px; padding: 10px 14px; }
+    .status { flex-wrap: wrap; gap: 12px; padding: 12px 14px; }
+    .status-main { width: 100%; }
+    .toolbar { top: 108px; }
   }
+
+  /* ===== PREMIUM OVERRIDES ===== */
+  :root {
+    --radius-lg: 20px;
+    --shadow-lg: 0 8px 24px rgba(0,0,0,.32), 0 20px 48px rgba(0,0,0,.24);
+    --shadow-glow: 0 0 0 1px rgba(255,255,255,.06) inset, 0 1px 2px rgba(0,0,0,.18);
+    --accent-gradient: linear-gradient(135deg, #5B7CFF 0%, #7AA3FF 55%, #B07CFF 100%);
+  }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-feature-settings: "cv02","cv03","ss01";
+    letter-spacing: -0.011em;
+    background-color: var(--bg);
+  }
+  body::before {
+    content:"";
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(1100px 620px at 18% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 58%),
+      radial-gradient(900px 520px at 96% 0%, color-mix(in srgb, var(--blue) 10%, transparent), transparent 55%),
+      radial-gradient(700px 420px at 50% 118%, color-mix(in srgb, var(--purple) 7%, transparent), transparent 60%);
+  }
+  body::after {
+    content:"";
+    position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .018;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+  }
+  .wrap { max-width: 1120px; }
+  /* Header premium - glass + logo gradient */
+  header {
+    backdrop-filter: blur(16px) saturate(1.25);
+    -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }
+  header .logo {
+    background: var(--accent-gradient);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    box-shadow: 0 4px 14px rgba(91,124,255,.35), inset 0 1px 0 rgba(255,255,255,.22);
+    width: 44px; height: 44px; border-radius: 13px;
+  }
+  h1 { font-size: 18.5px; font-weight: 800; letter-spacing: -0.032em; }
+  .sysinfo {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--card2); border: 1px solid var(--border);
+    padding: 3px 9px; border-radius: 999px; font-size: 11.8px; font-weight: 500;
+    box-shadow: var(--shadow-glow);
+  }
+  .sysinfo .ver {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  }
+  .actions button { height: 36px; border-radius: 11px; font-weight: 600; letter-spacing: -0.01em; }
+  button.primary {
+    background: var(--accent-gradient);
+    border: none; color: #fff;
+    box-shadow: 0 2px 10px rgba(91,124,255,.35), 0 4px 20px rgba(91,124,255,.22), inset 0 1px 0 rgba(255,255,255,.2);
+    font-weight: 700;
+  }
+  button.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(91,124,255,.4), 0 8px 28px rgba(91,124,255,.25), inset 0 1px 0 rgba(255,255,255,.22);
+    filter: brightness(1.04);
+  }
+  /* Status premium - elevated with glow */
+  .status {
+    background: linear-gradient(180deg, var(--card) 0%, color-mix(in srgb, var(--card) 96%, var(--accent) 4%) 100%);
+    border: 1px solid color-mix(in srgb, var(--border) 85%, white 15%);
+    border-radius: 20px;
+    padding: 28px 32px;
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    position: relative; overflow: hidden;
+  }
+  .status::before {
+    content:""; position: absolute; inset: 0; border-radius: 20px; padding: 1px;
+    background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+  }
+  .status.running { border-color: var(--border); }
+  .gauge { width: 76px; height: 76px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.18)); }
+  .gauge .track { stroke-width: 6.5; opacity: .9; }
+  .gauge .ring { stroke-width: 6.5; filter: drop-shadow(0 2px 6px currentColor); opacity: .95; }
+  .scorenum { font-size: 26px; font-weight: 800; letter-spacing: -0.04em; }
+  .hero-main .k { font-size: 10.5px; letter-spacing: .12em; font-weight: 800; opacity: .9; }
+  .scoredelta {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    background: var(--card2); border: 1px solid var(--border);
+  }
+  .scoredelta.delta-up { color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--card2)); border-color: color-mix(in srgb, var(--green) 18%, transparent); }
+  .scoredelta.delta-down { color: var(--red); background: color-mix(in srgb, var(--red) 10%, var(--card2)); border-color: color-mix(in srgb, var(--red) 16%, transparent); }
+  .scoredelta.delta-flat { color: var(--muted); }
+  .statusmsg { font-size: 16.5px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.45; }
+  /* Toolbar premium - segmented control */
+  .toolbar {
+    background: color-mix(in srgb, var(--card) 92%, transparent);
+    backdrop-filter: blur(10px) saturate(1.15); -webkit-backdrop-filter: blur(10px) saturate(1.15);
+    border: 1px solid color-mix(in srgb, var(--border) 88%, white 12%);
+    border-radius: 16px; padding: 8px 10px; gap: 10px;
+    box-shadow: var(--shadow-sm), var(--shadow-glow);
+  }
+  .filters {
+    background: var(--bg2); border: 1px solid var(--border);
+    padding: 4px; border-radius: 999px; gap: 2px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+  }
+  .fpill {
+    border: none; background: transparent; color: var(--muted);
+    padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 12.2px;
+    box-shadow: none; transform: none;
+  }
+  .fpill:hover { background: color-mix(in srgb, var(--card2) 70%, transparent); color: var(--text); transform: none; border-color: transparent; }
+  .fpill.active {
+    background: var(--text); color: var(--bg); border-color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
+  }
+  .fpill.high.active { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 2px 8px color-mix(in srgb, var(--red) 30%, transparent); }
+  .fpill.medium.active { background: var(--yellow); color: #1a1200; border-color: var(--yellow); box-shadow: 0 2px 8px color-mix(in srgb, var(--yellow) 28%, transparent); }
+  .fpill.info.active { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 2px 8px color-mix(in srgb, var(--blue) 28%, transparent); }
+  .fpill:disabled { opacity: .32; }
+  #search {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 8px 14px 8px 34px;
+    font-weight: 500; font-size: 13.2px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a93a6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20L16.5 16.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 11px 50%;
+    transition: border-color .18s, box-shadow .18s, background .18s;
+  }
+  #search:focus { background-color: var(--card2); border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent), 0 2px 10px rgba(91,124,255,.12); }
+  .toolbtn { border-radius: 999px; font-weight: 600; background: var(--card2); border: 1px solid var(--border); }
+  .toolbtn:hover { background: var(--hover); }
+  #autorefresh.on { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 10px rgba(91,124,255,.3); }
+  #autorefresh.paused { background: color-mix(in srgb, var(--yellow) 14%, var(--card2)); border-color: color-mix(in srgb, var(--yellow) 30%, transparent); color: var(--yellow); }
+  /* Groups premium */
+  .group {
+    border-radius: 18px; border: 1px solid color-mix(in srgb, var(--border) 88%, white 12%);
+    background: var(--card); box-shadow: var(--shadow-sm), var(--shadow-glow);
+    overflow: hidden;
+  }
+  .group summary { padding: 15px 18px; font-weight: 700; font-size: 13.2px; letter-spacing: -0.01em; }
+  .group[open] summary { background: color-mix(in srgb, var(--card2) 72%, var(--card)); }
+  .group-body { padding: 16px; gap: 14px; }
+  /* Cards premium - icon circle + glow + stagger */
+  .card, .crow {
+    border-radius: 14px; border: 1px solid color-mix(in srgb, var(--border) 88%, white 10%);
+    background: linear-gradient(180deg, var(--card2) 0%, color-mix(in srgb, var(--card2) 96%, var(--bg) 4%) 100%);
+    box-shadow: var(--shadow-sm);
+    transition: transform .18s cubic-bezier(.16,1,.3,1), box-shadow .18s, border-color .18s;
+    animation: cardIn .42s cubic-bezier(.16,1,.3,1) both;
+    animation-delay: calc(var(--i, 0) * 42ms);
+  }
+  .card:hover, .crow:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--border) 70%, white 18%); box-shadow: var(--shadow-lg); }
+  .card.high { border-left-width: 4px; }
+  .card.medium { border-left-width: 4px; }
+  .card.info { border-left-width: 4px; }
+  .card.high:hover { box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--red) 10%, transparent), 0 8px 24px color-mix(in srgb, var(--red) 10%, transparent); }
+  .card.medium:hover { box-shadow: var(--shadow-lg), 0 8px 24px color-mix(in srgb, var(--yellow) 8%, transparent); }
+  .card summary, .crow summary { gap: 10px; }
+  .card summary h3, .crow summary h3 { font-weight: 680; letter-spacing: -0.015em; }
+  .card summary .sevicon, .crow summary .sevicon {
+    width: 28px; height: 28px; display: grid; place-items: center;
+    border-radius: 9px; font-size: 13px; flex-shrink: 0;
+    background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-glow);
+  }
+  .card.high .sevicon { background: color-mix(in srgb, var(--red) 12%, var(--card)); border-color: color-mix(in srgb, var(--red) 18%, transparent); }
+  .card.medium .sevicon { background: color-mix(in srgb, var(--yellow) 13%, var(--card)); border-color: color-mix(in srgb, var(--yellow) 20%, transparent); }
+  .card.info .sevicon, .crow .sevicon { background: color-mix(in srgb, var(--blue) 11%, var(--card)); border-color: color-mix(in srgb, var(--blue) 16%, transparent); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 999px; font-weight: 750; letter-spacing: .05em;
+    border: 1px solid transparent;
+  }
+  .badge::before { content:"●"; font-size: 7px; line-height: 1; }
+  .badge.high { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); border-color: color-mix(in srgb, var(--red) 16%, transparent); }
+  .badge.medium { background: color-mix(in srgb, var(--yellow) 13%, transparent); color: #b07d00; border-color: color-mix(in srgb, var(--yellow) 18%, transparent); }
+  :root[data-theme="dark"] .badge.medium { color: var(--yellow); }
+  .badge.info { background: color-mix(in srgb, var(--blue) 11%, transparent); color: var(--blue); border-color: color-mix(in srgb, var(--blue) 14%, transparent); }
+  .checkid {
+    background: var(--bg2); border: 1px solid var(--border);
+    padding: 2px 7px; border-radius: 999px; font-weight: 600; letter-spacing: .02em;
+  }
+  .card-body { padding: 0 16px 16px; }
+  .card .detail { font-size: 13.6px; line-height: 1.6; color: color-mix(in srgb, var(--text) 88%, var(--muted)); }
+  .evidence {
+    background: var(--evidence-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; font-size: 11.8px; line-height: 1.6;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.06);
+  }
+  details.ev summary { font-weight: 600; letter-spacing: -0.01em; }
+  .fix { gap: 8px; margin-top: 12px; }
+  .fix .fixtext {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; font-size: 12.2px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.04);
+  }
+  .fix button {
+    height: 32px; border-radius: 9px; font-weight: 600; font-size: 12.2px;
+    border: 1px solid var(--border); background: var(--card);
+  }
+  .fix button:hover { border-color: color-mix(in srgb, var(--border) 60%, var(--text) 40%); }
+  .fix button[data-copy] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .fix button[data-copy]:hover { filter: brightness(1.06); }
+  /* Toast premium */
+  #toast-wrap { bottom: 24px; }
+  .toast {
+    background: color-mix(in srgb, var(--card2) 92%, var(--bg) 8%);
+    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid color-mix(in srgb, var(--border) 85%, white 10%);
+    border-radius: 12px; padding: 11px 14px; font-weight: 550;
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+  }
+  .toast button { border-radius: 999px; font-weight: 700; }
+  /* highlight premium */
+  mark.hl {
+    background: color-mix(in srgb, var(--yellow) 22%, transparent);
+    border: 1px solid color-mix(in srgb, var(--yellow) 28%, transparent);
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--yellow) 12%, transparent);
+    font-weight: 600;
+  }
+  /* history premium */
+  .history .hist-details { border-radius: 18px; background: var(--card); border: 1px solid color-mix(in srgb, var(--border) 88%, white 10%); }
+  .history .hist-summary { font-weight: 750; letter-spacing: -0.015em; }
+  #trend { background: transparent; border: none; box-shadow: none; }
+  @keyframes cardIn { from { opacity:0; transform: translateY(10px) scale(.98); } to { opacity:1; transform: none; } }
+  .thresh-panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px; margin: -18px 0 26px; box-shadow: var(--shadow-sm);
+    max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%;
+  }
+  .thresh-head { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:10px; }
+  .thresh-body { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
+  .thresh-field { display:flex; flex-direction:column; gap:4px; }
+  .thresh-field label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+  .thresh-field input { background: var(--bg2); border:1px solid var(--border); border-radius:8px; padding:6px 8px; color:var(--text); font-size:12px; font-family: var(--mono); }
+  .thresh-field input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+  .thresh-actions { display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  @media print {
+    header .actions, .toolbar, #toast-wrap, footer, .history, #fixed, #skipped, #diff { display: none !important; }
+    body { background: #fff !important; color: #111 !important; padding: 12px !important; background-image: none !important; }
+    .status, .group, .card, .crow { box-shadow: none !important; break-inside: avoid; border: 1px solid #ddd !important; }
+    .card-body { animation: none !important; }
+  }
+  @media (max-width: 700px) {
+    .status { padding: 18px 18px; }
+    .toolbar { padding: 8px; }
+    .group-body { padding: 12px; }
+  }
+
+
+  /* ===== CARD BODY PREMIUM REWORK ===== */
+  .card-body {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 14px 16px 16px;
+  }
+  .card .detail {
+    font-size: 13.8px; line-height: 1.65; letter-spacing: -0.01em;
+    color: var(--text);
+    background: color-mix(in srgb, var(--card) 60%, var(--bg2) 40%);
+    border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+    border-radius: 11px; padding: 12px 14px;
+    position: relative;
+  }
+  .card .detail::before {
+    content: "▸ Detail";
+    display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  details.ev {
+    background: color-mix(in srgb, var(--bg2) 50%, transparent);
+    border: 1px solid var(--border); border-radius: 11px; padding: 0;
+    overflow: hidden;
+  }
+  details.ev[open] { border-color: color-mix(in srgb, var(--border) 70%, var(--blue) 15%); }
+  details.ev summary {
+    list-style: none; display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em;
+    color: var(--muted); cursor: pointer; user-select: none;
+    background: var(--card2);
+  }
+  details.ev summary::before { content: "▦"; font-size: 12px; }
+  details.ev[open] summary { border-bottom: 1px solid var(--border); color: var(--text); background: var(--card); }
+  details.ev summary::-webkit-details-marker { display: none; }
+  .evidence {
+    margin-top: 0; border: none; border-radius: 0;
+    background: var(--evidence-bg);
+    max-height: 200px;
+  }
+  .evidence.expanded { max-height: none; }
+  .ev-expand {
+    margin: 0; align-self: flex-start;
+    background: var(--card2); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 10px; font-weight: 600;
+  }
+  .ev-copy {
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+  }
+  .ev-copy:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .fix {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+    margin-top: 2px; padding-top: 14px;
+    border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  }
+  .fix .fixtext {
+    flex: 1 1 100%; min-width: 260px;
+    background: color-mix(in srgb, var(--bg) 60%, var(--card2) 40%);
+    border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+    border-left: 3px solid var(--accent);
+    border-radius: 11px; padding: 11px 14px;
+    font-size: 12.6px; line-height: 1.55;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    position: relative;
+  }
+  .fix .fixtext::before {
+    content: "Fix";
+    display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .fix button, .fix .reportbtn {
+    height: 34px; border-radius: 10px; font-weight: 600; font-size: 12.5px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .fix button[data-copy] {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(91,124,255,.25);
+  }
+  .fix button[data-copy]::before { content: "⧉"; font-size: 12px; }
+  .fix button[data-ignore] {
+    background: transparent; border-color: var(--border); color: var(--muted);
+  }
+  .fix button[data-ignore]:hover { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); }
+  .fix .reportbtn {
+    background: transparent; border: 1px solid transparent; color: var(--muted);
+    padding: 0 10px; text-decoration: none;
+  }
+  .fix .reportbtn:hover { color: var(--text); background: var(--hover); border-color: var(--border); }
+  .fix .reportbtn::before { content: "↗"; font-size: 11px; }
+  /* crow (info) now uses same card-body but keep compact tweaks */
+  .crow .card-body { gap: 10px; padding: 10px 12px 12px; }
+  .crow .detail { font-size: 13.2px; padding: 10px 12px; }
+  .crow .fix .fixtext { font-size: 12px; }
+  /* Start here banner — mirrors the CLI's ▶ START HERE line */
+  #nexthep {
+    max-width: 1040px; margin: 0 auto 22px; width: 100%;
+    border: 1px solid color-mix(in srgb, var(--green) 32%, var(--border));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--green) 9%, var(--card)) 0%, var(--card) 100%);
+    border-radius: 16px; padding: 13px 18px;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    box-shadow: var(--shadow-sm), var(--shadow-glow);
+  }
+  #nexthep .nh-icon { font-size: 15px; color: var(--green); font-weight: 800; letter-spacing: .06em; flex-shrink: 0; }
+  #nexthep .nh-body { flex: 1; min-width: 220px; }
+  #nexthep .nh-title { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+  #nexthep .nh-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  #nexthep .nh-hint code { font-family: var(--mono); font-size: 11px; }
+  #nexthep.flash { animation: nhflash 1.6s ease 1; }
+  @keyframes nhflash { 0%,60% { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); } 100% {} }
+
 </style>
 </head>
 <body>
@@ -186,33 +602,58 @@
       <div class="sysinfo" id="sysinfo">Loading…</div>
     </div>
     <div class="actions">
-      <button id="theme" title="Theme">🌓</button>
+      <button id="notifybtn" title="Enable desktop notifications when health degrades">🔔</button>
+      <button id="theme" title="Toggle theme">🌓</button>
       <button id="export" title="Copy the report as Markdown">⧉ Copy</button>
+      <button id="pdfbtn" title="Export as PDF (print)">⤓ PDF</button>
       <button id="rerun" class="primary">↻ Re-run checks</button>
     </div>
   </header>
-  <div id="banner" class="banner">Running checks…</div>
-  <div class="summary" id="summary"></div>
+  <div id="status" class="status running">Running checks…</div>
   <div class="toolbar">
     <div class="filters" id="filters"></div>
     <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false">
+    <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">⏱ Auto</button>
     <button id="expandall" class="toolbtn">⊞ Expand all</button>
+    <button id="clearbtn" class="toolbtn" type="button" disabled>✕ Clear</button>
+    <button id="threshbtn" class="toolbtn" title="Edit thresholds">⚙️</button>
   </div>
-  <div id="filterbar" class="filterbar" hidden><span id="filterbar-txt"></span><button id="filterbar-clear" type="button">Clear</button></div>
-  <div id="drillhint" class="empty" hidden></div>
-  <div id="report"><div class="empty">Running checks…</div></div>
-  <div id="nomatch" class="empty" hidden></div>
-  <div id="trend" hidden></div>
-  <details id="fixed" class="group" hidden>
-    <summary>Fixed since last check · <b id="fixed-count"></b><span class="chev">▸</span></summary>
-    <div class="group-body" id="fixed-body"></div>
-  </details>
-  <details id="skipped" class="group" hidden>
-    <summary>Skipped checks <b id="skipped-count"></b><span class="chev">▸</span></summary>
-    <div class="group-body" id="skipped-body"></div>
-  </details>
+  <div id="threshpanel" class="thresh-panel" hidden>
+    <div class="thresh-head">Thresholds <span style="font-weight:500; color:var(--muted); font-size:11px;">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;">✕</button></div>
+    <div id="threshbody" class="thresh-body"></div>
+    <div class="thresh-actions">
+      <button id="threshsave" class="primary" style="padding:6px 12px; font-size:12px;">Save</button>
+      <button id="threshcopy" class="toolbtn">⧉ Copy JSON</button>
+      <span id="threshmsg" style="font-size:11px; color:var(--muted); margin-left:8px;"></span>
+    </div>
+  </div>
+  <main class="content">
+    <div id="nexthep" hidden></div>
+    <div id="drillhint" class="empty" hidden></div>
+    <div id="report"><div class="empty">Running checks…</div></div>
+    <div id="nomatch" class="empty" hidden></div>
+    <details id="fixed" class="group" hidden>
+      <summary>Fixed since last check · <b id="fixed-count"></b><span class="chev">▸</span></summary>
+      <div class="group-body" id="fixed-body"></div>
+    </details>
+    <details id="skipped" class="group" hidden>
+      <summary>Skipped checks <b id="skipped-count"></b><span class="chev">▸</span></summary>
+      <div class="group-body" id="skipped-body"></div>
+    </details>
+    <details id="diff" class="group" hidden>
+      <summary>Changes since last run · <b id="diff-count"></b> <span style="font-weight:500; color:var(--muted)">new vs fixed</span><span class="chev">▸</span></summary>
+      <div class="group-body" id="diff-body"></div>
+    </details>
+  </main>
+  <section id="history" class="history" hidden>
+    <details class="hist-details">
+      <summary class="hist-summary">History <span class="hist-sub">score &amp; findings across recent runs</span><span class="chev">▸</span></summary>
+      <div id="trend"></div>
+    </details>
+  </section>
   <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate findings · <kbd>Enter</kbd> open/close</footer>
 </div>
+<div id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 <script>
 // The desktop app fetches its report over loopback HTTP — see
 // src-tauri/src/lib.rs for why we avoid Tauri IPC here.
@@ -221,7 +662,11 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
 const expandBtn = $("#expandall");
 const themeBtn = $("#theme");
+const autoBtn = $("#autorefresh");
 let statusTimer = null;
+let autoRefresh = true;
+let pollTimer = null;
+let pollBusy = false;
 // True inside the Tauri desktop app, where the report is served over loopback
 // HTTP on 17321. In a plain browser (--web) that port does not exist, so we
 // skip the probes entirely instead of logging connection errors.
@@ -229,6 +674,11 @@ const isDesktop = () => typeof window !== "undefined" && !!window.__TAURI_INTERN
 // The last fetched report, kept so the Ignore button can re-render locally
 // (filtering one finding out) instead of re-running all checks.
 let lastData = null;
+// Static HTML report (--html): the CLI embeds the payload as window.__DATA__
+// before this script. When present we render it directly and never touch the
+// network — no polling, and save buttons report honestly that they cannot
+// persist from a static file.
+const STATIC_DATA = typeof window !== "undefined" && window.__DATA__ ? window.__DATA__ : null;
 
 // Theme: follows the system (prefers-color-scheme) by default; the 🌓 button
 // cycles light → dark → auto. The choice is remembered in localStorage.
@@ -248,6 +698,69 @@ themeBtn.addEventListener("click", () => {
 });
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 applyTheme();
+// Sticky header/toolbar visual separation on scroll
+const hdr = document.querySelector('header');
+const tbar = document.querySelector('.toolbar');
+window.addEventListener('scroll', () => {
+  const sc = window.scrollY > 8;
+  if (hdr) hdr.classList.toggle('scrolled', sc);
+  if (tbar) tbar.classList.toggle('scrolled', sc);
+}, { passive: true });
+
+// Live auto-refresh: re-fetch the report every 20s and re-render silently when
+// it actually changed. Polling pauses while the user is mid-interaction — a
+// re-render would reset their reading state, so we back off while the search
+// box has text, a specific severity filter is active, any finding is expanded,
+// or a check run is in progress.
+const POLL_MS = 20000;
+function reportSignature(d) {
+  if (!d) return "";
+  return JSON.stringify([d.generatedAt || "", d.score || 0, d.scoreDelta || 0, d.findings || [], d.diffSinceLast || null]);
+}
+function pollPaused() {
+  if (!autoRefresh || document.hidden || pollBusy) return true;
+  if ($("#rerun").disabled) return true; // a run is in progress
+  if ($("#search").value.trim()) return true;
+  if (activeFilter && activeFilter !== "all") return true;
+  return document.querySelectorAll("#report details[open]").length > 0;
+}
+async function poll() {
+  if (pollPaused()) return;
+  pollBusy = true;
+  try {
+    const data = await fetchReport();
+    if (reportSignature(data) !== reportSignature(lastData)) render(data);
+  } catch { /* server down — keep the last report */ }
+  finally { pollBusy = false; }
+}
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(poll, POLL_MS);
+}
+function syncAutoPausedUI(){
+  if (!autoBtn) return;
+  const paused = pollPaused();
+  autoBtn.classList.toggle("paused", paused && autoRefresh);
+  if (!autoRefresh) autoBtn.title = "Auto-refresh off — click to enable";
+  else if (paused) autoBtn.title = "Paused — clear filter/search or collapse cards to resume";
+  else autoBtn.title = "Auto-refresh every 20s";
+}
+autoBtn.addEventListener("click", () => {
+  autoRefresh = !autoRefresh;
+  autoBtn.classList.toggle("on", autoRefresh);
+  syncAutoPausedUI();
+  showToast(autoRefresh ? "⏱ Auto-refresh on" : "⏸ Auto-refresh off");
+});
+// keep paused indicator fresh (filters/search/collapsed state changes)
+setInterval(syncAutoPausedUI, 1000);
+document.addEventListener("toggle", (e) => {
+  if (e.target.matches("#report details")) syncAutoPausedUI();
+  if (e.target.classList.contains("ev") && e.target.open) {
+    const ev = e.target.querySelector(".evidence");
+    const btn = e.target.querySelector(".ev-expand");
+    if (ev && btn && ev.scrollHeight > 228) btn.hidden = false;
+  }
+}, true);
 
 // "Checked X ago" pill: relative time, refreshed every 30s. Goes amber when
 // the report is older than an hour (stale cron/desktop run).
@@ -267,6 +780,8 @@ function setStatus(generatedAt) {
 }
 
 async function fetchReport() {
+  // Static HTML report (--html): the payload was embedded at generation time.
+  if (STATIC_DATA) return STATIC_DATA;
   // Desktop app: the Rust shell serves the report over loopback HTTP.
   // Try it first, then fall back to the browser dashboard endpoint (--web).
   if (isDesktop()) {
@@ -283,11 +798,11 @@ async function fetchReport() {
 }
 
 async function load() {
-  const banner = $("#banner");
+  const status = $("#status");
   const report = $("#report");
   const rerun = $("#rerun");
-  banner.className = "banner running";
-  banner.innerHTML = '<span class="spinner"></span>Running checks…';
+  status.className = "status running";
+  status.innerHTML = '<span class="spinner"></span>Running checks…';
   expandBtn.textContent = "⊞ Expand all";
   report.innerHTML = '<div class="empty"><span class="spinner"></span>Running checks…</div>';
   rerun.disabled = true;
@@ -295,9 +810,9 @@ async function load() {
   try {
     render(await fetchReport());
   } catch (err) {
-    banner.className = "banner warn";
-    banner.innerHTML = "";
-    banner.textContent = "⚠️ Could not run checks: " + (err && err.message ? err.message : err);
+    status.className = "status warn";
+    status.innerHTML = "";
+    status.textContent = "⚠️ Could not run checks: " + (err && err.message ? err.message : err);
     report.innerHTML = '<div class="empty">Run failed — see the message above. Make sure Node.js ≥ 20 is installed and on PATH.</div>';
   } finally {
     rerun.disabled = false;
@@ -305,9 +820,13 @@ async function load() {
   }
 }
 
-// Sparkline of the health score from local history (last N runs). Hidden when
-// there are fewer than two runs. Tries the desktop server, then the web one.
-async function renderTrend() {
+// Trend graphs from local history (last N runs). Hidden when there are fewer
+// than two runs with a numeric score. Tries the desktop server, then the web one.
+// Two charts: a health-score area sparkline and a new severity-count stacked
+// bar chart, so the dashboard shows both "is the score moving?" and "what kind
+// of findings are accumulating?" — pure SVG, zero dependencies.
+async function renderTrend(currentScore) {
+  if (STATIC_DATA) return; // a static file carries no run history
   const trend = $("#trend");
   let runs = [];
   if (isDesktop()) {
@@ -322,43 +841,114 @@ async function renderTrend() {
       if (res.ok) runs = (await res.json()).runs || [];
     } catch { /* no history endpoint */ }
   }
-  const scores = runs.map((r) => r.score).filter((s) => typeof s === "number");
-  trend.hidden = scores.length < 2;
-  if (trend.hidden) return;
+  // Keep only runs that actually carry a score, and cap to a readable window.
+  const data = runs.filter((r) => typeof r.score === "number").slice(-12);
+  $("#history").hidden = data.length < 2;
+  if ($("#history").hidden) return;
 
-  const W = 240, H = 44, pad = 4;
+  trend.innerHTML = '<div class="trend-wrap">' + scoreChart(data) + severityChart(data) + '</div>';
+  // Auto-open history when health is degraded (<80) — most useful when it matters
+  if (typeof currentScore === "number" && currentScore < 80) {
+    const det = document.querySelector(".hist-details");
+    if (det) det.open = true;
+  }
+  // Click on history point/bar -> show diff for that run
+  setTimeout(()=>{
+    const histData = data;
+    const showRun = (idx)=>{
+      const r = histData[idx];
+      if (!r) return;
+      const prev = idx>0 ? histData[idx-1] : null;
+      let msg = "Run " + (idx+1) + "/" + histData.length + " · " + fmtWhen(r.at) + " · score " + r.score + "/100";
+      if (prev) msg += " (prev " + prev.score + ")";
+      showToast(msg + " — opening Changes");
+      const diffEl = $("#diff");
+      if (diffEl) { diffEl.hidden=false; diffEl.open=true; diffEl.scrollIntoView({behavior:"smooth", block:"start"}); }
+      // also expand history details
+      const det = document.querySelector(".hist-details");
+      if (det) det.open=true;
+    };
+    trend.querySelectorAll(".hist-dot, .hist-bar").forEach(el=>{
+      el.addEventListener("click", ()=>{ const idx=Number(el.dataset.idx||el.closest("[data-idx]")?.dataset.idx); if(Number.isFinite(idx)) showRun(idx); });
+    });
+  }, 80);
+}
+
+// Compact "Mon/Day HH:MM" for tooltips/axis from an ISO timestamp.
+function fmtWhen(at) {
+  const d = new Date(at);
+  if (isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return (d.getMonth() + 1) + "/" + d.getDate() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+// Health-score area sparkline with a dashed 50-point "needs attention" line.
+function scoreChart(data) {
+  const W = 260, H = 50, pad = 6;
+  const scores = data.map((r) => r.score);
   const min = Math.min(...scores), max = Math.max(...scores);
   const span = Math.max(1, max - min);
-  const pts = scores.map((s, i) => {
-    const x = pad + (i * (W - 2 * pad)) / (scores.length - 1);
-    const y = H - pad - ((s - min) / span) * (H - 2 * pad);
-    return [x.toFixed(1), y.toFixed(1)];
-  });
+  const X = (i) => pad + (i * (W - 2 * pad)) / (scores.length - 1);
+  const Y = (s) => H - pad - ((s - min) / span) * (H - 2 * pad);
+  const pts = scores.map((s, i) => [X(i).toFixed(1), Y(s).toFixed(1)]);
   const last = scores[scores.length - 1];
   const color = last >= 80 ? "var(--green)" : last >= 50 ? "var(--yellow)" : "var(--red)";
-  // Trend direction: first vs last run, so the sparkline says "improving"
-  // instead of just drawing a line.
   const first = scores[0];
-  const dir = last > first ? { txt: "▲ Improving", cls: "delta-up" } : last < first ? { txt: "▼ Declining", cls: "delta-down" } : { txt: "◆ Stable", cls: "delta-flat" };
+  const dir = last > first ? { txt: "▲ Improving", cls: "delta-up" }
+    : last < first ? { txt: "▼ Declining", cls: "delta-down" }
+    : { txt: "◆ Stable", cls: "delta-flat" };
   const range = min === max ? String(last) : min + " → " + last;
   const line = pts.map((p) => p.join(",")).join(" ");
-  // Area chart: the same polyline closed down to the bottom edge.
   const area = "M" + line.replace(/ /g, " L") + " L" + (W - pad) + "," + (H - pad) + " L" + pad + "," + (H - pad) + " Z";
-  // Tooltip: one transparent circle per point, wide hit area, native <title>.
   const dots = pts.map((p, i) =>
-    '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="transparent" style="cursor:crosshair">' +
-    '<title>' + scores[i] + '/100 · run ' + (i + 1) + ' of ' + scores.length + '</title></circle>');
+    '<circle data-idx="'+i+'" cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="transparent" style="cursor:pointer" class="hist-dot">' +
+    '<title>' + scores[i] + "/100 · " + fmtWhen(data[i].at) + ' — click to show diff</title></circle>').join("");
   const end = pts[pts.length - 1];
-  trend.innerHTML =
-    '<div class="trend-wrap">' +
+  // Only draw the 50 threshold when the score range actually crosses it.
+  const thresh = (min < 50 && max > 50)
+    ? '<line x1="' + pad + '" y1="' + Y(50).toFixed(1) + '" x2="' + (W - pad) + '" y2="' + Y(50).toFixed(1) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'
+    : "";
+  return '<div class="trendchart">' +
     '<div class="trendtitle">Health score · last ' + scores.length + ' run(s): <b>' + last + '/100</b>' +
     ' <span class="' + dir.cls + '">' + dir.txt + '</span> <span class="trendrange">(' + range + ')</span></div>' +
     '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Health score trend">' +
-    '<path d="' + area + '" fill="' + color + '" opacity="0.18"/>' +
+    thresh + '<path d="' + area + '" fill="' + color + '" opacity="0.18"/>' +
     '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    dots.join("") +
-    '<circle cx="' + end[0] + '" cy="' + end[1] + '" r="3" fill="' + color + '"/>' +
-    '</svg>' +
+    dots + '<circle cx="' + end[0] + '" cy="' + end[1] + '" r="3" fill="' + color + '"/></svg></div>';
+}
+
+// Stacked bar chart of high/medium/info counts per run (new graph). Shared
+// vertical scale, hover reveals the per-severity breakdown for each run.
+function severityChart(data) {
+  const W = 300, H = 72, spad = 8, sgap = 4;
+  const counts = data.map((r) => ({
+    high: (r.counts && r.counts.high) || 0,
+    medium: (r.counts && r.counts.medium) || 0,
+    info: (r.counts && r.counts.info) || 0,
+    at: r.at,
+  }));
+  const maxTotal = Math.max(1, ...counts.map((c) => c.high + c.medium + c.info));
+  const n = counts.length;
+  const bw = (W - 2 * spad - (n - 1) * sgap) / n;
+  const totalH = H - 2 * spad;
+  const bars = counts.map((c, i) => {
+    const x = (spad + i * (bw + sgap)).toFixed(1);
+    const iH = totalH * c.info / maxTotal;
+    const mH = totalH * c.medium / maxTotal;
+    const hH = totalH * c.high / maxTotal;
+    // Stack from the bottom: info, then medium, then high on top.
+    const yInfo = (H - spad - iH).toFixed(1);
+    const yMed = (H - spad - iH - mH).toFixed(1);
+    const yHigh = (H - spad - iH - mH - hH).toFixed(1);
+    const tip = "high: " + c.high + " · medium: " + c.medium + " · info: " + c.info + (fmtWhen(c.at) ? " · " + fmtWhen(c.at) : "");
+    return '<g data-idx="'+i+'" style="cursor:pointer" class="hist-bar"><rect x="' + x + '" y="' + yInfo + '" width="' + bw.toFixed(1) + '" height="' + iH.toFixed(1) + '" fill="var(--blue)" opacity="0.85"><title>' + tip + ' — click to show diff</title></rect>' +
+      '<rect x="' + x + '" y="' + yMed + '" width="' + bw.toFixed(1) + '" height="' + mH.toFixed(1) + '" fill="var(--yellow)" opacity="0.9"><title>' + tip + '</title></rect>' +
+      '<rect x="' + x + '" y="' + yHigh + '" width="' + bw.toFixed(1) + '" height="' + hH.toFixed(1) + '" fill="var(--red)" opacity="0.9"><title>' + tip + '</title></rect></g>';
+  }).join("");
+  return '<div class="trendchart">' +
+    '<div class="trendtitle">Findings by severity · last ' + n + ' run(s)</div>' +
+    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Severity counts over time">' + bars + '</svg>' +
+    '<div class="sevlegend"><span class="lg high"></span>high <span class="lg medium"></span>medium <span class="lg info"></span>info</div>' +
     '</div>';
 }
 
@@ -382,19 +972,77 @@ function animateScore(target) {
   requestAnimationFrame(step);
 }
 
+// Toast helper — used for Copy and Ignore/Undo
+function showToast(html, ms = 3000) {
+  const wrap = $("#toast-wrap");
+  if (!wrap) return;
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = html;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(8px)"; setTimeout(() => el.remove(), 260); }, ms);
+  return el;
+}
+let lastUndo = null;
+// Highlight search term inside a card (title/detail/evidence/fix) with <mark>
+function highlightMatches(card, q) {
+  // clear previous
+  card.querySelectorAll("mark.hl").forEach(m => {
+    const t = document.createTextNode(m.textContent);
+    m.replaceWith(t);
+  });
+  // normalize text nodes so split marks don't accumulate
+  card.normalize();
+  if (!q) return;
+  const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return;
+  const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      // skip inside buttons/links
+      if (n.parentElement && n.parentElement.closest("button, a")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp("(" + terms.map(escRe).join("|") + ")", "gi");
+  for (const n of nodes) {
+    if (!re.test(n.nodeValue)) continue;
+    re.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    const txt = n.nodeValue;
+    while ((m = re.exec(txt)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+      const mark = document.createElement("mark");
+      mark.className = "hl";
+      mark.textContent = m[0];
+      frag.appendChild(mark);
+      last = m.index + m[0].length;
+    }
+    if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+    n.replaceWith(frag);
+  }
+}
+
 // Severity filter + live search. Pure DOM toggles — no re-fetch.
 // activeFilter: null = report hidden (drill-down), "all" = every group,
 // "high"/"medium"/"info" = that group only. Defaults to "all" so the report
 // is visible as soon as the app opens.
 let activeFilter = "all";
 
+const PILL_ICONS = { all: "◉", high: "🔴", medium: "🟡", info: "🔵" };
+const SEV_ICONS = { high: "🔴", medium: "🟡", info: "🔵" };
 function renderFilters(counts) {
-  // Counts live on the summary cards only; pills are pure severity labels.
+  // The counts live on the pills now: All (N) / High (N) / Medium (N) / Info (N).
+  const total = counts.high + counts.medium + counts.info;
   const defs = [
-    { sev: "all", label: "All" },
-    { sev: "high", label: "High" },
-    { sev: "medium", label: "Medium" },
-    { sev: "info", label: "Info" },
+    { sev: "all", label: "All" + (total ? " (" + total + ")" : ""), icon: PILL_ICONS.all },
+    { sev: "high", label: "High" + (counts.high ? " (" + counts.high + ")" : ""), icon: PILL_ICONS.high },
+    { sev: "medium", label: "Medium" + (counts.medium ? " (" + counts.medium + ")" : ""), icon: PILL_ICONS.medium },
+    { sev: "info", label: "Info" + (counts.info ? " (" + counts.info + ")" : ""), icon: PILL_ICONS.info },
   ];
   // A severity with no findings can't be filtered on; if the active chip is
   // one of them (e.g. after a re-run that fixed everything), fall back to All.
@@ -402,8 +1050,9 @@ function renderFilters(counts) {
   if (empty(activeFilter)) activeFilter = "all";
   $("#filters").innerHTML = defs.map((d) =>
     '<button class="fpill ' + d.sev + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + d.sev + '"' +
-    (empty(d.sev) ? " disabled" : "") + '>' + d.label + '</button>'
+    (empty(d.sev) ? " disabled" : "") + '><span class="pill-icon">' + d.icon + '</span> ' + d.label + '</button>'
   ).join("");
+  syncClear();
 }
 
 function applyFilters() {
@@ -416,17 +1065,8 @@ function applyFilters() {
   } else {
     hint.textContent = "Select a severity to see findings.";
   }
-  // Filter status line: only when a specific severity is active.
-  const filterbar = $("#filterbar");
-  const fbTxt = $("#filterbar-txt");
-  if (activeFilter && activeFilter !== "all") {
-    filterbar.hidden = false;
-    fbTxt.textContent = "Showing " + { high: "High", medium: "Medium", info: "Info" }[activeFilter] + " only";
-  } else {
-    filterbar.hidden = true;
-    fbTxt.textContent = "";
-  }
-  const q = $("#search").value.trim().toLowerCase();
+  const qRaw = $("#search").value.trim();
+  const q = qRaw.toLowerCase();
   let visible = 0;
   document.querySelectorAll("#report .group").forEach((g) => {
     const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
@@ -435,28 +1075,37 @@ function applyFilters() {
     g.querySelectorAll(".card, .crow").forEach((c) => {
       const match = !q || c.textContent.toLowerCase().includes(q);
       c.style.display = match ? "" : "none";
-      if (match) any = true;
+      if (match) {
+        any = true;
+        highlightMatches(c, qRaw);
+      } else {
+        // clear highlight on hidden so it doesn't persist when shown again
+        highlightMatches(c, "");
+      }
     });
+    // also clear highlight on whole group when no query
+    if (!qRaw) g.querySelectorAll(".card, .crow").forEach(c => highlightMatches(c, ""));
     g.hidden = !(sevOk && any);
     if (sevOk && any) visible++;
   });
   const nomatch = $("#nomatch");
-  const qRaw = $("#search").value.trim();
   nomatch.hidden = !(activeFilter && qRaw && visible === 0);
   if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
-  syncCardActive();
+  syncClear();
+  syncAutoPausedUI();
 }
 
-// The active severity chip highlights its matching summary card, linking the
-// "state" layer (cards) to the "control" layer (chips) so they read as one.
-function syncCardActive() {
-  document.querySelectorAll("#summary .stat[data-sev]").forEach((s) => {
-    s.classList.toggle("active", activeFilter === s.dataset.sev);
-  });
+// Clear (✕) is only actionable when something is filtering the report.
+function syncClear() {
+  const clear = $("#clearbtn");
+  const hasFilter = activeFilter && activeFilter !== "all";
+  const hasSearch = $("#search").value.trim().length > 0;
+  clear.disabled = !(hasFilter || hasSearch);
 }
 
-$("#filterbar-clear").addEventListener("click", () => {
+$("#clearbtn").addEventListener("click", () => {
   activeFilter = "all";
+  $("#search").value = "";
   document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
   syncGroupsOpen();
   applyFilters();
@@ -470,6 +1119,7 @@ function syncGroupsOpen() {
     const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
     g.open = activeFilter === sev || (activeFilter === "all" && sev === "high");
   });
+  syncAutoPausedUI();
 }
 
 $("#filters").addEventListener("click", (e) => {
@@ -485,6 +1135,7 @@ $("#search").addEventListener("input", applyFilters);
 // "Checks that were skipped on this system": pull /api/checks (the web server
 // serves it; the desktop app returns nothing, so the section stays hidden).
 async function renderSkipped() {
+  if (STATIC_DATA) return; // a static file has no checks endpoint
   const box = $("#skipped");
   let checks = [];
   if (isDesktop()) {
@@ -499,7 +1150,17 @@ async function renderSkipped() {
       if (res.ok) checks = (await res.json()).checks || [];
     } catch { /* no checks endpoint */ }
   }
-  const skipped = checks.filter((c) => !c.appliesHere);
+  const byId = new Map();
+  // appliesTo skips: the check is not relevant to this machine kind.
+  for (const c of checks.filter((c) => !c.appliesHere)) {
+    byId.set(c.id, { id: c.id, title: c.title, reason: "Only runs on: " + c.appliesTo.join(", ") + "." });
+  }
+  // Immutable/atomic skips: reported with an explicit reason by the CLI.
+  const atomic = (typeof lastData !== "undefined" && lastData && lastData.skippedChecks) || [];
+  for (const s of atomic) {
+    if (!byId.has(s.id)) byId.set(s.id, { id: s.id, title: s.title, reason: s.reason || "Not applicable on this immutable/atomic system." });
+  }
+  const skipped = [...byId.values()];
   box.hidden = !skipped.length;
   if (!skipped.length) return;
   $("#skipped-count").textContent = skipped.length;
@@ -507,7 +1168,7 @@ async function renderSkipped() {
     '<div class="card info"><summary><span class="badge info">skipped</span>' +
     '<h3>' + esc(c.title) + '</h3><span class="checkid">' + esc(c.id) + '</span>' +
     '<span class="chev">▸</span></summary>' +
-    '<div class="card-body"><div class="detail">Only runs on: ' + esc(c.appliesTo.join(", ")) + '.</div></div></div>'
+    '<div class="card-body"><div class="detail">' + esc(c.reason) + '</div></div></div>'
   ).join("");
 }
 
@@ -553,9 +1214,6 @@ function render(data) {
   const ver = (data.version || "").replace(/^v/, "");
   $(".sysinfo").innerHTML =
     [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · ") +
-    (typeof data.score === "number" ? " · Health " + data.score + "/100" +
-      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : "") : "") +
-    ' · <span class="dot" id="statusdot"></span><span id="statuspill-txt"></span>' +
     (ver ? ' · <span class="ver">v' + ver + "</span>" : "");
   const count = (s) => findings.filter((f) => f.severity === s).length;
   const high = count("high"), med = count("medium"), inf = count("info");
@@ -564,7 +1222,7 @@ function render(data) {
   // false positives. Every field is URL-encoded, so odd titles/evidence are
   // safe in the query string.
   const wrongUrl = (f) =>
-    "https://github.com/zShaD0w7x/linux-doctor-cli/issues/new?" +
+    "https://github.com/zShaD0w7x/linux-doctor/issues/new?" +
     "title=" + encodeURIComponent("Wrong finding: " + (f.code || f.title)) +
     "&body=" + encodeURIComponent(
       "**Finding:** " + (f.title || "") + "\n" +
@@ -575,26 +1233,30 @@ function render(data) {
       "This finding looks wrong because:\n\n[describe what you expected]\n\n---\n" +
       "Full report: `linux-doctor --json`");
 
-  const banner = $("#banner");
+  const status = $("#status");
+  let msgCls, msgTxt;
   if (high + med === 0) {
-    banner.className = "banner ok";
-    banner.textContent = "All checks passed — system looks healthy.";
+    msgCls = "ok";
+    msgTxt = "All checks passed — system looks healthy.";
   } else {
     const parts = [];
     if (high) parts.push(high + " high-severity " + (high === 1 ? "issue" : "issues"));
     if (med) parts.push(med + " medium-severity " + (med === 1 ? "issue" : "issues"));
-    banner.className = "banner warn";
-    banner.textContent = parts.join(" and ") + " need attention — see below.";
+    msgCls = "warn";
+    msgTxt = parts.join(" and ") + " need attention — see below.";
   }
 
-  // Icons on the hero stats (not just color) so the report reads fine for
-  // color-blind users: 🔴 red circle, 🟡 yellow circle, 🔵 blue circle.
   const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
   const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
   const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "▲ +" + scoreDelta : scoreDelta < 0 ? "▼ " + scoreDelta : "◆ no change";
   const score = typeof data.score === "number" ? data.score : 0;
   const scoreColor = score >= 80 ? "var(--green)" : score >= 50 ? "var(--yellow)" : "var(--red)";
-  $("#summary").innerHTML =
+  const chips =
+    (data.newCount > 0 ? '<span class="newbadge">NEW ' + data.newCount + "</span>" : "") +
+    (data.fixedCount > 0 ? '<span class="fixedbadge">FIXED ' + data.fixedCount + "</span>" : "");
+  status.className = "status";
+  status.innerHTML =
+    '<div class="status-main">' +
     '<div class="gauge">' +
     '<svg viewBox="0 0 62 62" role="img" aria-label="Health score ' + score + ' of 100">' +
     '<circle class="track" cx="31" cy="31" r="' + SCORE_RING_R + '"></circle>' +
@@ -606,13 +1268,11 @@ function render(data) {
     '</div>' +
     '<div class="hero-main"><div class="k">Health</div>' +
     '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
-    '<div class="hero-stats">' +
-    '<div class="stat red" data-sev="high"><b>' + high + '</b><span>high</span></div>' +
-    '<div class="stat yellow" data-sev="medium"><b>' + med + '</b><span>medium</span></div>' +
-    '<div class="stat blue" data-sev="info"><b>' + inf + '</b><span>info</span></div>' +
-    (data.newCount > 0 ? '<div class="stat new"><b>' + data.newCount + '</b><span>new</span></div>' : "") +
-    (data.fixedCount > 0 ? '<div class="stat fixed"><b>' + data.fixedCount + '</b><span>fixed</span></div>' : "") +
-    '</div>';
+    '</div>' +
+    '<div class="status-body">' +
+    '<div class="statusmsg ' + msgCls + '">' + msgTxt + "</div>" +
+    '<div class="status-meta"><span class="dot" id="statusdot"></span><span id="statuspill-txt"></span>' + chips + "</div>" +
+    "</div>";
   animateScore(score);
   renderFilters({ high, medium: med, info: inf });
 
@@ -625,35 +1285,33 @@ function render(data) {
   const order = ["high", "medium", "info"];
   const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
   let html = "";
+  let cardIdx = 0;
   for (const sev of order) {
     const group = findings.filter((f) => f.severity === sev);
     if (!group.length) continue;
-    // One collapsible group per severity: High is open by default (the
-    // actionable stuff), Medium/Info stay closed so the whole report fits on
-    // one screen. High/Medium render as full cards (each its own accordion);
-    // Informational renders as compact one-line rows so long lists stay
-    // skimmable, with detail/fix revealed on expand.
     const open = sev === "high" ? " open" : "";
-    const compact = sev === "info";
+    const compact = false; // informational now same as medium/high (card bento)
     html += '<details class="group ' + SEV[sev].cls + '"' + open + ">";
-    html += "<summary>" + names[sev] + " <b>" + group.length + '</b><span class="chev">▸</span></summary>';
+    html += '<summary><span class="sevicon">' + (SEV_ICONS[sev]||"") + '</span> ' + names[sev] + " <b>" + group.length + '</b><span class="chev">▸</span></summary>';
     html += '<div class="group-body">';
     for (const f of group) {
       const badges =
         (f.isNew ? '<span class="newbadge" title="Appeared since your last check">NEW</span>' : "") +
         (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
         (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "");
+      const sevIcon = SEV_ICONS[sev] || "";
       if (compact) {
-        html += '<details class="crow" tabindex="0">';
-        html += '<summary><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
+        html += '<details class="crow" tabindex="0" style="--i:' + (cardIdx++) + '" data-code="' + esc(f.code || "") + '">';
+        html += '<summary><span class="sevicon">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
       } else {
-        html += '<details class="card ' + SEV[sev].cls + '" tabindex="0">';
-        html += '<summary><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
+        html += '<details class="card ' + SEV[sev].cls + '" tabindex="0" style="--i:' + (cardIdx++) + '" data-code="' + esc(f.code || "") + '">';
+        html += '<summary><span class="sevicon">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
       }
       html += '<div class="card-body">';
       if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
       if (f.evidence) {
-        html += '<details class="ev"><summary>Evidence</summary><div class="evidence">' + esc(f.evidence) + "</div></details>";
+        const evId = "ev-" + (f.id || f.code || Math.random().toString(36).slice(2));
+        html += '<details class="ev"><summary>Evidence</summary><div class="evidence" id="' + evId + '">' + esc(f.evidence) + '</div><div style="display:flex; gap:6px; margin:6px 12px 10px; flex-wrap:wrap;"><button class="ev-expand" data-ev="' + evId + '" hidden>Show more</button><button class="ev-copy" data-evcopy="' + evId + '">⧉ Copy evidence</button></div></details>';
       }
       html += '<div class="fix">';
       if (f.fix) html += '<div class="fixtext">' + esc(f.fix) + '</div>';
@@ -666,11 +1324,70 @@ function render(data) {
     html += "</div></details>";
   }
   $("#report").innerHTML = html || '<div class="empty">No issues found — system looks healthy.</div>';
-  applyFilters();
-  renderFixed(data);
-  renderTrend();
-  renderSkipped();
+  // Evidence: show expand when content is long (scrollHeight not reliable while <details> closed, so use length fallback)
+  document.querySelectorAll(".evidence").forEach(ev => {
+    const btn = ev.parentElement.querySelector(".ev-expand");
+    if (!btn) return;
+    if (ev.textContent.length > 500 || ev.scrollHeight > 228) btn.hidden = false;
+  });
+   applyFilters();
+   renderNextStep(data);
+   renderFixed(data);
+   renderDiff(data);
+   maybeNotify(data);
+   renderTrend(score);
+   renderSkipped();
 }
+
+// "Start here" banner: mirrors the CLI's ▶ START HERE — the highest-severity
+// finding that comes with a fix. Pure client-side, works in --web, the static
+// HTML export and the desktop app.
+function firstSentence(text) {
+  return String(text || "").split(/(?<=\.)\s/)[0].trim();
+}
+function renderNextStep(data) {
+  const el = $("#nexthep");
+  if (!el) return;
+  const order = { high: 0, medium: 1, info: 2 };
+  const pick = [...(data.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9)).find((f) => f.fix);
+  if (!pick) { el.hidden = true; return; }
+  const hint = firstSentence(pick.fix);
+  el.hidden = false;
+  el.innerHTML =
+    '<span class="nh-icon">▶ START HERE</span>' +
+    '<div class="nh-body"><div class="nh-title">' + esc(pick.title) + '</div>' +
+    '<div class="nh-hint">' + esc(hint.length > 160 ? hint.slice(0, 159) + "…" : hint) + '</div></div>' +
+    '<button data-nhcopy="' + esc(pick.fix) + '">⧉ Copy fix</button>' +
+    '<button data-nhjump="' + esc(pick.code || "") + '">↘ Show</button>';
+}
+
+// Banner buttons: copy the fix text, or scroll to and open the finding card.
+document.addEventListener("click", async (e) => {
+  const copyBtn = e.target.closest("[data-nhcopy]");
+  if (copyBtn) {
+    await copyText(copyBtn.dataset.nhcopy);
+    showToast("✓ Fix copied to clipboard");
+    return;
+  }
+  const jumpBtn = e.target.closest("[data-nhjump]");
+  if (jumpBtn) {
+    const code = jumpBtn.dataset.nhjump;
+    // Reset any drill-down so the card is actually visible.
+    activeFilter = "all";
+    document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
+    syncGroupsOpen();
+    applyFilters();
+    const card = code ? document.querySelector('#report details[data-code="' + code.replace(/"/g, '\\"') + '"]') : null;
+    if (card) {
+      card.setAttribute("open", "");
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => { card.classList.remove("flash"); }, 50);
+      const nh = $("#nexthep");
+      if (nh) nh.classList.add("flash");
+      setTimeout(() => nh && nh.classList.remove("flash"), 1700);
+    }
+  }
+});
 
 // "Fixed since last check": the diffSinceLast.fixed entries are findings that
 // disappeared between runs (resolved). Green, celebratory, self-reinforcing.
@@ -688,6 +1405,46 @@ function renderFixed(data) {
     '<div class="card-body"><div class="detail">This no longer shows up in the report.</div></div></div>'
   ).join("");
 }
+
+function renderDiff(data) {
+  const el = $("#diff");
+  if (!el) return;
+  const added = (data.diffSinceLast && data.diffSinceLast.added) || [];
+  const fixed = (data.diffSinceLast && data.diffSinceLast.fixed) || [];
+  const total = added.length + fixed.length;
+  el.hidden = total === 0;
+  if (!total) return;
+  $("#diff-count").textContent = total + " (" + added.length + " new · " + fixed.length + " fixed)";
+  const row = (f, cls, badge) => '<div class="card ' + (f.severity || "") + '"><summary><span class="badge ' + cls + '">' + badge + '</span>' +
+    '<h3>' + esc(f.title) + '</h3>' + (f.code ? '<span class="checkid">' + esc(f.code) + '</span>' : "") + '<span class="chev">▸</span></summary>' +
+    '<div class="card-body"><div class="detail">' + esc(f.detail || (cls==="high"?"New since last run":"Fixed since last run")) + '</div></div></div>';
+  let html = "";
+  if (added.length) html += '<div style="grid-column:1/-1; font-size:12px; font-weight:700; color:var(--red); margin-bottom:2px;">● New (' + added.length + ')</div>' + added.map(f=>row(f, f.severity||"high", "NEW")).join("");
+  if (fixed.length) html += '<div style="grid-column:1/-1; font-size:12px; font-weight:700; color:var(--green); margin: 8px 0 2px;">● Fixed (' + fixed.length + ')</div>' + fixed.map(f=>row(f, f.severity||"info", "FIXED")).join("");
+  $("#diff-body").innerHTML = html;
+}
+
+// Desktop notifications when health degrades
+function maybeNotify(data) {
+  try {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const hasHigh = (data.findings||[]).some(f=>f.severity==="high");
+    const newHigh = ((data.diffSinceLast&&data.diffSinceLast.added)||[]).some(f=>f.severity==="high"||f.severity==="medium");
+    const degraded = (typeof data.scoreDelta==="number" && data.scoreDelta < 0 && data.score < 80) || (hasHigh && newHigh);
+    if (!degraded) return;
+    // throttle: once per 10min per score
+    const key = "ld-notify-" + data.score + "-" + (data.generatedAt||"");
+    const last = localStorage.getItem(key);
+    if (last) return;
+    localStorage.setItem(key, "1");
+    setTimeout(()=>localStorage.removeItem(key), 10*60*1000);
+    const title = hasHigh ? "Linux Doctor: health degraded (" + data.score + "/100)" : "Linux Doctor: new findings";
+    const body = (data.changeMessage || (data.newCount? data.newCount+" new · "+data.fixedCount+" fixed":"")) + " — open dashboard for details";
+    new Notification(title, { body, icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>" });
+  } catch {}
+}
+
 
 async function copyText(text) {
   try {
@@ -722,23 +1479,55 @@ async function ignoreFinding(title, btn) {
   btn.disabled = true;
   btn.textContent = ok ? "✓ Ignored" : "✗ Could not save";
   if (ok && lastData) {
-    // Re-render locally with the finding filtered out — no need to re-run
-    // all checks just to hide one finding (the pattern is persisted
-    // server-side, so a future "Re-run checks" stays consistent).
+    lastUndo = { findings: [...lastData.findings], title };
     lastData.findings = lastData.findings.filter((f) => f.title !== title);
     render(lastData);
+    showToast('Ignored "' + esc(title).slice(0,40) + (title.length>40?"…":"") + '" <button data-undo>Undo</button>', 4000);
+    setTimeout(() => { if (lastUndo && lastUndo.title === title) lastUndo = null; }, 4200);
+  } else if (!ok) {
+    showToast("✗ Could not save — check permissions");
   }
 }
 
 document.addEventListener("click", async (e) => {
+  if (e.target.classList.contains("ev-copy")) {
+    const id = e.target.dataset.evcopy;
+    const ev = document.getElementById(id);
+    if (ev) {
+      await copyText(ev.textContent);
+      const old = e.target.textContent;
+      e.target.textContent = "✓ Copied";
+      showToast("✓ Evidence copied");
+      setTimeout(()=>e.target.textContent=old, 1200);
+    }
+    return;
+  }
+  if (e.target.classList.contains("ev-expand")) {
+    const id = e.target.dataset.ev;
+    const ev = document.getElementById(id);
+    if (ev) {
+      const expanded = ev.classList.toggle("expanded");
+      e.target.textContent = expanded ? "Show less" : "Show more";
+    }
+    return;
+  }
   if (e.target.dataset.copy !== undefined) {
     await copyText(e.target.dataset.copy);
     const old = e.target.textContent;
     e.target.textContent = "✓ Copied";
+    showToast("✓ Copied to clipboard");
     setTimeout(() => (e.target.textContent = old), 1200);
   }
   if (e.target.dataset.ignore !== undefined) {
     await ignoreFinding(e.target.dataset.ignore, e.target);
+  }
+  if (e.target.dataset.undo !== undefined) {
+    if (lastUndo && lastData) {
+      lastData.findings = [...lastUndo.findings];
+      render(lastData);
+      showToast("↩ Restored");
+      lastUndo = null;
+    }
   }
 });
 
@@ -746,7 +1535,7 @@ document.addEventListener("click", async (e) => {
 // focused card. Cards are focusable <details> elements (tabindex="0").
 document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-    const cards = [...document.querySelectorAll("#report .card")];
+    const cards = [...document.querySelectorAll("#report .card, #report .crow")];
     if (!cards.length) return;
     let idx = cards.indexOf(document.activeElement);
     if (e.key === "ArrowDown") idx = idx < 0 ? 0 : Math.min(cards.length - 1, idx + 1);
@@ -754,7 +1543,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     cards[idx].focus({ preventScroll: true });
     cards[idx].scrollIntoView({ block: "nearest" });
-  } else if ((e.key === "Enter" || e.key === " ") && document.activeElement && document.activeElement.classList.contains("card")) {
+  } else if ((e.key === "Enter" || e.key === " ") && document.activeElement && (document.activeElement.classList.contains("card") || document.activeElement.classList.contains("crow"))) {
     const el = document.activeElement;
     if (el.open) el.removeAttribute("open");
     else el.setAttribute("open", "");
@@ -774,10 +1563,101 @@ function setAllOpen(open) {
 expandBtn.addEventListener("click", () => {
   const anyClosed = [...document.querySelectorAll("#report .group, #report .card, #report .crow")].some((el) => !el.open);
   setAllOpen(anyClosed);
+  syncAutoPausedUI();
 });
 
 $("#rerun").addEventListener("click", load);
 
+const pdfBtn = $("#pdfbtn");
+if (pdfBtn) {
+  pdfBtn.addEventListener("click", () => {
+    // Ensure all groups/cards are open for printing
+    document.querySelectorAll(".group, .card, .crow, details.ev").forEach(el=>el.setAttribute("open",""));
+    setTimeout(()=>window.print(), 120);
+    showToast("🖨️ Print dialog opened — save as PDF");
+  });
+}
+// Thresholds live editor
+const threshBtn = $("#threshbtn");
+const threshPanel = $("#threshpanel");
+const threshBody = $("#threshbody");
+const threshMsg = $("#threshmsg");
+let threshData = null;
+async function loadThresh() {
+  try {
+    const r = await fetch("/api/thresholds", {cache:"no-store"});
+    if (!r.ok) throw new Error(""+r.status);
+    const j = await r.json();
+    threshData = j.thresholds || j.defaults || {};
+    const defs = j.defaults || {};
+    const fields = [
+      ["diskFullPct","Disk full %","90"],["diskWarnPct","Disk warn %","80"],
+      ["memLowRatio","Mem low ratio","0.15"],["memWarnRatio","Mem warn ratio","0.25"],
+      ["loadWarnRatio","Load warn","0.7"],["loadHighRatio","Load high","1.0"],["loadCriticalRatio","Load crit","1.5"],
+      ["tempWarnC","Temp warn °C","85"],["tempHotC","Temp hot °C","95"],
+      ["procWarnRatio","Proc warn","0.2"],["procHighRatio","Proc high","0.4"],
+      ["journalWarnBytes","Journal bytes","2147483648"],["containerWarnGB","Cont. warn GB","20"],["containerHighGB","Cont. high GB","50"],
+    ];
+    threshBody.innerHTML = fields.map(([k,label,def])=>{
+      const v = threshData[k] ?? defs[k] ?? def;
+      return '<div class="thresh-field"><label for="th-'+k+'">'+label+' <span style="font-weight:400; text-transform:none; letter-spacing:0;">('+k+')</span></label><input id="th-'+k+'" data-k="'+k+'" type="number" step="any" value="'+esc(v)+'"></div>';
+    }).join("");
+    // also try desktop endpoint
+    if (!threshData || Object.keys(threshData).length===0) {
+      try {
+        const r2 = await fetch("http://127.0.0.1:17321/thresholds",{cache:"no-store"});
+        if (r2.ok) { const j2=await r2.json(); if(j2.thresholds) threshData=j2.thresholds; }
+      } catch {}
+    }
+  } catch(e){ threshBody.innerHTML='<div style="color:var(--muted);font-size:12px;">Could not load thresholds: '+esc(e.message)+'</div>'; }
+}
+if (threshBtn && threshPanel) {
+  threshBtn.addEventListener("click", async ()=>{
+    const hidden = threshPanel.hidden;
+    threshPanel.hidden = !hidden;
+    if (!hidden) return;
+    await loadThresh();
+  });
+  $("#threshclose")?.addEventListener("click", ()=>threshPanel.hidden=true);
+  $("#threshcopy")?.addEventListener("click", async ()=>{
+    const data = {};
+    threshBody.querySelectorAll("input[data-k]").forEach(inp=>{ const k=inp.dataset.k; const v=Number(inp.value); if(Number.isFinite(v)) data[k]=v; });
+    await copyText(JSON.stringify({thresholds:data},null,2));
+    threshMsg.textContent="✓ Copied JSON";
+    showToast("✓ Thresholds JSON copied — paste into ~/.config/linux-doctor/config.json");
+    setTimeout(()=>threshMsg.textContent="",1500);
+  });
+  $("#threshsave")?.addEventListener("click", async ()=>{
+    const data = {};
+    threshBody.querySelectorAll("input[data-k]").forEach(inp=>{ const k=inp.dataset.k; const v=Number(inp.value); if(Number.isFinite(v)) data[k]=v; });
+    threshMsg.textContent="Saving…";
+    let ok=false;
+    try { const r=await fetch("/api/thresholds",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({thresholds:data})}); ok=r.ok; } catch {}
+    if (!ok) { try { const r2=await fetch("http://127.0.0.1:17321/thresholds",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({thresholds:data})}); ok=r2.ok; } catch {} }
+    threshMsg.textContent = ok ? "✓ Saved — re-run checks to apply" : "✗ Save failed";
+    showToast(ok ? "✓ Thresholds saved" : "✗ Could not save thresholds");
+    if (ok) setTimeout(()=>threshPanel.hidden=true, 900);
+  });
+}
+// Notifications button
+const notifyBtn = $("#notifybtn");
+if (notifyBtn) {
+  const syncNotifyBtn = () => {
+    if (!("Notification" in window)) { notifyBtn.style.display="none"; return; }
+    notifyBtn.textContent = Notification.permission==="granted" ? "🔔✓" : "🔔";
+    notifyBtn.title = Notification.permission==="granted" ? "Notifications enabled" : "Enable desktop notifications when health degrades";
+    notifyBtn.classList.toggle("on", Notification.permission==="granted");
+  };
+  syncNotifyBtn();
+  notifyBtn.addEventListener("click", async () => {
+    if (!("Notification" in window)) { showToast("Notifications not supported in this browser"); return; }
+    if (Notification.permission==="granted") { showToast("🔔 Notifications already enabled"); return; }
+    const perm = await Notification.requestPermission();
+    syncNotifyBtn();
+    showToast(perm==="granted" ? "🔔 Notifications enabled" : "Notifications not granted");
+    if (perm==="granted" && lastData) maybeNotify(lastData);
+  });
+}
 // Export: copy the report as Markdown.
 const exportBtn = $("#export");
 exportBtn.addEventListener("click", async () => {
@@ -785,10 +1665,19 @@ exportBtn.addEventListener("click", async () => {
   await copyText(reportMarkdown(lastData));
   const old = exportBtn.textContent;
   exportBtn.textContent = "✓ Copied";
+  showToast("✓ Report copied as Markdown");
   setTimeout(() => (exportBtn.textContent = old), 1200);
 });
 
 load();
+if (STATIC_DATA) {
+  // Static HTML report: nothing to poll, and re-running cannot produce a
+  // fresher report than the one embedded at generation time.
+  const rerun = $("#rerun");
+  if (rerun) { rerun.disabled = true; rerun.title = "Static report — regenerate with linux-doctor --html <path>"; }
+} else {
+  startPolling();
+}
 </script>
 </body>
 </html>

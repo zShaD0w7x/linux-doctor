@@ -13,12 +13,9 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ALL_KINDS } from "./checks/define.js";
+import { pluginDir } from "./paths.js";
 
-export function pluginDir() {
-  if (process.env.LINUX_DOCTOR_PLUGINS) return process.env.LINUX_DOCTOR_PLUGINS;
-  const base = process.env.XDG_CONFIG_HOME || join(process.env.HOME || ".", ".config");
-  return join(base, "linux-doctor", "checks");
-}
+export { pluginDir };
 
 /** Load every plugin in the directory. Never throws. */
 export async function loadPlugins(dir = pluginDir()) {

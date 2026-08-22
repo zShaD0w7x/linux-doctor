@@ -3,8 +3,8 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity", "--compare"]);
-const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--todo", "--self-test"]);
+export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--push", "--html", "--severity", "--compare", "--license-gen", "--alert", "--interval"]);
+export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -31,6 +31,17 @@ export function parseArgs(argv) {
     comparePath: null,
     todo: false,
     selfTest: false,
+    license: false,
+    licenseGen: null,
+    alertUrl: null,
+    daemon: false,
+    interval: null,
+    support: false,
+    noHistory: false,
+    fix: false,
+    yes: false,
+    interactive: false,
+    notify: false,
     error: null,
   };
 
@@ -46,10 +57,20 @@ export function parseArgs(argv) {
     else if (flag === "--push") out.pushUrl = val;
     else if (flag === "--html") out.htmlPath = val;
     else if (flag === "--compare") out.comparePath = val;
+    else if (flag === "--license-gen") out.licenseGen = val;
+    else if (flag === "--alert") out.alertUrl = val;
+    else if (flag === "--interval") out.interval = val;
   };
 
   const example = (flag) =>
-    flag === "--push" ? "https://your-server/reports" : flag === "--check" ? "memory,disk" : flag === "--severity" ? "high" : flag === "--compare" ? "report.json" : "fw-fanctrl";
+    flag === "--push" ? "https://your-server/reports"
+      : flag === "--check" ? "memory,disk"
+      : flag === "--severity" ? "high"
+      : flag === "--compare" ? "report.json"
+      : flag === "--license-gen" ? "you@example.com"
+      : flag === "--alert" ? "https://ntfy.sh/your-topic"
+      : flag === "--interval" ? "3600"
+      : "fw-fanctrl";
 
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];

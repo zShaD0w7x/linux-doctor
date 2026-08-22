@@ -1,10 +1,11 @@
-import { lines, num } from "../utils.js";
+import { journalLines, lines, num } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks CPU temperatures (via /sys/class/thermal, always available on Linux)
  * and recent thermal-throttling events in the journal. Reads only.
  */
-import { defineCheck } from "./define.js";
 
 export const thermal = defineCheck({
   id: "thermal",
@@ -20,7 +21,7 @@ export const thermal = defineCheck({
     if (!zones.ok || zones.stdout.trim() === "") {
       // No thermal zones (containers, VMs, minimal installs) — say so instead
       // of silently reporting nothing.
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "thermal/skipped",
         title: "Temperature check skipped",
@@ -28,7 +29,7 @@ export const thermal = defineCheck({
         evidence: "no thermal zones",
         fix: null,
         confidence: "high",
-      });
+      }));
     } else {
       // Values are in millidegrees Celsius; take the hottest zone as the
       // headline number (duplicate zones like x86_pkg_temp vs acpitz are
@@ -42,7 +43,7 @@ export const thermal = defineCheck({
       }
 
       if (hottest.c >= t.tempHotC) {
-        findings.push({
+        findings.push(finding({
           severity: "high",
           code: "thermal/hot",
           title: "CPU is running very hot",
@@ -50,9 +51,9 @@ export const thermal = defineCheck({
           evidence: `${hottest.type}: ${hottest.c.toFixed(0)}°C`,
           fix: "Clean dust from the cooling fans, check the thermal paste, and make sure the laptop's cooling profile allows the fans to spin up.",
           confidence: "medium",
-        });
+        }));
       } else if (hottest.c >= t.tempWarnC) {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "thermal/warm",
           title: "CPU is running hot",
@@ -60,9 +61,9 @@ export const thermal = defineCheck({
           evidence: `${hottest.type}: ${hottest.c.toFixed(0)}°C`,
           fix: "Check for dust in the fans, and consider a more aggressive cooling profile for the laptop.",
           confidence: "medium",
-        });
+        }));
       } else {
-        findings.push({
+        findings.push(finding({
           severity: "info",
           code: "thermal/ok",
           title: "Temperatures look fine",
@@ -70,7 +71,7 @@ export const thermal = defineCheck({
           evidence: `${hottest.type}: ${hottest.c.toFixed(0)}°C`,
           fix: null,
           confidence: "high",
-        });
+        }));
       }
     }
 
@@ -82,12 +83,12 @@ export const thermal = defineCheck({
     // "clock throttl" (e.g. "cpu clock throttled") and come from the kernel.
     // Filter in JS too, so even a journalctl version with a loose -g match
     // can never surface an app message as CPU throttling.
-    const throttle = await ctx.run('journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null | grep -v "^-- " | tail -3');
+    const throttle = await ctx.run('journalctl -g "clock throttl" --since "-24 hours" --no-pager -o short 2>/dev/null');
     const throttleLines = throttle.ok
-      ? lines(throttle.stdout).filter((l) => /kernel:.*clock throttl/i.test(l))
+      ? journalLines(throttle.stdout, { tail: 3 }).filter((l) => /kernel:.*clock throttl/i.test(l))
       : [];
     if (throttleLines.length > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "thermal/throttle",
         title: "CPU throttling events in the log",
@@ -95,7 +96,7 @@ export const thermal = defineCheck({
         evidence: throttleLines.slice(0, 2).join("\n"),
         fix: "Address cooling (dust, fans, thermal paste) — throttling under load is a cooling problem, not a software problem.",
         confidence: "medium",
-      });
+      }));
     }
 
     return findings;

@@ -5,7 +5,9 @@ import { detectProfile } from "../src/profile.js";
 /** Stub exec: command string → { ok, stdout }. Unknown commands fail. */
 function execStub(map) {
   return async (cmd) => {
-    const entry = map[cmd];
+    // Fixture keys are written unquoted; the code quotes interpolated
+    // values (shq), so strip quotes before lookup.
+    const entry = map[cmd] ?? map[cmd.replaceAll("'", "")];
     if (entry === undefined) return { ok: false, code: 1, stdout: "", stderr: "" };
     return { ok: true, code: 0, stdout: entry, stderr: "" };
   };

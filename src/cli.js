@@ -1,17 +1,21 @@
-import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { run, runPool, slugify, lines } from "./utils.js";
+import { run, runPool, lines } from "./utils.js";
+import { normalizeFindings, invalidFindings } from "./findings.js";
 import { checks as CHECKS } from "./checks/index.js";
+import { PRO_CHECKS } from "./checks/pro/index.js";
 import { systemInfo } from "./checks/system.js";
-import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER } from "./report.js";
+import { isPro, proInfo, generateKey } from "./license.js";
+import { shouldAlert, buildAlert, sendAlert } from "./alert.js";
+import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity } from "./report.js";
 import { aiSummary } from "./llm.js";
-import { pushReport } from "./fleet.js";
+import { pushReport, validatePushUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
-import { score, loadHistory, diffSinceLast, saveRun, previousScore } from "./history.js";
+import { score, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled } from "./history.js";
+import { buildSupportBundle, writeSupportBundle, supportMessage } from "./support.js";
 import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored } from "./ignore.js";
 import { loadConfig } from "./config.js";
-import { loadThresholds } from "./thresholds.js";
+import { loadThresholds, DEFAULT_THRESHOLDS } from "./thresholds.js";
 import { detectDistro } from "./distro.js";
 import { detectProfile } from "./profile.js";
 import { dedupe } from "./dedupe.js";
@@ -19,9 +23,11 @@ import { parseArgs } from "./args.js";
 import { reportSchema } from "./schema.js";
 import { loadPlugins } from "./plugins.js";
 import { configFile } from "./config.js";
+import { planFixes, formatPlan } from "./fix.js";
+import { runInteractive } from "./interactive.js";
+import { canNotify, sendNotification, shouldNotify, notificationFor } from "./notify.js";
 
-const require = createRequire(import.meta.url);
-const pkg = require("../package.json");
+const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 // How many checks may run at once. Checks spawn subprocesses internally, so
 // an unbounded Promise.all over 26 checks would launch dozens of commands
@@ -43,7 +49,7 @@ function formatChecks(checks) {
   const lines = [];
   for (const [cat, list] of groupByCategory(checks)) {
     lines.push(`${cat}`);
-    for (const c of list) lines.push(`  ${c.id} — ${c.title}`);
+    for (const c of list) lines.push(`  ${c.id} — ${c.title}${c.premium ? "  (Pro)" : ""}`);
   }
   return lines.join("\n");
 }
@@ -55,7 +61,7 @@ function formatChecksForSystem(checks, profile) {
     lines.push(`${cat}`);
     for (const c of list) {
       const applies = c.appliesTo.includes(profile.kind);
-      lines.push(`  ${c.id} — ${c.title}${applies ? "" : `  (n/a on ${profile.kind})`}`);
+      lines.push(`  ${c.id} — ${c.title}${c.premium ? "  (Pro)" : ""}${applies ? "" : `  (n/a on ${profile.kind})`}`);
     }
   }
   return lines.join("\n");
@@ -70,10 +76,11 @@ async function runSelfTest(checks) {
   out.push("");
   out.push(`Distro: ${system.distro} (family: ${system.family}${system.imageBased ? ", image-based: yes" : ""})`);
   out.push(`Profile: ${profile.kind}`);
+  out.push(`Pro: ${proInfo().active ? "active" : "not active (premium checks and features disabled)"}`);
   out.push(`Kernel: ${system.kernel} · ${system.cores} core(s) · up ${system.uptime}`);
 
   const toolsRes = await run(
-    "for t in systemctl journalctl coredumpctl loginctl timedatectl lspci lsblk smartctl free nproc glxinfo pactl ip nft podman docker dnf apt pacman zypper rpm-ostree borg restic; do command -v \"$t\" 2>/dev/null; done"
+    "for t in systemctl journalctl coredumpctl loginctl timedatectl lspci lsblk smartctl free nproc glxinfo pactl ip nft podman docker dnf apt pacman zypper rpm-ostree snap sshd borg restic; do command -v \"$t\" 2>/dev/null; done"
   );
   const present = lines(toolsRes.stdout).map((p) => p.split("/").pop()).filter(Boolean);
   out.push(`Tools present: ${present.length > 0 ? present.join(", ") : "(none found)"}`);
@@ -95,56 +102,151 @@ async function runSelfTest(checks) {
   return out.join("\n");
 }
 
-/** Starter config with commented thresholds — written by --init-config. */
+/**
+ * Starter config with the shipped thresholds — written by --init-config.
+ * Values come from DEFAULT_THRESHOLDS (src/thresholds.js) so the example
+ * can never drift from the defaults; unset keys keep the defaults at load.
+ */
 function starterConfig() {
   return JSON.stringify({
+    // Pro license key (optional): unlocks premium checks and features.
+    // Generate one with `linux-doctor --license-gen you@example.com`.
+    // Setting LINUX_DOCTOR_LICENSE overrides this file.
+    licenseKey: "",
     // Hide findings whose title contains this text (case-insensitive substring match).
     ignore: [],
     // Hide findings by stable code (exact match, e.g. "services/failed").
     ignoreCodes: [],
     // Severity thresholds — override defaults. Remove lines to keep defaults.
-    thresholds: {
-      diskFullPct: 90,       // disk: percent used at which a partition is flagged
-      diskWarnPct: 80,       // disk: percent used for a warning
-      memLowRatio: 0.15,     // memory: available/total below which it's flagged
-      memWarnRatio: 0.25,    // memory: available/total for warning
-      loadWarnRatio: 0.7,    // load: 1-min average / cores for warning
-      loadHighRatio: 1.0,    // load: 1-min average / cores for high
-      loadCriticalRatio: 1.5,// load: 1-min average / cores for critical
-      tempWarnC: 85,         // thermal: CPU temp in °C for warning
-      tempHotC: 95,          // thermal: CPU temp in °C for high
-      procWarnRatio: 0.2,    // processes: single app RSS / total RAM for warning
-      procHighRatio: 0.4,    // processes: single app RSS / total RAM for high
-      journalWarnBytes: 2147483648, // journald: journal size in bytes for warning (2 GB)
-      containerWarnGB: 20,   // containerdisk: image storage in GB for warning
-      containerHighGB: 50,   // containerdisk: image storage in GB for high
-    },
+    thresholds: { ...DEFAULT_THRESHOLDS },
   }, null, 2) + "\n";
+}
+
+/**
+ * The shared option fields for every renderJson call site (--json, --html and
+ * the dashboard's /api/report) so the three payloads can never drift apart.
+ * Site-specific extras (durationMs, durations) merge on top.
+ */
+function jsonOptions(r, extra = {}) {
+  return {
+    generatedAt: r.generatedAt,
+    score: r.score,
+    scoreDelta: r.scoreDelta,
+    previousScore: r.previousScore,
+    newCount: r.newCount,
+    fixedCount: r.fixedCount,
+    unchanged: r.unchanged,
+    lastRunAt: r.lastRunAt,
+    diffSinceLast: r.diffSinceLast,
+    counts: r.counts,
+    checkErrors: r.checkErrors,
+    ignoredCount: r.ignoredCount,
+    checksRun: r.checksRun,
+    checksSkipped: r.checksSkipped,
+    checksAtomicSkipped: r.checksAtomicSkipped,
+    skippedChecks: r.skippedChecks,
+    historyDisabled: r.historyDisabled,
+    changeMessage: r.changeMessage,
+    ...extra,
+  };
+}
+
+/**
+ * The run pipeline, shared by a normal run and --compare so the two can never
+ * drift apart: same context, same concurrency, same normalization, same
+ * ignore and dedupe rules. `skipStaleIgnoreWarning` silences the "pattern
+ * matched nothing" check for --compare (whose stderr is reserved for the diff).
+ */
+async function collectReport({ checkIds, checks, ignorePatterns, ignoreCodes, thresholds, skipStaleIgnoreWarning = false }) {
+  const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
+  const cctx = { run, osRelease: system.osRelease, dist: detectDistro(system.osRelease), thresholds, profile };
+  const selected = applicableChecks(checkIds, profile.kind, checks);
+  // Atomic/immutable systems (Bazzite, Silverblue, rpm-ostree, bootc): some
+  // checks draw conclusions that are false positives there (e.g. comparing the
+  // booted kernel against /boot). They declare `skipOnAtomic`, and we drop them
+  // centrally here — recording a clear reason instead of silently emitting
+  // nothing — so the skip is visible in the report and JSON. Computed before
+  // the run pool so `selectedChecks` is the list actually executed.
+  const atomic = !!system.immutable;
+  const { selected: selectedChecks, skipped: skippedChecks } = skippedOnAtomic(selected, atomic);
+  const checkDurations = [];
+  const checkErrors = [];
+  const results = await runPool(selectedChecks, RUN_CONCURRENCY, async (c) => {
+    const t0 = Date.now();
+    // A check that throws must never take down the whole report: it is
+    // recorded in checkErrors and the run continues without it.
+    try {
+      const out = (await c.run(cctx)).map((f) => ({ ...f, check: c.id }));
+      checkDurations.push({ check: c.id, ms: Date.now() - t0 });
+      return out;
+    } catch (err) {
+      checkErrors.push({ check: c.id, error: err && err.message ? err.message : String(err) });
+      checkDurations.push({ check: c.id, ms: Date.now() - t0 });
+      return [];
+    }
+  });
+  // Normalize identities FIRST (explicit code wins, then dedupeKey, then a
+  // slug), so --ignore-code and history see the same stable key the report
+  // uses. Ignore comes next (user intent wins), then dedupe collapses findings
+  // that report the same root cause (e.g. software rendering is detected by
+  // both the gpu and wayland checks) so one problem never counts twice.
+  const normalized = normalizeFindings(results.flat());
+  // A malformed finding (broken plugin, future bug) must never reach the
+  // report: warn on stderr and drop it, the same way a throwing check is
+  // recorded in checkErrors instead of aborting the run.
+  const malformed = invalidFindings(normalized);
+  for (const m of malformed) {
+    console.error(`linux-doctor: finding from "${m.check}" is malformed (${m.errors.join(", ")}) — dropped`);
+  }
+  const all = normalized.filter((_, i) => !malformed.some((m) => m.index === i));
+  const kept = all.filter((f) => !isIgnored(f.title, ignorePatterns) && !isCodeIgnored(f.code, ignoreCodes));
+  const findings = dedupe(kept).map((f, i) => ({ id: i + 1, ...f }));
+  // Tell the user when an ignore pattern is stale — a silent no-op means
+  // the pattern will rot unnoticed as finding titles change. Skipped in web
+  // mode: the dashboard re-runs checks constantly and would spam the log.
+  if (!skipStaleIgnoreWarning) {
+    for (const p of new Set(ignorePatterns)) {
+      if (!all.some((f) => isIgnored(f.title, [p]))) {
+        console.error(`linux-doctor: ignore pattern "${p}" matched nothing — finding titles may have changed`);
+      }
+    }
+  }
+  // selectedChecks (computed above) replaces selected for the run count;
+  // selected is kept only so appliesTo-based checksSkipped can be computed.
+  const checksRun = selectedChecks.length;
+  const checksSkipped = checkIds.length ? 0 : checks.length - selected.length;
+  const checksAtomicSkipped = skippedChecks.length;
+  return {
+    generatedAt: new Date().toISOString(),
+    system: { ...system, kind: profile.kind },
+    findings,
+    checkDurations,
+    checkErrors,
+    ignoredCount: all.length - kept.length,
+    checksRun,
+    checksSkipped,
+    checksAtomicSkipped,
+    skippedChecks,
+  };
 }
 
 /**
  * --compare: show what changed between a previous report and the current run.
  * The previous report is the JSON file passed as the argument; the current
  * report is what a fresh run produces. Differences are grouped by severity.
+ * Runs the same pipeline as a normal run (plugins, ignore patterns, dedupe)
+ * so the diff compares apples to apples.
  */
-async function runCompare(previous) {
-  const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
-  const config = loadConfig();
-  const thresholds = loadThresholds(config);
-  const cctx = { run, osRelease: system.osRelease, dist: detectDistro(system.osRelease), thresholds, profile };
-  const selected = applicableChecks([], profile.kind);
-  const results = await runPool(selected, RUN_CONCURRENCY, async (c) => {
-    try {
-      return (await c.run(cctx)).map((f) => ({ ...f, check: c.id }));
-    } catch {
-      return [];
-    }
+async function runCompare(previous, checks, ignorePatterns, ignoreCodes, thresholds) {
+  const report = await collectReport({
+    checkIds: [],
+    checks,
+    ignorePatterns,
+    ignoreCodes,
+    thresholds,
+    skipStaleIgnoreWarning: true,
   });
-  const all = results.flat();
-  const current = dedupe(all).map((f, i) => ({
-    id: i + 1, ...f,
-    code: f.code ?? f.dedupeKey ?? `${f.check}/${slugify(f.title)}`,
-  }));
+  const current = report.findings;
 
   const prevCodes = new Set((previous.findings || []).map((f) => f.code));
   const curCodes = new Set(current.map((f) => f.code));
@@ -180,6 +282,27 @@ export function applicableChecks(checkIds, kind, checks = CHECKS) {
   return checkIds.length ? base : base.filter((c) => c.appliesTo.includes(kind));
 }
 
+/**
+ * Split a check list into what runs and what is intentionally skipped because
+ * this is an immutable/atomic system. Pure and exported so it can be tested
+ * without running subprocesses. `skipOnAtomic` checks declare they are
+ * meaningless on ostree/bootc (e.g. reboot's kernel comparison against /boot);
+ * each skipped check carries its `atomicReason` so the skip is transparent in
+ * the report and JSON rather than silently yielding zero findings.
+ */
+export function skippedOnAtomic(checks, atomic) {
+  if (!atomic) return { selected: checks, skipped: [] };
+  const skipped = [];
+  const selected = checks.filter((c) => {
+    if (c.skipOnAtomic) {
+      skipped.push({ id: c.id, title: c.title, reason: c.atomicReason || "Not applicable on an immutable/atomic system." });
+      return false;
+    }
+    return true;
+  });
+  return { selected, skipped };
+}
+
 /** "⏱ Check durations" section for --profile (text output). */
 function formatDurations(durations) {
   const sorted = [...durations].sort((a, b) => b.ms - a.ms);
@@ -205,7 +328,11 @@ OPTIONS
   --json         print findings as JSON (machine-readable)
   --plain        print plain, tab-separated text (no colors/emoji; grep-friendly)
   --summary      one-liner: score + severity counts (for cron/scripts)
-  --todo         numbered, copy-pasteable list of what to run, in order
+   --todo         numbered, copy-pasteable list of what to run, in order
+   --fix          dry run: show the safe-fix commands for the findings found
+   --fix --yes    execute the [apply] safe-fix commands ([manual] never runs)
+   --interactive  browse findings in the terminal (arrows, details, copy)
+   --notify       desktop notification (notify-send) when new issues appear
   --self-test    explain the environment: distro, profile, which checks run
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
@@ -217,13 +344,28 @@ OPTIONS
   --ignore-code <c> hide findings by stable code (e.g. services/failed)
   --ignore-list  show configured ignore patterns and exit
   --init-config  create a starter config file at ~/.config/linux-doctor/config.json
+  --schema       print the JSON Schema for --json output (v1)
+  --profile      append per-check durations to the report
+  --support      write a privacy-safe support bundle (JSON) for issues/forums
+  --no-history   do not read or write run history (no new/fixed tracking)
+  --license      show Pro license status and exit
+  --license-gen <sub> issue a new Pro license key (prints it; for the maintainer)
+  --alert <url>  POST an alert webhook when the machine degrades [Pro]
+  --daemon       run continuously, re-checking every --interval seconds [Pro]
+  --interval <s> seconds between --daemon runs (default 3600) [Pro]
   --help         show this help
   --version      show the version
+
+PRO
+  Premium features (deep-diagnostic checks, advanced AI, alerting, the
+  scheduled agent) require a Pro license key — see --license. The free
+  edition never runs or lists them, and nothing free is crippled.
 
 CHECKS (grouped by category)
 ${formatChecks(CHECKS)}
 
-Linux Doctor is read-only: it inspects the system but never modifies anything.
+Linux Doctor is read-only by default. The only commands it ever runs itself
+come from the built-in safe-fix catalog (src/fix.js) and only with --fix --yes.
 `;
 
 export async function main(argv) {
@@ -246,6 +388,72 @@ export async function main(argv) {
     return 2;
   }
 
+  // Plugins are user-provided checks from ~/.config/linux-doctor/checks/ (or
+  // $LINUX_DOCTOR_PLUGINS). A broken or colliding plugin is skipped with a
+  // warning — it must never take down a run. Loaded before the --compare and
+  // run branches so both use the same merged check list.
+  const config = loadConfig();
+  // Pro checks are merged in only when a valid license key is configured —
+  // in the free edition they do not exist: not run, not listed, not known to
+  // --check. The key can live in LINUX_DOCTOR_LICENSE or config.licenseKey.
+  const pro = isPro();
+  const builtinIds = new Set(CHECKS.map((c) => c.id));
+  const plugins = (await loadPlugins()).filter((p) => {
+    if (builtinIds.has(p.id)) {
+      console.error(`linux-doctor: plugin "${p.id}" collides with a built-in check — skipping`);
+      return false;
+    }
+    return true;
+  });
+  const checks = [...CHECKS, ...(pro ? PRO_CHECKS : []), ...plugins];
+
+  // --license: report the Pro license status and exit.
+  if (args.license) {
+    const info = proInfo();
+    if (info.active) {
+      console.log(`Pro license active (tier: ${info.tier}, sub: ${info.sub}, expires: ${info.expiresAt})`);
+    } else {
+      console.log(`Pro license: not active — ${info.reason}`);
+      return info.active ? 0 : 1;
+    }
+    return 0;
+  }
+
+  // --license-gen: issue a key for the maintainer (uses the runtime secret).
+  if (args.licenseGen) {
+    console.log(generateKey({ sub: args.licenseGen }));
+    return 0;
+  }
+
+  // --ignore <text> adds a pattern for this run only; the config file
+  // (~/.config/linux-doctor/config.json) holds the persistent list.
+  const ignorePatterns = [...loadIgnore(), ...args.ignore];
+  const ignoreCodes = [...loadIgnoreCodes(), ...args.ignoreCodes];
+  const thresholds = loadThresholds(config);
+
+  // Pro-only flags are rejected up front in the free edition — the premium
+  // features simply do not exist without a key.
+  if ((args.alertUrl || args.daemon || args.interval) && !pro) {
+    console.error("linux-doctor: --alert, --daemon and --interval are Pro features — configure a Pro license key first (see --license)");
+    return 2;
+  }
+  if (args.interval !== null && (!Number.isInteger(Number(args.interval)) || Number(args.interval) < 1)) {
+    console.error(`linux-doctor: --interval must be a positive number of seconds (got "${args.interval}")`);
+    return 2;
+  }
+  // A mistyped fleet URL should fail fast with a clear message, not with a
+  // generic fetch error after a full check run (or mid-daemon-cycle).
+  if ((args.pushUrl || args.alertUrl)) {
+    for (const [flag, url] of [["--push", args.pushUrl], ["--alert", args.alertUrl]]) {
+      if (!url) continue;
+      const err = validatePushUrl(url);
+      if (err) {
+        console.error(`linux-doctor: ${flag}: ${err.replace(/^--push /, "")}`);
+        return 2;
+      }
+    }
+  }
+
   // --init-config: create a starter config file and exit.
   if (args.initConfig) {
     const file = configFile();
@@ -264,7 +472,7 @@ export async function main(argv) {
   if (args.comparePath) {
     try {
       const other = JSON.parse(readFileSync(args.comparePath, "utf8"));
-      return await runCompare(other);
+      return await runCompare(other, checks, ignorePatterns, ignoreCodes, thresholds);
     } catch (err) {
       console.error(`linux-doctor: could not read compare file: ${err.message}`);
       return 2;
@@ -295,19 +503,6 @@ export async function main(argv) {
     return 0;
   }
 
-  // Plugins are user-provided checks from ~/.config/linux-doctor/checks/ (or
-  // $LINUX_DOCTOR_PLUGINS). A broken or colliding plugin is skipped with a
-  // warning — it must never take down a run.
-  const builtinIds = new Set(CHECKS.map((c) => c.id));
-  const plugins = (await loadPlugins()).filter((p) => {
-    if (builtinIds.has(p.id)) {
-      console.error(`linux-doctor: plugin "${p.id}" collides with a built-in check — skipping`);
-      return false;
-    }
-    return true;
-  });
-  const checks = [...CHECKS, ...plugins];
-
   // --check-list: print check metadata as JSON and exit.
   if (args.checkList) {
     const profile = await detectProfile();
@@ -317,6 +512,9 @@ export async function main(argv) {
       category: c.category,
       appliesTo: c.appliesTo,
       appliesHere: c.appliesTo.includes(profile.kind),
+      skipOnAtomic: !!c.skipOnAtomic,
+      atomicReason: c.skipOnAtomic ? (c.atomicReason || "") : "",
+      premium: !!c.premium,
     }));
     console.log(JSON.stringify(list, null, 2));
     return 0;
@@ -339,83 +537,54 @@ export async function main(argv) {
     return 2;
   }
 
-  // --ignore <text> adds a pattern for this run only; the config file
-  // (~/.config/linux-doctor/config.json) holds the persistent list.
-  const config = loadConfig();
-  const ignorePatterns = [...loadIgnore(), ...args.ignore];
-  const ignoreCodes = [...loadIgnoreCodes(), ...args.ignoreCodes];
-  const thresholds = loadThresholds(config);
-
-  const collect = async () => {
-    const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
-    const cctx = { run, osRelease: system.osRelease, dist: detectDistro(system.osRelease), thresholds, profile };
-    const selected = applicableChecks(args.checkIds, profile.kind, checks);
-    const checkDurations = [];
-    const checkErrors = [];
-    const results = await runPool(selected, RUN_CONCURRENCY, async (c) => {
-      const t0 = Date.now();
-      // A check that throws must never take down the whole report: it is
-      // recorded in checkErrors and the run continues without it.
-      try {
-        const out = (await c.run(cctx)).map((f) => ({ ...f, check: c.id }));
-        checkDurations.push({ check: c.id, ms: Date.now() - t0 });
-        return out;
-      } catch (err) {
-        checkErrors.push({ check: c.id, error: err && err.message ? err.message : String(err) });
-        checkDurations.push({ check: c.id, ms: Date.now() - t0 });
-        return [];
-      }
-    });
-    const all = results.flat();
-    // Ignore first (user intent wins), then collapse findings that report the
-    // same root cause (e.g. software rendering is detected by both the gpu
-    // and wayland checks) so one problem never counts twice. `code` is a
-    // stable machine key per finding: an explicit one wins, otherwise the
-    // dedupeKey (stable root cause) or a slug of check id + title.
-    const ignoredCount = all.filter((f) => isIgnored(f.title, ignorePatterns) || isCodeIgnored(f.code, ignoreCodes)).length;
-    const findings = dedupe(all.filter((f) => !isIgnored(f.title, ignorePatterns) && !isCodeIgnored(f.code, ignoreCodes)))
-      .map((f, i) => ({
-        id: i + 1,
-        ...f,
-        code: f.code ?? f.dedupeKey ?? `${f.check}/${slugify(f.title)}`,
-      }));
-    // Tell the user when an ignore pattern is stale — a silent no-op means
-    // the pattern will rot unnoticed as finding titles change. Skipped in web
-    // mode: the dashboard re-runs checks constantly and would spam the log.
-    if (!args.web) {
-      for (const p of new Set(ignorePatterns)) {
-        if (!all.some((f) => isIgnored(f.title, [p]))) {
-          console.error(`linux-doctor: ignore pattern "${p}" matched nothing — finding titles may have changed`);
-        }
-      }
-    }
-    // Transparency: how many checks actually ran, and how many were skipped
-    // by appliesTo gating (full runs only). A report with zero findings means
-    // "no problems", not "nothing ran" — these numbers say which it was.
-    const checksRun = selected.length;
-    const checksSkipped = args.checkIds.length ? 0 : checks.length - selected.length;
-    return { generatedAt: new Date().toISOString(), system: { ...system, kind: profile.kind }, findings, checkDurations, checkErrors, ignoredCount, checksRun, checksSkipped };
-  };
+  const collect = () => collectReport({
+    checkIds: args.checkIds,
+    checks,
+    ignorePatterns,
+    ignoreCodes,
+    thresholds,
+    // Web mode skips the stale-ignore warning: the dashboard re-runs checks
+    // constantly and would otherwise spam the log.
+    skipStaleIgnoreWarning: args.web || args.daemon,
+  });
 
   // Attach health score, severity counts, and "new since last check" flags.
   // In web mode we do NOT save a history entry (the dashboard may re-run the
   // checks many times; only CLI/desktop runs move the history forward).
+  // Defined before the --daemon branch: the agent loop calls it every cycle.
   const attachHistory = (data, { save = true } = {}) => {
-    const runs = loadHistory();
-    const counts = { high: 0, medium: 0, info: 0 };
-    for (const f of data.findings) if (f.severity in counts) counts[f.severity] += 1;
+    const historyOff = isHistoryDisabled({ cliFlag: args.noHistory });
     const sc = score(data.findings);
+    const counts = Object.fromEntries(countBySeverity(data.findings).map(({ severity, count }) => [severity, count]));
+
+    // History off (--no-history / LINUX_DOCTOR_NO_HISTORY) or a subset run
+    // (--check): neither moves history forward nor claims new/fixed. Both stay
+    // predictable — a clean, neutral report with historyDisabled flagged only
+    // when history was explicitly turned off.
+    if (historyOff || args.checkIds.length > 0) {
+      return {
+        ...data,
+        score: sc,
+        scoreDelta: null,
+        previousScore: null,
+        counts,
+        newCount: 0,
+        fixedCount: 0,
+        unchanged: 0,
+        diffSinceLast: { added: [], fixed: [], unchanged: data.findings.length },
+        historyDisabled: historyOff,
+        changeMessage: null,
+        historyRuns: [],
+        findings: data.findings.map((f) => ({ ...f, isNew: false })),
+      };
+    }
+
+    const runs = loadHistory();
     const prevSc = previousScore(runs);
     const scoreDelta = typeof sc === "number" && typeof prevSc === "number" ? sc - prevSc : null;
 
-    // Subset runs (--check) are not comparable to a full run — their findings
-    // differ by construction — so they neither move the history forward nor
-    // claim things are new or fixed. Full runs only.
-    if (args.checkIds.length > 0) {
-      return { ...data, score: sc, scoreDelta: null, previousScore: null, counts, newCount: 0, fixedCount: 0, diffSinceLast: { added: [], fixed: [] } };
-    }
-
     const diff = diffSinceLast(data.findings, runs);
+    const prevAt = runs.length ? runs[runs.length - 1].at : null;
     if (save) {
       saveRun({
         at: new Date().toISOString(),
@@ -435,10 +604,95 @@ export async function main(argv) {
       counts,
       newCount: diff.added.length,
       fixedCount: diff.fixed.length,
+      unchanged: diff.unchanged,
+      lastRunAt: prevAt,
       diffSinceLast: diff,
+      historyDisabled: false,
+      changeMessage: changeMessage({ newCount: diff.added.length, fixedCount: diff.fixed.length }),
+      historyRuns: runs,
       findings: data.findings.map((f) => ({ ...f, isNew: addedKeys.has(f.code) })),
     };
   };
+
+  // check id → category, for clustering and tagging findings in the report.
+  const categoryByCheck = new Map(checks.map((c) => [c.id, c.category]));
+
+  // --daemon: the scheduled agent. Re-runs the full report every --interval
+  // seconds, pushing to the fleet server and/or alerting the webhook when
+  // configured. Run it under systemd (see packaging/README.md) and it becomes
+  // the "scheduled reporting" half of Pro.
+  // --support: write a single, privacy-safe JSON bundle for forums / issues /
+  // support, then exit. Read-only — it collects a normal run (without moving
+  // history forward) and packages it with a short history tail.
+  if (args.support) {
+    const report = attachHistory(await collect(), { save: false });
+    const bundle = buildSupportBundle({
+      system: report.system,
+      findings: report.findings,
+      score: report.score,
+      newCount: report.newCount,
+      fixedCount: report.fixedCount,
+      diffSinceLast: report.diffSinceLast,
+      counts: report.counts,
+      checksRun: report.checksRun,
+      checksSkipped: report.checksSkipped,
+      checksAtomicSkipped: report.checksAtomicSkipped,
+      checkErrors: report.checkErrors,
+      history: loadHistory(),
+    });
+    const path = writeSupportBundle(bundle);
+    if (!path) {
+      console.error("linux-doctor: could not write the support bundle (check write permissions for the current directory).");
+      return 2;
+    }
+    console.log(supportMessage(path));
+    return 0;
+  }
+
+  if (args.daemon) {
+    const intervalMs = Number(args.interval ?? 3600) * 1000;
+    process.on("SIGINT", () => process.exit(0));
+    process.on("SIGTERM", () => process.exit(0));
+    console.log(`linux-doctor agent: checking every ${intervalMs / 1000}s${args.pushUrl ? `, pushing to ${args.pushUrl}` : ""}${args.alertUrl ? `, alerting ${args.alertUrl}` : ""}`);
+    for (;;) {
+      const t0 = Date.now();
+      try {
+        const report = attachHistory(await collect());
+        console.log(`${new Date().toISOString()} score=${report.score} high=${report.counts.high} medium=${report.counts.medium} info=${report.counts.info} new=${report.newCount} (${Date.now() - t0}ms)`);
+        if (args.notify && canNotify() && shouldNotify(report)) {
+          sendNotification(notificationFor(report));
+        }
+        if (args.pushUrl) {
+          try {
+          await pushReport(args.pushUrl, {
+            system: report.system,
+            findings: report.findings,
+            score: report.score,
+            newCount: report.newCount,
+            fixedCount: report.fixedCount,
+            diffSinceLast: report.diffSinceLast,
+            skippedChecks: report.skippedChecks,
+            checksAtomicSkipped: report.checksAtomicSkipped,
+            changeMessage: report.changeMessage,
+          }, { apiKey: process.env.FLEET_API_KEY });
+          } catch (err) {
+            console.error(`linux-doctor: could not send report: ${err.message}`);
+          }
+        }
+        if (args.alertUrl && shouldAlert(report)) {
+          try {
+            await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY });
+            console.log(`Alert sent to ${args.alertUrl}`);
+          } catch (err) {
+            console.error(`linux-doctor: could not send alert: ${err.message}`);
+          }
+        }
+      } catch (err) {
+        console.error(`linux-doctor: agent cycle failed: ${err && err.message ? err.message : err}`);
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
 
   if (args.web) {
     const server = await startWeb({
@@ -452,22 +706,14 @@ export async function main(argv) {
           category: c.category,
           appliesTo: c.appliesTo,
           appliesHere: c.appliesTo.includes(profile.kind),
+          skipOnAtomic: !!c.skipOnAtomic,
+          atomicReason: c.skipOnAtomic ? (c.atomicReason || "") : "",
+          premium: !!c.premium,
         }));
       },
       // The dashboard endpoint serves the same versioned payload as --json,
       // so scripts that read /api/report get schemaVersion/tool/version too.
-      render: (data) => renderJson(data.findings, data.system, {
-        generatedAt: data.generatedAt,
-        score: data.score,
-        scoreDelta: data.scoreDelta,
-        previousScore: data.previousScore,
-        newCount: data.newCount,
-        fixedCount: data.fixedCount,
-        diffSinceLast: data.diffSinceLast,
-        counts: data.counts,
-        checksRun: data.checksRun,
-        checksSkipped: data.checksSkipped,
-      }),
+      render: (data) => renderJson(data.findings, data.system, jsonOptions(data)),
     });
     await new Promise((resolve) => {
       const stop = () => { server.close(); resolve(0); };
@@ -482,18 +728,69 @@ export async function main(argv) {
   const durationMs = Date.now() - t0;
   const { findings, system, score: sc, newCount } = report;
 
+  // --notify: best-effort desktop notification when NEW medium/high findings
+  // appeared (same degradation rule as webhooks, but local). Never fatal.
+  if (args.notify && canNotify() && shouldNotify(report)) {
+    sendNotification(notificationFor(report));
+  }
+
+  // --fix: build the safe-fix plan from this run's findings. Without --yes it
+  // is a pure dry run (print + exit); with --yes the [apply] commands execute
+  // one by one, each echoed before it runs. [manual] commands are never run.
+  if (args.fix) {
+    const plan = planFixes(findings, { system });
+    if (!args.yes) {
+      console.log(formatPlan(plan, { dryRun: true }));
+      return 0;
+    }
+    console.log(formatPlan(plan, { dryRun: false }));
+    let failed = 0;
+    for (const entry of plan) {
+      for (const c of entry.commands) {
+        if (c.tier !== "apply") continue;
+        console.log(`\n$ ${c.cmd}`);
+        const res = await run(c.cmd, { timeoutMs: 300000 });
+        const tail = res.stdout.trim().split("\n").filter(Boolean).slice(-3);
+        if (tail.length) console.log(tail.map((l) => `  ${l}`).join("\n"));
+        if (!res.ok) {
+          failed += 1;
+          console.error(`  ✗ command failed (exit ${res.code}${res.timedOut ? ", timed out" : ""})${res.stderr.trim() ? `: ${res.stderr.trim().split("\n")[0]}` : ""}`);
+        }
+      }
+    }
+    if (plan.length === 0) return 0;
+    console.log(failed > 0 ? `\nDone with ${failed} failure(s). Re-run linux-doctor to see the effect.` : "\nDone. Re-run linux-doctor to see the effect.");
+    return failed > 0 ? 1 : 0;
+  }
+
+  // --interactive: browse the findings in a terminal UI. Falls back to the
+  // printed report when there is no TTY (pipes, CI).
+  if (args.interactive) {
+    try {
+      await runInteractive(findings, { plan: planFixes(findings, { system }) });
+      return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
+    } catch (err) {
+      console.error(`linux-doctor: ${err.message} — printing the report instead.`);
+    }
+  }
+
   // --summary: one-liner for cron/scripts — score + counts, no findings.
   if (args.summary) {
     const { high, medium, info } = report.counts;
-    const parts = [`score=${sc}`];
+    const parts = [`health ${sc}/100`];
     if (typeof report.scoreDelta === "number") {
       parts.push(report.scoreDelta > 0 ? `delta=+${report.scoreDelta}` : `delta=${report.scoreDelta}`);
     }
+    if (newCount > 0) parts.push(`new=${newCount}`);
+    if (report.fixedCount > 0) parts.push(`fixed=${report.fixedCount}`);
+    if (report.unchanged > 0) parts.push(`unchanged=${report.unchanged}`);
     if (high > 0) parts.push(`high=${high}`);
     if (medium > 0) parts.push(`medium=${medium}`);
     if (info > 0) parts.push(`info=${info}`);
-    if (newCount > 0) parts.push(`new=${newCount}`);
-    console.log(parts.join(" "));
+    // A report from a partially-broken run must not look clean — a score with
+    // failed checks is not a verdict on the whole system.
+    if (report.checkErrors.length > 0) parts.push(`errors=${report.checkErrors.length}`);
+    console.log(parts.join(" · "));
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
@@ -511,7 +808,7 @@ export async function main(argv) {
 
   let summary = null;
   if (args.ai) {
-    summary = await aiSummary(findings);
+    summary = await aiSummary(findings, { premium: pro });
   }
 
   if (args.pushUrl) {
@@ -524,70 +821,64 @@ export async function main(argv) {
         newCount,
         fixedCount: report.fixedCount,
         diffSinceLast: report.diffSinceLast,
+        skippedChecks: report.skippedChecks,
+        checksAtomicSkipped: report.checksAtomicSkipped,
+        changeMessage: report.changeMessage,
       }, { apiKey: process.env.FLEET_API_KEY });
-      console.error(`📡 Report sent to ${args.pushUrl}`);
+      console.log(`Report sent to ${args.pushUrl}`);
     } catch (err) {
-      console.error(`⚠️  Could not send report to fleet server: ${err.message}`);
+      console.error(`linux-doctor: could not send report to fleet server: ${err.message}`);
       return 2;
+    }
+  }
+
+  // --alert: POST a webhook only when the machine actually degraded (a
+  // high-severity finding, or a new medium/high since the last run). Best
+  // effort — a failed webhook is a warning, never a changed exit code.
+  if (args.alertUrl) {
+    try {
+      if (shouldAlert(report)) {
+        await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY });
+        console.log(`Alert sent to ${args.alertUrl}`);
+      }
+    } catch (err) {
+      console.error(`linux-doctor: could not send alert: ${err.message}`);
     }
   }
 
   if (args.htmlPath) {
     try {
-      const jsonPayload = renderJson(findings, system, {
-        generatedAt: report.generatedAt,
-        score: sc,
-        scoreDelta: report.scoreDelta,
-        previousScore: report.previousScore,
-        newCount,
-        fixedCount: report.fixedCount,
-        diffSinceLast: report.diffSinceLast,
-        counts: report.counts,
-        durationMs,
-        checkErrors: report.checkErrors,
-        ignoredCount: report.ignoredCount,
-        checksRun: report.checksRun,
-        checksSkipped: report.checksSkipped,
-      });
+      const jsonPayload = renderJson(findings, system, jsonOptions(report, { durationMs }));
       const dashboard = readFileSync(new URL("../src-gui/index.html", import.meta.url), "utf8");
-      const html = `<script>\nconst __DATA__ = ${jsonPayload};\nwindow.fetch = async (url) => ({ ok: true, json: async () => __DATA__, text: async () => JSON.stringify(__DATA__) });\n</script>\n${dashboard}`;
+      // Embed the payload as window.__DATA__ (the dashboard prefers it over
+      // the network) instead of overriding window.fetch — no monkey-patching
+      // of browser globals, and POST buttons fail honestly in a static file.
+      const html = `<script>\nwindow.__DATA__ = ${jsonPayload};\n</script>\n${dashboard}`;
       writeFileSync(args.htmlPath, html, "utf8");
-      console.error(`📄 Report saved to ${args.htmlPath}`);
+      console.log(`Report saved to ${args.htmlPath}`);
     } catch (err) {
-      console.error(`⚠️  Could not write HTML report: ${err.message}`);
+      console.error(`linux-doctor: could not write HTML report: ${err.message}`);
       return 2;
     }
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
   if (args.json) {
-    console.log(renderJson(displayFindings, system, {
-      generatedAt: report.generatedAt,
-      score: sc,
-      scoreDelta: report.scoreDelta,
-      previousScore: report.previousScore,
-      newCount,
-      fixedCount: report.fixedCount,
-      diffSinceLast: report.diffSinceLast,
-      counts: report.counts,
+    console.log(renderJson(displayFindings, system, jsonOptions(report, {
       durationMs,
-      checkErrors: report.checkErrors,
-      ignoredCount: report.ignoredCount,
-      checksRun: report.checksRun,
-      checksSkipped: report.checksSkipped,
       ...(args.profile ? { durations: report.checkDurations } : {}),
-    }));
+    })));
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
   if (args.plain) {
-    let out = renderPlain(displayFindings, { system, score: sc, scoreDelta: report.scoreDelta, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
+    let out = renderPlain(displayFindings, { system, score: sc, scoreDelta: report.scoreDelta, newCount, fixedCount: report.fixedCount, unchanged: report.unchanged, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped, checksAtomicSkipped: report.checksAtomicSkipped, skippedChecks: report.skippedChecks, historyDisabled: report.historyDisabled, history: report.historyRuns });
     if (args.profile) out += "\n" + formatPlainDurations(report.checkDurations);
     console.log(out);
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
-  let out = await renderReport(displayFindings, { aiSummary: summary, system, score: sc, newCount, fixedCount: report.fixedCount, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped });
+  let out = await renderReport(displayFindings, { aiSummary: summary, system, score: sc, newCount, fixedCount: report.fixedCount, unchanged: report.unchanged, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped, checksAtomicSkipped: report.checksAtomicSkipped, skippedChecks: report.skippedChecks, historyDisabled: report.historyDisabled, changeMessage: report.changeMessage, history: report.historyRuns, categoryByCheck });
   if (args.profile) out += "\n" + formatDurations(report.checkDurations);
   console.log(out);
   return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;

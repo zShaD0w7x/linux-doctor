@@ -2,6 +2,7 @@ import { lines } from "../utils.js";
 import { detectSoftwareRenderer } from "./shared.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const gpu = defineCheck({
   id: "gpu",
@@ -29,7 +30,7 @@ export const gpu = defineCheck({
     const intelMod = /\bi915\b|\bxe\b/.test(loaded);
 
     if (!lspci.ok) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "gpu/skipped",
         title: "GPU check skipped",
@@ -37,12 +38,12 @@ export const gpu = defineCheck({
         evidence: null,
         fix: null,
         confidence: "medium",
-      });
+      }));
       return findings;
     }
 
     if (!hasNvidia && !hasAmd && !hasIntel && !hasDri) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "gpu/none",
         title: "No GPU detected",
@@ -50,7 +51,7 @@ export const gpu = defineCheck({
         evidence: hardware || "(no output)",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -63,7 +64,7 @@ export const gpu = defineCheck({
     if (hasNvidia) {
       if (nvidiaMod) {
         const ver = await ctx.run("cat /proc/driver/nvidia/version 2>/dev/null");
-        findings.push({
+        findings.push(finding({
           severity: "info",
           code: "gpu/nvidia",
           title: "NVIDIA proprietary driver is loaded",
@@ -71,9 +72,9 @@ export const gpu = defineCheck({
           evidence: ver.ok && ver.stdout.trim() ? ver.stdout.trim() : "module: nvidia",
           fix: null,
           confidence: "high",
-        });
+        }));
       } else if (nouveauMod) {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "gpu/nouveau",
           title: "NVIDIA GPU is using the open-source nouveau driver",
@@ -81,9 +82,9 @@ export const gpu = defineCheck({
           evidence: "hardware: " + (hardware || "nvidia") + "\nmodule: nouveau",
           fix: "Install the proprietary driver from your distro (e.g. `sudo dnf install akmod-nvidia` on Fedora/Bazzite, or the nvidia-driver package on Debian-family).",
           confidence: "high",
-        });
+        }));
       } else {
-        findings.push({
+        findings.push(finding({
           severity: "high",
           code: "gpu/nvidia-missing",
           title: "NVIDIA GPU detected but no driver is loaded",
@@ -91,7 +92,7 @@ export const gpu = defineCheck({
           evidence: "hardware: " + (hardware || "nvidia") + "\nloaded modules: " + (loaded || "none"),
           fix: "Install the NVIDIA driver for your distro (e.g. `sudo dnf install akmod-nvidia` on Fedora/Bazzite, or the nvidia-driver package on Debian-family), then reboot.",
           confidence: "high",
-        });
+        }));
       }
     } else if (hasAmd && !amdMod) {
       // amdgpu is often compiled INTO the kernel, in which case lsmod shows
@@ -99,16 +100,17 @@ export const gpu = defineCheck({
       // present, no software rendering) means it is fine — only flag the
       // missing driver when the GPU is genuinely not driving the display.
       if (hasDri && !swRenderer) {
-        findings.push({
+        findings.push(finding({
           severity: "info",
           code: "gpu/amd",
           title: "Graphics driver is working",
+          detail: "Your AMD GPU is using the open-source amdgpu driver (in-kernel, no proprietary module needed).",
           evidence: "hardware: " + (hardware || "integrated") + "\nmodule: amdgpu (built-in)",
           fix: null,
           confidence: "high",
-        });
+        }));
       } else {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "gpu/amd-missing",
           title: "AMD GPU detected but the amdgpu driver is not loaded",
@@ -116,10 +118,10 @@ export const gpu = defineCheck({
           evidence: "hardware: " + hardware + (swRenderer ? `\nrenderer: ${swRenderer}` : "\nrenderer: unknown"),
           fix: "Reboot the system; if the problem persists, check your kernel command line for a `nomodeset` option and remove it.",
           confidence: "medium",
-        });
+        }));
       }
     } else if ((hasAmd || hasIntel) && (amdMod || intelMod)) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "gpu/driver",
         title: "Graphics driver is working",
@@ -127,11 +129,11 @@ export const gpu = defineCheck({
         evidence: "hardware: " + (hardware || "integrated") + "\nmodule: " + (amdMod ? "amdgpu" : "i915/xe"),
         fix: null,
         confidence: "high",
-      });
+      }));
     }
 
     if (swRenderer) {
-      findings.push({
+      findings.push(finding({
         severity: "high",
         code: "gpu/software-rendering",
         title: "GPU acceleration is not active (software rendering)",
@@ -142,7 +144,7 @@ export const gpu = defineCheck({
         // The wayland check detects the same root cause; dedupe() keeps this
         // one (gpu is the authoritative check and runs first).
         dedupeKey: "software-rendering",
-      });
+      }));
     }
     return findings;
   },

@@ -7,19 +7,26 @@
 import { memory } from "./memory.js";
 import { load } from "./load.js";
 import { disk } from "./disk.js";
+import { fs } from "./fs.js";
+import { oom } from "./oom.js";
 import { processes } from "./processes.js";
 import { thermal } from "./thermal.js";
 import { journald } from "./journald.js";
+import { zram } from "./zram.js";
+import { locales } from "./locales.js";
 import { services } from "./services.js";
 import { timers } from "./timers.js";
 import { journal } from "./journal.js";
 import { suspend } from "./suspend.js";
 import { security } from "./security.js";
+import { ssh } from "./ssh.js";
+import { autologin } from "./autologin.js";
 import { secureboot } from "./secureboot.js";
 import { luks } from "./luks.js";
 import { network } from "./network.js";
 import { ntp } from "./ntp.js";
 import { updates } from "./updates.js";
+import { snap } from "./snap.js";
 import { firmware } from "./firmware.js";
 import { flatpak } from "./flatpak.js";
 import { reboot } from "./reboot.js";
@@ -34,22 +41,23 @@ import { smart } from "./smart.js";
 import { hardware } from "./hardware.js";
 import { audio } from "./audio.js";
 import { backup } from "./backup.js";
+import { fstrim } from "./fstrim.js";
 
 export const checks = [
   // system
-  memory, load, disk, processes, thermal, journald,
+  memory, load, disk, fs, oom, processes, thermal, journald, zram, locales,
   // software
   services, timers, journal, suspend, containers, containerdisk, crash,
   // security
-  security, secureboot, luks,
+  security, secureboot, luks, ssh, autologin,
   // network
   network, ntp,
   // updates
-  updates, firmware, flatpak, reboot,
+  updates, snap, firmware, flatpak, reboot,
   // hardware
   battery, gpu, bluetooth, wayland, smart, hardware, audio,
   // data
-  backup,
+  backup, fstrim,
 ];
 
 export const byId = new Map(checks.map((c) => [c.id, c]));

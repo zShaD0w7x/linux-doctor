@@ -1,6 +1,7 @@
-import { lines, num } from "../utils.js";
+import { lines, num, shq } from "../utils.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const battery = defineCheck({
   id: "battery",
@@ -9,6 +10,9 @@ export const battery = defineCheck({
   appliesTo: ["laptop"],
   async run(ctx) {
     const findings = [];
+    // Supply names come from readdir, but every interpolated path is quoted
+    // anyway — a crafted name must never reach the shell unquoted.
+    const sysfs = (s, prop) => shq(`/sys/class/power_supply/${s}/${prop}`);
     const res = await ctx.run(`ls /sys/class/power_supply/ 2>/dev/null`);
     if (!res.ok) return findings;
 
@@ -21,7 +25,7 @@ export const battery = defineCheck({
     const types = await Promise.all(
       supplies.map(async (s) => ({
         s,
-        type: (await ctx.run(`cat /sys/class/power_supply/${s}/type 2>/dev/null`)).stdout.trim(),
+        type: (await ctx.run(`cat ${sysfs(s, "type")} 2>/dev/null`)).stdout.trim(),
       }))
     );
     const batteries = types.filter((t) => t.type === "Battery");
@@ -29,10 +33,10 @@ export const battery = defineCheck({
     const states = await Promise.all(
       batteries.map(async ({ s }) => {
         const [capacity, status, full, fullDesign] = await Promise.all([
-          ctx.run(`cat /sys/class/power_supply/${s}/capacity 2>/dev/null`),
-          ctx.run(`cat /sys/class/power_supply/${s}/status 2>/dev/null`),
-          ctx.run(`cat /sys/class/power_supply/${s}/charge_full 2>/dev/null`),
-          ctx.run(`cat /sys/class/power_supply/${s}/charge_full_design 2>/dev/null`),
+          ctx.run(`cat ${sysfs(s, "capacity")} 2>/dev/null`),
+          ctx.run(`cat ${sysfs(s, "status")} 2>/dev/null`),
+          ctx.run(`cat ${sysfs(s, "charge_full")} 2>/dev/null`),
+          ctx.run(`cat ${sysfs(s, "charge_full_design")} 2>/dev/null`),
         ]);
         const design = num(fullDesign.stdout);
         return {
@@ -48,7 +52,7 @@ export const battery = defineCheck({
 
     for (const { s, cap, status, wear } of states) {
       if (cap < 20) {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "battery/low",
           title: "Battery level is very low",
@@ -56,9 +60,9 @@ export const battery = defineCheck({
           evidence: `${s}: capacity=${cap}% status=${status || "unknown"}`,
           fix: null,
           confidence: "high",
-        });
+        }));
       } else {
-        findings.push({
+        findings.push(finding({
           severity: "info",
           code: "battery/status",
           title: "Battery status",
@@ -66,11 +70,11 @@ export const battery = defineCheck({
           evidence: `${s}: capacity=${cap}% status=${status || "unknown"}`,
           fix: null,
           confidence: "high",
-        });
+        }));
       }
 
       if (wear !== null && wear >= 40) {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "battery/wear",
           title: "Battery has lost a lot of capacity",
@@ -78,9 +82,9 @@ export const battery = defineCheck({
           evidence: `${s}: ${wear}% wear`,
           fix: "If it shuts down before reaching 0%, consider replacing the battery. Until then, keep it charged and avoid draining it to empty.",
           confidence: "high",
-        });
+        }));
       } else if (wear !== null && wear >= 20) {
-        findings.push({
+        findings.push(finding({
           severity: "info",
           code: "battery/wear",
           title: "Battery is showing wear",
@@ -88,12 +92,12 @@ export const battery = defineCheck({
           evidence: `${s}: ${wear}% wear`,
           fix: null,
           confidence: "high",
-        });
+        }));
       }
     }
 
     if (batteries.length === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "battery/none",
         title: "No battery detected",
@@ -101,7 +105,7 @@ export const battery = defineCheck({
         evidence: null,
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

@@ -9,18 +9,22 @@ _linux_doctor() {
   local prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   case "$prev" in
-    --check|--ignore|--push)
-      if [ "$prev" = "--check" ]; then
-        _linux_doctor_checks
-      fi
+    --check)
+      _linux_doctor_checks
+      return
+      ;;
+    --severity)
+      COMPREPLY=($(compgen -W "high medium info" -- "$cur"))
+      return
+      ;;
+    --interval)
+      COMPREPLY=($(compgen -W "300 600 1800 3600 7200" -- "$cur"))
       return
       ;;
   esac
 
   if [[ "$cur" == -* ]]; then
-    COMPREPLY=($(compgen -W "--check --list --json --plain --web --ai --push --ignore --schema --profile --help --version" -- "$cur"))
-  elif [ "$prev" = "--check" ]; then
-    _linux_doctor_checks
+    COMPREPLY=($(compgen -W "--check --ignore --ignore-code --push --html --severity --compare --license-gen --alert --interval --json --plain --web --ai --list --schema --profile --ignore-list --summary --init-config --check-list --todo --fix --yes --interactive --notify --self-test --license --daemon --support --no-history --help --version" -- "$cur"))
   fi
 }
 

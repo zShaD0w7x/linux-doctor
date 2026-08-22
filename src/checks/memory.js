@@ -1,6 +1,8 @@
 import { lines, num, fmtBytes } from "../utils.js";
+import { pkgInstall } from "../distro.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const memory = defineCheck({
   id: "memory",
@@ -11,15 +13,15 @@ export const memory = defineCheck({
     const t = ctx.thresholds;
     const mem = await ctx.run("free -b");
     if (mem.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "memory/skipped",
         title: "Memory check skipped",
         detail: "`free` is not available on this system, so memory pressure could not be checked.",
         evidence: "free: not found",
-        fix: "Install procps (`sudo dnf install procps-ng` or `sudo apt install procps`) and re-run.",
+        fix: `Install procps (${pkgInstall(ctx.dist, { fedora: "procps-ng", arch: "procps-ng", "*": "procps" })}) and re-run.`,
         confidence: "high",
-      });
+      }));
       return findings;
     }
     if (!mem.ok) return findings;
@@ -50,7 +52,7 @@ export const memory = defineCheck({
 
     const swapped = swapUsed > 0 ? ` and ${fmtBytes(swapUsed)} is being pushed to swap` : "";
     if (severity) {
-      findings.push({
+      findings.push(finding({
         severity,
         code: "memory/low",
         title: "System is low on usable memory",
@@ -58,9 +60,9 @@ export const memory = defineCheck({
         evidence: lines(mem.stdout).slice(0, 2).join("\n"),
         fix: "Close apps you are not using (especially browsers with many tabs), then re-run this check. If it stays low, consider adding RAM or enabling zram.",
         confidence: "high",
-      });
+      }));
     } else if (swapUsed > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "memory/swap",
         title: "Swap is in use",
@@ -68,7 +70,7 @@ export const memory = defineCheck({
         evidence: lines(swap.stdout).join("\n"),
         fix: "If apps feel slow, close memory-heavy apps and re-run this check.",
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

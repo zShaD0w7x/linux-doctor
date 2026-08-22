@@ -1,4 +1,6 @@
 import { lines } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks whether this system has any backup or snapshot mechanism set up:
@@ -6,7 +8,6 @@ import { lines } from "../utils.js";
  * and any scheduled backup systemd timers. All reads only — nothing is
  * mounted, created, or modified.
  */
-import { defineCheck } from "./define.js";
 
 export const backup = defineCheck({
   id: "backup",
@@ -32,7 +33,7 @@ export const backup = defineCheck({
     if (present.length === 0) {
       // No backup tool is a deliberate setup choice, not a detected fault —
       // informational so the health score is not penalized for it.
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "backup/none",
         title: "No backup or snapshot tool detected",
@@ -40,12 +41,12 @@ export const backup = defineCheck({
         evidence: "tools: none · snapper configs: none · timeshift: none",
         fix: "Install one, e.g. `sudo dnf install timeshift` (Fedora/Bazzite), `sudo apt install timeshift` (Debian/Ubuntu), or a file-level tool like Borg (`sudo dnf install borgbackup`) and point it at an external disk.",
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
     if (timerNames.length === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "backup/unscheduled",
         title: "Backup tools are installed, but nothing is scheduled",
@@ -53,11 +54,11 @@ export const backup = defineCheck({
         evidence: "tools: " + present.join(", ") + "\nscheduled: none",
         fix: "Create a timer or cron job that runs the backup regularly, e.g. daily with a systemd timer, or use the tool's built-in scheduling (Timeshift/Snapper schedule their own snapshots).",
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
-    findings.push({
+    findings.push(finding({
       severity: "info",
       code: "backup/ok",
       title: "Backups are set up",
@@ -65,7 +66,7 @@ export const backup = defineCheck({
       evidence: "tools: " + present.join(", ") + "\ntimers: " + timerNames.join(", "),
       fix: null,
       confidence: "high",
-    });
+    }));
     return findings;
   },
 });

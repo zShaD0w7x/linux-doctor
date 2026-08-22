@@ -1,12 +1,13 @@
-import { lines } from "../utils.js";
+import { lines, shq } from "../utils.js";
 import { detectSoftwareRenderer } from "./shared.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 /**
  * Checks the graphical session: what type it is (Wayland vs X11), whether the
  * Wayland compositor is actually running, and whether the session is stuck on
  * software rendering (the classic Wayland pain point). All reads only.
  */
-import { defineCheck } from "./define.js";
 
 export const wayland = defineCheck({
   id: "wayland",
@@ -20,7 +21,7 @@ export const wayland = defineCheck({
       'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1'
     );
     if (sid.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "wayland/loginctl-missing",
         title: "Session type could not be determined",
@@ -28,13 +29,13 @@ export const wayland = defineCheck({
         evidence: "loginctl: missing",
         fix: null,
         confidence: "medium",
-      });
+      }));
       return findings;
     }
 
     const sessionId = sid.stdout.trim();
     if (sessionId === "") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "wayland/no-session",
         title: "No graphical session detected",
@@ -42,11 +43,11 @@ export const wayland = defineCheck({
         evidence: "no seat0 session",
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
-    const show = await ctx.run(`loginctl show-session ${sessionId} -p Type -p Desktop 2>/dev/null`);
+    const show = await ctx.run(`loginctl show-session ${shq(sessionId)} -p Type -p Desktop 2>/dev/null`);
     const info = {};
     for (const l of lines(show.stdout)) {
       const idx = l.indexOf("=");
@@ -56,7 +57,7 @@ export const wayland = defineCheck({
     const desktop = info.Desktop || "";
 
     if (type === "x11") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "wayland/x11",
         title: "Running an X11 session",
@@ -64,12 +65,12 @@ export const wayland = defineCheck({
         evidence: `session type: x11${desktop ? " · desktop: " + desktop : ""}`,
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
     if (type !== "wayland") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "wayland/not-graphical",
         title: "No graphical session detected",
@@ -77,7 +78,7 @@ export const wayland = defineCheck({
         evidence: `session type: ${info.Type || "unknown"}`,
         fix: null,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -89,7 +90,7 @@ export const wayland = defineCheck({
     const compName = comp.ok && comp.stdout.trim() ? comp.stdout.trim().split(/\s+/).slice(1).join(" ") : "";
 
     if (compName) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "wayland/healthy",
         title: "Wayland session looks healthy",
@@ -97,9 +98,9 @@ export const wayland = defineCheck({
         evidence: `session type: wayland · desktop: ${desktop || "unknown"}\ncompositor: ${compName}`,
         fix: null,
         confidence: "high",
-      });
+      }));
     } else {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "wayland/no-compositor",
         title: "Wayland session is active, but no compositor process was found",
@@ -107,12 +108,12 @@ export const wayland = defineCheck({
         evidence: "session type: wayland\ncompositor: none found",
         fix: "Try logging out and back in from the login screen. If it keeps happening, check the session logs with `journalctl -b -p err`.",
         confidence: "medium",
-      });
+      }));
     }
 
     const swRenderer = await detectSoftwareRenderer(ctx);
     if (swRenderer) {
-      findings.push({
+      findings.push(finding({
         severity: "high",
         code: "wayland/software-rendering",
         title: "Wayland is falling back to software rendering",
@@ -123,7 +124,7 @@ export const wayland = defineCheck({
         // The gpu check detects the same root cause; dedupe() keeps the gpu
         // finding (it is more actionable and runs first).
         dedupeKey: "software-rendering",
-      });
+      }));
     }
 
     return findings;

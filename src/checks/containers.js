@@ -1,4 +1,6 @@
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
+import { pkgInstall } from "../distro.js";
 
 /**
  * Container runtimes: is Podman or Docker installed, and is it usable?
@@ -12,14 +14,7 @@ export const containers = defineCheck({
   category: "software",
   async run(ctx) {
     const findings = [];
-    const install = (tool) =>
-      ctx.dist.pkg === "apt"
-        ? `sudo apt install ${tool}`
-        : ctx.dist.pkg === "pacman"
-          ? `sudo pacman -S ${tool}`
-          : ctx.dist.pkg === "zypper"
-            ? `sudo zypper install ${tool}`
-            : `sudo dnf install ${tool}`;
+    const install = (tool) => pkgInstall(ctx.dist, tool);
 
     const podmanRes = await ctx.run("command -v podman 2>/dev/null");
     const dockerRes = await ctx.run("command -v docker 2>/dev/null");
@@ -27,7 +22,7 @@ export const containers = defineCheck({
     const dockerPath = dockerRes.stdout.trim();
 
     if (!podmanPath && !dockerPath) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "containers/none",
         title: "No container runtime installed",
@@ -35,7 +30,7 @@ export const containers = defineCheck({
         evidence: "podman: not found\ndocker: not found",
         fix: `${install("podman")}. Podman is daemonless and works with rootless containers out of the box.`,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -46,7 +41,7 @@ export const containers = defineCheck({
       if (st === "active") {
         ready.push("docker");
       } else if (st === "inactive") {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "containers/docker-stopped",
           title: "Docker daemon is not running",
@@ -54,7 +49,7 @@ export const containers = defineCheck({
           evidence: `docker: ${dockerPath}\nsystemctl docker: ${st}`,
           fix: "Start it with `sudo systemctl enable --now docker`.",
           confidence: "high",
-        });
+        }));
       }
       // "unknown" (non-systemd) or "failed" → do not speculate.
     }
@@ -64,7 +59,7 @@ export const containers = defineCheck({
       if (/^ok\s*$/.test(info.stdout)) {
         ready.push("podman");
       } else {
-        findings.push({
+        findings.push(finding({
           severity: "medium",
           code: "containers/podman-failed",
           title: "Podman cannot run containers",
@@ -72,12 +67,12 @@ export const containers = defineCheck({
           evidence: `podman: ${podmanPath}\npodman info: ${info.stdout.trim()}`,
           fix: "Inspect `podman info` output and `journalctl --user -n 50`, and make sure user namespaces are enabled (`sysctl kernel.unprivileged_userns_clone` on some distros).",
           confidence: "medium",
-        });
+        }));
       }
     }
 
     if (ready.length > 0 && findings.length === 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "containers/ok",
         title: "Container runtimes are ready",
@@ -85,7 +80,7 @@ export const containers = defineCheck({
         evidence: `${ready.join(", ")}: usable`,
         fix: null,
         confidence: "high",
-      });
+      }));
     }
     return findings;
   },

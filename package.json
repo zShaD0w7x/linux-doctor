@@ -11,7 +11,10 @@
     "src",
     "src-gui/index.html",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "COMMERCIAL-LICENSE.md",
+    "CONTRIBUTING.md",
+    "packaging/README.md"
   ],
   "scripts": {
     "test": "node --test",
@@ -26,11 +29,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zShaD0w7x/linux-doctor-cli.git"
+    "url": "git+https://github.com/zShaD0w7x/linux-doctor.git"
   },
-  "homepage": "https://github.com/zShaD0w7x/linux-doctor-cli#readme",
+  "homepage": "https://github.com/zShaD0w7x/linux-doctor#readme",
   "bugs": {
-    "url": "https://github.com/zShaD0w7x/linux-doctor-cli/issues"
+    "url": "https://github.com/zShaD0w7x/linux-doctor/issues"
   },
   "author": "zShaD0w7x",
   "keywords": [

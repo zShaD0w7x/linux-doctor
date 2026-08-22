@@ -1,6 +1,7 @@
 import { lines } from "../utils.js";
 
 import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
 
 export const security = defineCheck({
   id: "security",
@@ -17,7 +18,7 @@ export const security = defineCheck({
       (nft.ok && nft.stdout.trim().length > 0);
 
     if (firewallActive) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "security/firewall",
         title: "Firewall is active",
@@ -25,12 +26,12 @@ export const security = defineCheck({
         evidence: firewalld.stdout.trim() || ufw.stdout.trim() || "nftables rules present",
         fix: null,
         confidence: "high",
-      });
+      }));
     } else {
       // Absence of optional hardening, not a detected fault: most distros ship
       // with no firewall and many users run behind a router. Informational so
       // a healthy default install is not penalized in the health score.
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "security/no-firewall",
         title: "No active firewall detected",
@@ -38,12 +39,12 @@ export const security = defineCheck({
         evidence: "firewalld/ufw inactive, no nftables rules",
         fix: "Enable one: `sudo systemctl enable --now firewalld` (Fedora-family) or `sudo ufw enable` (Debian-family).",
         confidence: "medium",
-      });
+      }));
     }
 
     const selinux = await ctx.run("getenforce 2>/dev/null");
     if (selinux.ok && selinux.stdout.trim() === "Enforcing") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "security/selinux",
         title: "SELinux is enforcing",
@@ -51,13 +52,13 @@ export const security = defineCheck({
         evidence: "getenforce: Enforcing",
         fix: null,
         confidence: "high",
-      });
+      }));
     }
 
     // Debian/Ubuntu/Arch use AppArmor instead of SELinux — report it when active.
     const apparmor = await ctx.run("cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3");
     if (apparmor.ok && apparmor.stdout.trim().length > 0) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "security/apparmor",
         title: "AppArmor is active",
@@ -65,14 +66,14 @@ export const security = defineCheck({
         evidence: apparmor.stdout.trim().split("\n").slice(0, 2).join("\n"),
         fix: null,
         confidence: "high",
-      });
+      }));
     }
 
     const upRes = await ctx.run("systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null");
     // Updates are checked by the dedicated "updates" check; here we just report
     // whether an automatic update service is active.
     if (upRes.ok && upRes.stdout.trim() === "active") {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "security/auto-update",
         title: "Automatic update service is active",
@@ -80,7 +81,7 @@ export const security = defineCheck({
         evidence: upRes.stdout.trim(),
         fix: null,
         confidence: "medium",
-      });
+      }));
     }
     return findings;
   },

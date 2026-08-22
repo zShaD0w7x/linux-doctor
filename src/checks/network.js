@@ -1,4 +1,7 @@
 import { lines, plural } from "../utils.js";
+import { defineCheck } from "./define.js";
+import { finding } from "../findings.js";
+import { pkgInstall } from "../distro.js";
 
 /**
  * Network connectivity: default route and DNS resolution. This is the #1
@@ -6,7 +9,6 @@ import { lines, plural } from "../utils.js";
  * Every command is bounded by ctx.run's timeout so a hung resolver or a
  * half-configured interface cannot stall the whole report.
  */
-import { defineCheck } from "./define.js";
 
 export const network = defineCheck({
   id: "network",
@@ -20,15 +22,15 @@ export const network = defineCheck({
       ctx.run("ip route show default 2>/dev/null"),
     ]);
     if (addr.missing && route.missing) {
-      findings.push({
+      findings.push(finding({
         severity: "info",
         code: "network/skipped",
         title: "Network check skipped",
         detail: "`ip` (iproute2) is not available on this system, so network connectivity could not be checked.",
         evidence: "ip: not found",
-        fix: "Install iproute2 (`sudo dnf install iproute` or `sudo apt install iproute2`) and re-run.",
+        fix: `Install iproute2 (${pkgInstall(ctx.dist, { fedora: "iproute", "*": "iproute2" })}) and re-run.`,
         confidence: "high",
-      });
+      }));
       return findings;
     }
 
@@ -36,7 +38,7 @@ export const network = defineCheck({
     const ifaceNames = interfaces.length ? interfaces.map((l) => l.split(/\s+/)[0]).join(", ") : "none";
 
     if (!route.ok || route.stdout.trim() === "") {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "network/no-route",
         title: "No default network route",
@@ -50,17 +52,17 @@ export const network = defineCheck({
           ? `Reconnect to your network, e.g. \`nmcli device connect ${interfaces[0].split(/\s+/)[0]}\` (NetworkManager), or check your router/wifi.`
           : "Bring an interface up: `nmcli device status` to see what is available, then `nmcli device connect <iface>`.",
         confidence: "medium",
-      });
+      }));
       return findings;
     }
 
     // DNS is only meaningful when there is a route. Time the resolution to
     // catch slow resolvers — the most common "net is slow" complaint.
     const t0 = Date.now();
-    const dns = await ctx.run("getent ahostsv4 kernel.org 2>/dev/null | head -1", { timeoutMs: 8000 });
+    const dns = await ctx.run("getent ahostsv4 kernel.org 2>/dev/null | head -1");
     const dnsMs = Date.now() - t0;
     if (!dns.ok || dns.stdout.trim() === "") {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "network/dns",
         title: "DNS resolution is failing",
@@ -70,12 +72,12 @@ export const network = defineCheck({
         evidence: "getent ahostsv4 kernel.org → no result",
         fix: "Check /etc/resolv.conf, re-apply your connection (`nmcli device reapply <iface>`), and if you use a VPN check its DNS settings.",
         confidence: "medium",
-      });
+      }));
       return findings;
     }
 
     if (dnsMs > 500) {
-      findings.push({
+      findings.push(finding({
         severity: "medium",
         code: "network/dns-slow",
         title: `DNS resolution is slow (${dnsMs}ms)` ,
@@ -85,10 +87,10 @@ export const network = defineCheck({
         evidence: `getent ahostsv4 kernel.org → ${dns.stdout.trim().split("\n")[0]} (${dnsMs}ms)`,
         fix: "Check /etc/resolv.conf for slow or misconfigured nameservers. Consider switching to a faster resolver (e.g. 1.1.1.1 or 8.8.8.8).",
         confidence: "high",
-      });
+      }));
     }
 
-    findings.push({
+    findings.push(finding({
       severity: "info",
       code: "network/ok",
       title: "Network and DNS look healthy",
@@ -96,7 +98,7 @@ export const network = defineCheck({
       evidence: route.stdout.trim().split("\n")[0],
       fix: null,
       confidence: "high",
-    });
+    }));
     return findings;
   },
 });
