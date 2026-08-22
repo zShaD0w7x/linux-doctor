@@ -6,7 +6,26 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Open-core split (Pro is no longer in this repository)**: the five premium
+  checks, all key-signing crypto, and `--license-gen` have moved to the
+  separate proprietary package `@linux-doctor/pro`, distributed only through
+  private channels (GitHub Packages buyer tokens or signed downloads). The
+  free edition now discovers an installed Pro module automatically
+  (`@linux-doctor/pro`, or `LINUX_DOCTOR_PRO_MODULE=/path/index.mjs` for
+  air-gapped machines) and injects its core primitives via
+  `init(core) → { checks, licensing }`. Consequences:
+  - Pro is genuinely unavailable for free — no public secret, no self-minted
+    keys; a key string alone unlocks nothing.
+  - The free repo carries zero licensing code; a new guard test
+    (`tests/open-core.test.js`) fails the build if any of it ever reappears,
+    and pins the loader contract with a fixture module.
+  - Without the add-on, behavior is identical whether or not a key string is
+    configured ("Linux Doctor Pro: not installed").
+
 ### Added
+
 
 - **Output parity contract (Faza 4)**: [docs/output-parity.md](docs/output-parity.md)
   documents the one-message-four-channels rule (CLI / `--plain` / `--json` /

@@ -21,3 +21,13 @@ export function loadConfig(file = configFile()) {
   }
   return {};
 }
+
+/**
+ * The configured Pro license key: env override wins, then the config file.
+ * Lives here (not in license.js) so the optional Pro module can receive it
+ * as part of the injected core API without an import cycle.
+ */
+export function configuredKey() {
+  const cfg = loadConfig();
+  return process.env.LINUX_DOCTOR_LICENSE || cfg.licenseKey || null;
+}

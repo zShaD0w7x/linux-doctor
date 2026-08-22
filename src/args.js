@@ -3,7 +3,7 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--license-gen", "--alert", "--interval"]);
+export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--alert", "--interval"]);
 export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify"]);
 
 export function parseArgs(argv) {
@@ -32,7 +32,6 @@ export function parseArgs(argv) {
     todo: false,
     selfTest: false,
     license: false,
-    licenseGen: null,
     alertUrl: null,
     daemon: false,
     interval: null,
@@ -61,7 +60,6 @@ export function parseArgs(argv) {
     else if (flag === "--push") out.pushUrl = val;
     else if (flag === "--html") out.htmlPath = val;
     else if (flag === "--compare") out.comparePath = val;
-    else if (flag === "--license-gen") out.licenseGen = val;
     else if (flag === "--alert") out.alertUrl = val;
     else if (flag === "--interval") out.interval = val;
   };
@@ -71,7 +69,6 @@ export function parseArgs(argv) {
       : flag === "--check" ? "memory,disk"
       : flag === "--severity" ? "high"
       : flag === "--compare" ? "report.json"
-      : flag === "--license-gen" ? "you@example.com"
       : flag === "--alert" ? "https://ntfy.sh/your-topic"
       : flag === "--interval" ? "3600"
       : flag === "--ignore-add" ? "services/failed"

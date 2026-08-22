@@ -374,7 +374,7 @@ test("--check-list prints check metadata as JSON", () => {
   assert.equal(typeof mem.appliesHere, "boolean");
 });
 
-test("premium checks are invisible without a Pro license key", () => {
+test("premium checks do not exist in the free edition (no Pro module installed)", () => {
   delete process.env.LINUX_DOCTOR_LICENSE;
   const list = run("--list");
   assert.equal(list.status, 0);
@@ -390,32 +390,25 @@ test("premium checks are invisible without a Pro license key", () => {
   assert.match(check.stderr, /Unknown check "hardening"/);
 });
 
-test("--license without a key reports Pro not active", () => {
+test("--license without the Pro module says so honestly", () => {
   delete process.env.LINUX_DOCTOR_LICENSE;
   const res = run("--license");
   assert.equal(res.status, 1);
-  assert.match(res.stdout, /not active/i);
+  assert.match(res.stdout, /not installed/i);
 });
 
-test("--license-gen issues a key that activates Pro via LINUX_DOCTOR_LICENSE", () => {
-  delete process.env.LINUX_DOCTOR_LICENSE;
-  const gen = run("--license-gen", "test@example.com");
-  assert.equal(gen.status, 0);
-  const key = gen.stdout.trim();
-  assert.match(key, /^ldpro\.v1\./);
+// Open-core: a key alone unlocks NOTHING — the code itself ships separately.
+test("a license key without the Pro module still gets the free edition", () => {
+  const info = runEnv({ LINUX_DOCTOR_LICENSE: "ldpro.v1.forged.deadbeef" }, "--license");
+  assert.equal(info.status, 1);
+  assert.match(info.stdout, /not installed/i);
 
-  const info = runEnv({ LINUX_DOCTOR_LICENSE: key }, "--license");
-  assert.equal(info.status, 0);
-  assert.match(info.stdout, /Pro license active/i);
-  assert.match(info.stdout, /test@example\.com/);
-
-  const list = runEnv({ LINUX_DOCTOR_LICENSE: key }, "--check-list");
-  assert.equal(list.status, 0);
-  const meta = JSON.parse(list.stdout);
-  assert.ok(meta.some((c) => c.id === "hardening" && c.premium), "premium checks appear with a key");
+  const check = runEnv({ LINUX_DOCTOR_LICENSE: "ldpro.v1.forged.deadbeef" }, "--check", "hardening");
+  assert.equal(check.status, 2);
+  assert.match(check.stderr, /Unknown check "hardening"/);
 });
 
-test("Pro-only flags are rejected without a license key", () => {
+test("Pro-only flags are rejected without the Pro add-on", () => {
   delete process.env.LINUX_DOCTOR_LICENSE;
   const alertRes = run("--check", "memory", "--alert", "https://example.com/hook");
   assert.equal(alertRes.status, 2);
@@ -430,11 +423,10 @@ test("Pro-only flags are rejected without a license key", () => {
   assert.match(intervalRes.stderr, /Pro features/);
 });
 
-test("--interval rejects non-numeric values", () => {
-  const key = run("--license-gen", "test@example.com").stdout.trim();
-  const res = runEnv({ LINUX_DOCTOR_LICENSE: key }, "--check", "memory", "--interval", "abc");
+test("--interval with a bad value reports the Pro gate (add-on absent)", () => {
+  const res = runEnv({ LINUX_DOCTOR_LICENSE: "x" }, "--check", "memory", "--interval", "abc");
   assert.equal(res.status, 2);
-  assert.match(res.stderr, /--interval/);
+  assert.match(res.stderr, /Pro features/);
 });
 
 test("--todo prints a numbered fix list, ordered by severity", () => {

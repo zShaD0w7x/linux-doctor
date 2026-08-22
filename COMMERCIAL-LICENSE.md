@@ -1,82 +1,56 @@
-# Linux Doctor Pro — commercial license
+# Linux Doctor — editions & tiers
 
-Linux Doctor is free software under the [GPL-3.0-or-later](LICENSE) — and it
-stays that way. Every free feature in the open-source repo is free forever,
-for everyone, including companies.
+The repository you are looking at **is** the Free edition: the whole product
+for everyday users, GPL-3.0-or-later, forever. There is no crippled code here,
+no nag screens, and no hidden premium module — a guard test
+(`tests/open-core.test.js`) fails the build if proprietary licensing or
+premium checks ever leak into this tree.
 
-**Linux Doctor Pro** is the paid tier around it: a license key that unlocks
-premium client features shipped in this repo (deep-diagnostic checks,
-alerting, a scheduled agent), plus the maintainer's hosted fleet service for
-teams and companies that want one place to see every machine's health.
+## Editions
 
-## What stays free (the community edition)
+| | Free (this repo) | Pro add-on | Business | Enterprise |
+|---|---|---|---|---|
+| Who | everyday users | power users & sysadmins | teams | organizations |
+| All free features | ✅ | ✅ | ✅ | ✅ |
+| Premium checks (`hardening`, `scrub`, `boottime`, `connets`, `journalcap`) | — | ✅ | ✅ | ✅ |
+| Alerting webhook (`--alert`), scheduled agent (`--daemon`), advanced AI plans | — | ✅ | ✅ | ✅ |
+| Hosted fleet dashboard, seats & machines, shared ignore policies | — | — | ✅ | ✅ |
+| SSO/SCIM, on-prem fleet, SLA, volume licensing | — | — | — | ✅ |
+| Proprietary-embedding rights (dual license) | — | — | — | ✅ |
 
-Everything in this repository, forever:
+Every tier includes everything to its left.
 
-- All 30 free built-in checks (memory, disk, services, GPU, network, backups,
-  containers, audio, …)
-- The terminal report, `--json` (v1 schema), `--plain`, and the `--web`
-  dashboard
-- Health score, run history, "new/fixed since last check"
-- The plugin API — anyone can write their own checks
-- `--ai` with your own LLM key, `--push` to your own fleet server
+## How Pro is distributed (open-core)
 
-Companies can also buy a one-time **commercial license** for the *community
-edition* if they need to embed it in a closed-source product without GPL
-obligations (see below).
+Linux Doctor Pro is a separate, proprietary package (`@linux-doctor/pro`).
+It is intentionally **not** on npm's public registry and not in any public
+repository — that is what makes it genuinely unavailable for free:
 
-## Pro (a license key unlocks client features + the hosted service)
+- Buyers receive access via a private channel (GitHub Packages token or a
+  signed download link) and install over this edition:
+  ```bash
+  npm login --registry=https://npm.pkg.github.com   # buyer token
+  npm i -g @linux-doctor/pro
+  ```
+- The free core auto-discovers the installed module; air-gapped machines can
+  point at its entry file directly:
+  ```bash
+  export LINUX_DOCTOR_PRO_MODULE=/opt/linux-doctor/pro/index.mjs
+  ```
+- License keys are verified inside the Pro package (the signing secret never
+  touches open source). Keys are tied to the subscriber, not the machine.
+- Without the module, this edition behaves identically whether or not a key
+  string is present — a key alone unlocks nothing.
 
-There are two Pro offerings:
+## Business & Enterprise
 
-**1. In-repo Pro features (license key).** Five premium checks (`hardening`,
-`scrub`, `boottime`, `connets`, `journalcap`), the `--alert` webhook, the
-`--daemon` scheduled agent, and advanced `--ai` action plans ship in this
-repository but only activate with a valid HMAC-signed license key. Without a
-key the free edition does not list, run, or even know about them — nothing is
-crippled, Pro is additive. The maintainer sells subscriptions; the key format
-is public (`ldpro.v1.…`, signed with the documented secret) and keys are tied
-to a subscriber, not a machine.
+Both include everything in Pro; the differentiating features are delivered by
+the maintainer's service (hosted fleet dashboard, team management, policies)
+and, for Enterprise, on-prem deployment plus signed agreements for SLAs,
+volume terms, and proprietary embedding of the community edition
+(MySQL/Qt-style dual licensing).
 
-**2. Hosted fleet dashboard (service).** The maintainer's proprietary,
-closed-source product:
-
-- **Hosted fleet dashboard** — every machine's reports in one place, with
-  per-machine history and trend graphs
-- **Managed scheduled reporting** — machines report without you setting up cron
-- **AI fleet summaries** — plain-English overview of what changed across the
-  fleet
-- **Priority support**
-
-The hosted service talks to the exact same open-source engine: it uses the
-`--push` protocol and the license-key features that the community edition
-already exposes. Nothing in the free product is crippled or paywalled to sell
-Pro — the free edition is the product, Pro is the additive tier plus the
-hosted service around it.
-
-## Licensing for companies (embedding the community edition)
-
-If you need to use the community edition inside a **proprietary product**
-without the GPL's copyleft obligations — for example, shipping the checks
-inside a closed-source application — you can purchase a commercial license
-from the maintainer.
-
-A commercial license grants the right to use, modify, and redistribute the
-community edition in proprietary software, without the copyleft requirements
-of the GPL.
-
-## How to buy / contact
+## Contact
 
 Open an issue on [GitHub](https://github.com/zShaD0w7x/linux-doctor/issues)
 or email the maintainer for pricing and terms.
-
-## Why dual licensing works
-
-- **Individuals and open-source projects** use Linux Doctor for free under
-  the GPL-3.0 — no features removed, no nag screens.
-- **Subscribers** buy a Pro license key for the premium client features
-  (deep-diagnostic checks, alerting, the scheduled agent, advanced AI).
-- **Companies** that need closed-source embedding pay for a commercial
-  license (MySQL and Qt run the same model).
-- **Pro** is additive, not a crippled free product — it is the natural next
-  step for the fleet protocol the free client already speaks.

@@ -35,7 +35,7 @@ _linux_doctor() {
     '--schema[print the JSON Schema]' \
     '--profile[show check durations]' \
     '--license[show Pro license status]' \
-    '--license-gen=[issue a Pro license key]:subscriber:' \
+    "--license[show the Linux Doctor Pro add-on status]" \
     '--alert=[POST an alert webhook]:url:' \
     '--daemon[run continuously as a scheduled agent]' \
     '--interval=[seconds between --daemon runs]:seconds:' \

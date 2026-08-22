@@ -3,98 +3,63 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateKey, parseKey, verifyKey, isPro, proInfo } from "../src/license.js";
+import { configuredKey, isPro, proInfo } from "../src/license.js";
 
-test("generateKey + verifyKey: roundtrip carries sub and tier", () => {
-  const key = generateKey({ sub: "me@example.com" });
-  assert.match(key, /^ldpro\.v1\./);
-  const v = verifyKey(key);
-  assert.equal(v.ok, true);
-  assert.equal(v.sub, "me@example.com");
-  assert.equal(v.tier, "pro");
-  assert.equal(typeof v.exp, "number");
-});
+/**
+ * The free edition has no licensing code of its own — verification lives in
+ * the proprietary Pro add-on. These tests pin the honest public behavior:
+ * with no Pro module installed, everything reports "not installed", no
+ * matter what key material is lying around.
+ */
 
-test("verifyKey: rejects a tampered signature", () => {
-  const key = generateKey({ sub: "me@example.com" });
-  const tampered = key.slice(0, -2) + (key.endsWith("aa") ? "bb" : "aa");
-  assert.equal(verifyKey(tampered).ok, false);
-});
-
-test("verifyKey: rejects garbage input", () => {
-  assert.equal(verifyKey("not-a-key").ok, false);
-  assert.equal(verifyKey(null).ok, false);
-  assert.equal(verifyKey("ldpro.v1.abc.def").ok, false);
-});
-
-test("verifyKey: rejects an expired key", () => {
-  const key = generateKey({ sub: "x", expDays: -1 });
-  const v = verifyKey(key);
-  assert.equal(v.ok, false);
-  assert.match(v.reason, /expired/);
-});
-
-test("parseKey: returns the decoded payload for a valid key", () => {
-  const key = generateKey({ sub: "alice", tier: "pro" });
-  const data = parseKey(key);
-  assert.equal(data.sub, "alice");
-  assert.equal(data.tier, "pro");
-});
-
-test("isPro/proInfo: a valid LINUX_DOCTOR_LICENSE activates Pro", () => {
-  process.env.LINUX_DOCTOR_LICENSE = generateKey({ sub: "tester" });
-  try {
-    assert.equal(isPro(), true);
-    const info = proInfo();
-    assert.equal(info.active, true);
-    assert.equal(info.sub, "tester");
-    assert.ok(info.expiresAt);
-  } finally {
-    delete process.env.LINUX_DOCTOR_LICENSE;
+function withEnv(env, fn) {
+  const saved = {};
+  for (const k of Object.keys(env)) {
+    saved[k] = process.env[k];
+    if (env[k] === undefined) delete process.env[k];
+    else process.env[k] = env[k];
   }
+  try {
+    fn();
+  } finally {
+    for (const k of Object.keys(saved)) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  }
+}
+
+test("configuredKey: env override wins over config file", () => {
+  withEnv({ LINUX_DOCTOR_LICENSE: "env-key", LINUX_DOCTOR_CONFIG: "/nonexistent/ld-cfg.json" }, () => {
+    assert.equal(configuredKey(), "env-key");
+  });
 });
 
-test("isPro/proInfo: an invalid key is not Pro and explains why", () => {
-  process.env.LINUX_DOCTOR_LICENSE = "garbage";
-  try {
-    assert.equal(isPro(), false);
+test("proInfo: without the add-on it says 'not installed', even with a key", () => {
+  withEnv({ LINUX_DOCTOR_LICENSE: "ldpro.v1.whatever.sig", LINUX_DOCTOR_PRO_MODULE: undefined }, () => {
     const info = proInfo();
     assert.equal(info.active, false);
-    assert.ok(info.reason);
-  } finally {
-    delete process.env.LINUX_DOCTOR_LICENSE;
-  }
-});
-
-test("isPro: a key in the config file activates Pro", () => {
-  const dir = mkdtempSync(join(tmpdir(), "ld-license-"));
-  const file = join(dir, "config.json");
-  writeFileSync(file, JSON.stringify({ licenseKey: generateKey({ sub: "cfg" }) }));
-  const prev = process.env.LINUX_DOCTOR_CONFIG;
-  process.env.LINUX_DOCTOR_CONFIG = file;
-  try {
-    assert.equal(isPro(), true);
-    assert.equal(proInfo().sub, "cfg");
-  } finally {
-    if (prev === undefined) delete process.env.LINUX_DOCTOR_CONFIG;
-    else process.env.LINUX_DOCTOR_CONFIG = prev;
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("isPro: no key anywhere means not Pro", () => {
-  delete process.env.LINUX_DOCTOR_LICENSE;
-  const dir = mkdtempSync(join(tmpdir(), "ld-license-"));
-  const file = join(dir, "config.json");
-  writeFileSync(file, "{}");
-  const prev = process.env.LINUX_DOCTOR_CONFIG;
-  process.env.LINUX_DOCTOR_CONFIG = file;
-  try {
+    assert.match(info.reason, /not installed/i);
     assert.equal(isPro(), false);
+  });
+});
+
+test("proInfo: without any key it does not pretend otherwise", () => {
+  withEnv({ LINUX_DOCTOR_LICENSE: undefined }, () => {
+    const info = proInfo();
+    assert.equal(info.active, false);
+    assert.ok(info.reason.length > 0);
+  });
+});
+
+test("proInfo: an explicitly broken LINUX_DOCTOR_PRO_MODULE surfaces its error", async () => {
+  const { loadProModule, resetProState } = await import("../src/pro.js");
+  withEnv({ LINUX_DOCTOR_PRO_MODULE: "./definitely-missing-module.mjs" }, async () => {
+    resetProState();
+    await loadProModule();
+    // state.error is consumed by cli.js's startup warning; proInfo itself
+    // stays calm and honest about the absence.
     assert.equal(proInfo().active, false);
-  } finally {
-    if (prev === undefined) delete process.env.LINUX_DOCTOR_CONFIG;
-    else process.env.LINUX_DOCTOR_CONFIG = prev;
-    rmSync(dir, { recursive: true, force: true });
-  }
+    resetProState();
+  });
 });

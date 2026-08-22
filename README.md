@@ -102,7 +102,6 @@ sudo systemctl enable --now linux-doctor.timer
 --support         write a privacy-scrubbed support bundle for bug reports
 --profile         append per-check durations to the report
 --license         show Pro license status and exit
---license-gen <s> issue a new Pro license key for a subscriber [maintainer]
 --alert <url>     POST a webhook when the machine degrades [Pro]
 --daemon          run continuously, re-checking every --interval [Pro]
 --interval <s>    seconds between --daemon runs (default 3600) [Pro]
@@ -415,30 +414,32 @@ Sends the report as JSON to a central endpoint, so a company can collect health 
 
 The client is free and open-source. The hosted fleet dashboard — one place to see every machine's issues, with alerting — is the paid enterprise service. The open-source [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) explains the licensing options for companies that want to embed Linux Doctor in their own products.
 
-## Pro features (license key)
+## Editions: Free · Pro · Business · Enterprise
 
-Most of Linux Doctor is free and always will be. A small **Pro** tier — deep-diagnostic checks, alerting, and a scheduled agent — unlocks behind a license key so the maintainer can offer them as a paid subscription without touching the free edition.
+This repository **is** the Free edition — the whole product for everyday
+users, GPL-3.0-or-later, forever. Paid tiers are separate products on top,
+strictly additive:
+
+| Tier | For | Adds over the edition to its left |
+|---|---|---|
+| **Free** | everyday users | everything in this repo |
+| **Pro** | power users & sysadmins | premium checks, `--alert`, `--daemon`, advanced AI plans |
+| **Business** | teams | hosted fleet dashboard, seats & machines, shared policies [service] |
+| **Enterprise** | organizations | SSO/SCIM, on-prem fleet, SLA, volume licensing, embedding rights |
+
+**Linux Doctor Pro is an open-core add-on**: a separate proprietary package
+that is deliberately not published anywhere public. Buyers install it over
+this edition and it is discovered automatically; without it the premium
+features simply do not exist here (not listed, not run, not nagged about).
+License keys are verified inside the Pro package — no signing secret ever
+touches this repository, and a key string alone unlocks nothing.
 
 ```bash
-# show the current license status
-linux-doctor --license
+linux-doctor --license            # → "Pro add-on not installed" in the free edition
+linux-doctor --check hardening    # → "Unknown check" — the code ships with Pro, not here
 ```
 
-The key lives in `LINUX_DOCTOR_LICENSE` (env) or `licenseKey` in the config file (`--init-config` creates the field). The free edition never lists, runs, or even knows about Pro checks, and Pro-only flags are rejected outright:
-
-```bash
-linux-doctor --check hardening   # → "Unknown check" without a key
-linux-doctor --daemon            # → rejected without a key
-```
-
-What Pro adds:
-
-- **Deep-diagnostic checks** — `hardening` (sysctl hardening posture), `scrub` (ZFS/Btrfs scrub staleness), `boottime` (slow-boot triage via `systemd-analyze`), `connets` (container bridge/link health), `journalcap` (journal size cap vs. disk-usage). They run alongside the free checks and appear in the same report, scoring and JSON.
-- **Alerting** — `--alert <url>` POSTs a webhook only when the machine actually degrades (any high-severity finding, or a new medium/high since the last run), so alert fatigue stays low. Usable in cron.
-- **Scheduled agent** — `--daemon --interval <s>` re-checks forever, pushing to the fleet server and/or alerting the webhook each cycle. Run it under systemd (see `packaging/README.md`) for scheduled reporting.
-- **Advanced AI summaries** — `--ai` with a Pro key returns an action plan (prioritized fixes + concrete commands from the findings' fix fields) instead of a plain summary.
-
-Keys are HMAC-signed (`ldpro.v1.…`), issued by the maintainer with `linux-doctor --license-gen <sub>`. The signing secret ships with the code by design — Linux Doctor is GPL, and the key merely gates features, not the code.
+Full tier details and distribution: [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
 ## Roadmap
 

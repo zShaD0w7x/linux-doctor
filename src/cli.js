@@ -3,9 +3,9 @@ import { dirname } from "node:path";
 import { run, runPool, lines } from "./utils.js";
 import { normalizeFindings, invalidFindings } from "./findings.js";
 import { checks as CHECKS } from "./checks/index.js";
-import { PRO_CHECKS } from "./checks/pro/index.js";
 import { systemInfo } from "./checks/system.js";
-import { isPro, proInfo, generateKey } from "./license.js";
+import { isPro, proInfo } from "./license.js";
+import { loadProModule } from "./pro.js";
 import { shouldAlert, buildAlert, sendAlert } from "./alert.js";
 import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding } from "./report.js";
 import { aiSummary } from "./llm.js";
@@ -70,6 +70,7 @@ function formatChecksForSystem(checks, profile) {
 /** --self-test: explain the environment — distro, profile, tools, and which
  * checks will actually run (and why others will not). Read-only, no run. */
 async function runSelfTest(checks) {
+  await loadProModule();
   const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
   const out = [];
   out.push("# linux-doctor --self-test");
@@ -109,9 +110,8 @@ async function runSelfTest(checks) {
  */
 function starterConfig() {
   return JSON.stringify({
-    // Pro license key (optional): unlocks premium checks and features.
-    // Generate one with `linux-doctor --license-gen you@example.com`.
-    // Setting LINUX_DOCTOR_LICENSE overrides this file.
+    // Linux Doctor Pro license key (optional): read by the installed Pro
+    // add-on. Setting LINUX_DOCTOR_LICENSE overrides this file.
     licenseKey: "",
     // Hide findings whose title contains this text (case-insensitive substring match).
     ignore: [],
@@ -354,18 +354,18 @@ OPTIONS
   --profile      append per-check durations to the report
   --support      write a privacy-safe support bundle (JSON) for issues/forums
   --no-history   do not read or write run history (no new/fixed tracking)
-  --license      show Pro license status and exit
-  --license-gen <sub> issue a new Pro license key (prints it; for the maintainer)
+  --license      show the Linux Doctor Pro add-on status and exit
   --alert <url>  POST an alert webhook when the machine degrades [Pro]
   --daemon       run continuously, re-checking every --interval seconds [Pro]
   --interval <s> seconds between --daemon runs (default 3600) [Pro]
   --help         show this help
   --version      show the version
 
-PRO
-  Premium features (deep-diagnostic checks, advanced AI, alerting, the
-  scheduled agent) require a Pro license key — see --license. The free
-  edition never runs or lists them, and nothing free is crippled.
+PRO ADD-ON
+  Linux Doctor Pro (premium checks, alerting, scheduled agent, advanced AI)
+  ships as a separate proprietary package — it is intentionally NOT part of
+  this repository. Free users never see it listed; buyers install it over
+  this edition. Tiers & distribution: COMMERCIAL-LICENSE.md.
 
 CHECKS (grouped by category)
 ${formatChecks(CHECKS)}
@@ -402,6 +402,8 @@ export async function main(argv) {
   // Pro checks are merged in only when a valid license key is configured —
   // in the free edition they do not exist: not run, not listed, not known to
   // --check. The key can live in LINUX_DOCTOR_LICENSE or config.licenseKey.
+  // Load the optional Pro add-on first — isPro() reflects what it reports.
+  const proState = await loadProModule();
   const pro = isPro();
   const builtinIds = new Set(CHECKS.map((c) => c.id));
   const plugins = (await loadPlugins()).filter((p) => {
@@ -411,24 +413,13 @@ export async function main(argv) {
     }
     return true;
   });
-  const checks = [...CHECKS, ...(pro ? PRO_CHECKS : []), ...plugins];
+  const checks = [...CHECKS, ...(pro ? proState.checks : []), ...plugins];
 
-  // --license: report the Pro license status and exit.
+  // --license: report the Pro add-on status and exit.
   if (args.license) {
     const info = proInfo();
-    if (info.active) {
-      console.log(`Pro license active (tier: ${info.tier}, sub: ${info.sub}, expires: ${info.expiresAt})`);
-    } else {
-      console.log(`Pro license: not active — ${info.reason}`);
-      return info.active ? 0 : 1;
-    }
-    return 0;
-  }
-
-  // --license-gen: issue a key for the maintainer (uses the runtime secret).
-  if (args.licenseGen) {
-    console.log(generateKey({ sub: args.licenseGen }));
-    return 0;
+    console.log(info.active ? `Linux Doctor Pro active (sub: ${info.sub ?? "?"})` : `Linux Doctor Pro: ${info.reason}`);
+    return info.active ? 0 : 1;
   }
 
   // --ignore <text> adds a pattern for this run only; the config file
@@ -440,7 +431,7 @@ export async function main(argv) {
   // Pro-only flags are rejected up front in the free edition — the premium
   // features simply do not exist without a key.
   if ((args.alertUrl || args.daemon || args.interval) && !pro) {
-    console.error("linux-doctor: --alert, --daemon and --interval are Pro features — configure a Pro license key first (see --license)");
+    console.error("linux-doctor: --alert, --daemon and --interval are Linux Doctor Pro features — install the Pro add-on to use them (see README #tiers)");
     return 2;
   }
   if (args.interval !== null && (!Number.isInteger(Number(args.interval)) || Number(args.interval) < 1)) {

@@ -175,18 +175,6 @@ const REGISTRY = {
   "zram/full": { sev: ["medium"], cat: "performance" },
   "zram/ok": { sev: ["info"], cat: "performance" },
   "zram/swappiness": { sev: ["info"], cat: "performance" },
-  // pro
-  "boottime/ok": { sev: ["info"], cat: "pro" },
-  "boottime/slow": { sev: ["medium"], cat: "pro" },
-  "connets/down": { sev: ["high"], cat: "pro" },
-  "connets/ok": { sev: ["info"], cat: "pro" },
-  "hardening/missing": { sev: ["medium", "high"], cat: "pro" },
-  "hardening/ok": { sev: ["info"], cat: "pro" },
-  "journalcap/near": { sev: ["medium"], cat: "pro" },
-  "journalcap/none": { sev: ["medium"], cat: "pro" },
-  "journalcap/ok": { sev: ["info"], cat: "pro" },
-  "scrub/ok": { sev: ["info"], cat: "pro" },
-  "scrub/stale": { sev: ["medium"], cat: "pro" },
 };
 
 /** Codes whose findings may ship with evidence explicitly null (data-absence findings). */
