@@ -8,6 +8,21 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **Severity rubric enforced (Faza 1 — findings trust)**: new
+  [docs/severity.md](docs/severity.md) defines when a finding is high /
+  medium / info, and `tests/codes-registry.test.js` pins every built-in code
+  to its allowed severity set + category. Four findings were realigned with
+  the rubric — degradation without data risk is **medium**, not high:
+  `gpu/software-rendering`, `wayland/software-rendering`,
+  `gpu/nvidia-missing`, `processes/high`. Machines that scored on these will
+  see their health score improve; history keeps working (scores are
+  recomputed per run).
+- **Code discipline is mechanical**: every builtin `code:` must be a string
+  literal (`^[a-z0-9-]+/[a-z0-9-]+$`, ternaries of literals allowed), titles
+  carry no trailing period and stay short, and `evidence: null` is only
+  allowed on the reviewed data-absence list (`battery/none`, `gpu/skipped`,
+  `updates/skipped`). The slug-derived fallback code now exists solely as a
+  plugin escape hatch.
 - **Health score escalation**: penalties now compound within a severity tier —
   the n-th high-severity finding costs 15 + 5·(n−1), and medium findings past
   the third cost +1 each. Previously 4 high (score 40) and 7 medium (44)

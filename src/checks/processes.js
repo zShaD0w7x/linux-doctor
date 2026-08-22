@@ -48,7 +48,7 @@ export const processes = defineCheck({
 
     if (top.rss > 0 && ratio > t.procHighRatio) {
       findings.push(finding({
-        severity: "high",
+        severity: "medium",
         code: "processes/high",
         title: "A single app is using a huge amount of memory",
         detail: `${FRIENDLY[top.name] || `The \`${top.name}\` process`} is using ${fmtBytes(top.rss)}, which is more than 40% of your total RAM. This is very likely why the system feels slow.`,

@@ -85,7 +85,7 @@ export const gpu = defineCheck({
         }));
       } else {
         findings.push(finding({
-          severity: "high",
+          severity: "medium",
           code: "gpu/nvidia-missing",
           title: "NVIDIA GPU detected but no driver is loaded",
           detail: "Your system has an NVIDIA card, but neither the proprietary driver nor nouveau is loaded. Graphics will fall back to slow software rendering.",
@@ -134,7 +134,7 @@ export const gpu = defineCheck({
 
     if (swRenderer) {
       findings.push(finding({
-        severity: "high",
+        severity: "medium",
         code: "gpu/software-rendering",
         title: "GPU acceleration is not active (software rendering)",
         detail: "Graphics are being rendered in software (llvmpipe), not by your GPU. Everything visual will feel slow — video playback, scrolling, games. This usually means the GPU driver is missing or misconfigured.",

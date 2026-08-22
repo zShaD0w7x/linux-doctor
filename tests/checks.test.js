@@ -219,7 +219,7 @@ test("journal: missing journalctl (non-systemd) is explained, not silent", async
   assert.match(findings[0].title, /log check skipped/i);
 });
 
-test("gpu: NVIDIA present but no driver loaded → high", async () => {
+test("gpu: NVIDIA present but no driver loaded → medium", async () => {
   const ctx = stubCtx({
     "lspci -nn 2>/dev/null | grep -iE 'vga|3d|display'": "01:00.0 VGA compatible controller [0300]: NVIDIA Corporation GA106 [GeForce RTX 3060] [10de:2503]",
     "lsmod 2>/dev/null | awk '{print $1}' | grep -iE '^(nvidia|nouveau|amdgpu|i915|xe)$'": "",
@@ -227,9 +227,9 @@ test("gpu: NVIDIA present but no driver loaded → high", async () => {
     "glxinfo -B 2>/dev/null | grep -i 'renderer string'": "",
   });
   const findings = await gpu.run(ctx);
-  const high = findings.find((f) => f.severity === "high");
-  assert.ok(high, "expected a high-severity finding");
-  assert.match(high.title, /no driver is loaded/i);
+  const med = findings.find((f) => f.severity === "medium");
+  assert.ok(med, "expected a medium-severity finding");
+  assert.match(med.title, /no driver is loaded/i);
 });
 
 test("gpu: NVIDIA with proprietary driver → info", async () => {
@@ -302,7 +302,7 @@ test("gpu: AMD GPU with no working driver is medium", async () => {
   assert.match(med.title, /amdgpu driver is not loaded/i);
 });
 
-test("gpu: software rendering (llvmpipe) → high", async () => {
+test("gpu: software rendering (llvmpipe) → medium", async () => {
   const ctx = stubCtx({
     "lspci -nn 2>/dev/null | grep -iE 'vga|3d|display'": "00:02.0 VGA compatible controller [0300]: Intel Corporation UHD Graphics",
     "lsmod 2>/dev/null | awk '{print $1}' | grep -iE '^(nvidia|nouveau|amdgpu|i915|xe)$'": "i915",
@@ -310,9 +310,9 @@ test("gpu: software rendering (llvmpipe) → high", async () => {
     "glxinfo -B 2>/dev/null | grep -i 'renderer string'": "renderer string: llvmpipe (LLVM 19.1.4, 256 bits)",
   });
   const findings = await gpu.run(ctx);
-  const high = findings.find((f) => f.severity === "high");
-  assert.ok(high, "software rendering must be flagged");
-  assert.match(high.title, /software rendering/i);
+  const med = findings.find((f) => f.severity === "medium");
+  assert.ok(med, "software rendering must be flagged");
+  assert.match(med.title, /software rendering/i);
 });
 
 test("countBySeverity buckets findings", () => {
@@ -575,14 +575,14 @@ test("processes: a single app over 20% of RAM is flagged medium", async () => {
   assert.match(findings[0].title, /using a lot of memory/);
 });
 
-test("processes: a single app over 40% of RAM is flagged high", async () => {
+test("processes: a single app over 40% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // 8000000 KiB ≈ 7.6 GB of 15 GB (~50%).
     "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       8000000\nfirefox       800000\nplasma        500000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 14000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
-  assert.equal(findings[0].severity, "high");
+  assert.equal(findings[0].severity, "medium");
   assert.match(findings[0].title, /huge amount of memory/);
 });
 
@@ -963,7 +963,7 @@ test("wayland: Wayland session without a compositor is medium", async () => {
   assert.match(mediums[0].title, /no compositor process/);
 });
 
-test("wayland: software rendering in a Wayland session is high", async () => {
+test("wayland: software rendering in a Wayland session is medium", async () => {
   const ctx = stubCtx({
     'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1': "3\n",
     "loginctl show-session 3 -p Type -p Desktop 2>/dev/null": "Type=wayland\nDesktop=hyprland\n",
@@ -971,10 +971,10 @@ test("wayland: software rendering in a Wayland session is high", async () => {
     "glxinfo -B 2>/dev/null | grep -i 'renderer string'": "OpenGL renderer string: llvmpipe (LLVM 17.0.6, 256 bits)\n",
   });
   const findings = await wayland.run(ctx);
-  const high = findings.filter((f) => f.severity === "high");
-  assert.equal(high.length, 1);
-  assert.match(high[0].title, /software rendering/);
-  assert.match(high[0].evidence, /llvmpipe/);
+  const mediums = findings.filter((f) => f.severity === "medium");
+  assert.equal(mediums.length, 1);
+  assert.match(mediums[0].title, /software rendering/);
+  assert.match(mediums[0].evidence, /llvmpipe/);
 });
 
 test("backup: nothing detected is informational", async () => {

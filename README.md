@@ -222,6 +222,14 @@ install -Dm644 src-tauri/icons/128x128.png ~/.local/share/icons/hicolor/128x128/
 
 ## Checks
 
+Every finding carries a stable identity: a `code` (`check/reason`), a severity
+decided against the [severity rubric](docs/severity.md), human detail,
+evidence from the system, and a suggested fix. The rubric is enforced
+mechanically — `tests/codes-registry.test.js` pins every built-in code to its
+allowed severities, so a severity or code cannot drift without an explicit,
+announced change. Codes are the join key for history diffing (NEW/FIXED) and
+for `--ignore-code`, so they never change silently.
+
 | ID | What it checks |
 |---|---|
 | `memory` | RAM pressure, swap usage |

@@ -114,7 +114,7 @@ export const wayland = defineCheck({
     const swRenderer = await detectSoftwareRenderer(ctx);
     if (swRenderer) {
       findings.push(finding({
-        severity: "high",
+        severity: "medium",
         code: "wayland/software-rendering",
         title: "Wayland is falling back to software rendering",
         detail: `Graphics are being rendered in software (${swRenderer}), so the compositor has no GPU acceleration. The desktop will feel slow — window animations, video, and scrolling all suffer.`,
