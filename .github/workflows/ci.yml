@@ -5,10 +5,42 @@ on:
     branches: [main]
   pull_request:
 
+# Superseded runs on the same branch are cancelled — fast pushes stay cheap.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # First line of defense: a workflow file that fails to parse shows up as
+  # "failure with zero jobs" on GitHub, which reads as a mystery. This job
+  # names the problem in seconds instead (python3+yaml ship with the runner).
+  workflow-lint:
+    name: Workflow files parse
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every .github/workflows/*.yml must be valid YAML
+        run: |
+          python3 - <<'EOF'
+          import glob, sys, yaml
+          bad = []
+          for f in sorted(glob.glob(".github/workflows/*.yml")):
+              try:
+                  yaml.safe_load(open(f, encoding="utf-8"))
+                  print("ok  ", f)
+              except Exception as e:
+                  bad.append(f)
+                  print(f"FAIL {f}\n     {e}")
+          if bad:
+              sys.exit(f"invalid workflow files: {', '.join(bad)}")
+          EOF
+
   test:
     name: Tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: workflow-lint
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +68,8 @@ jobs:
   test-fedora:
     name: Tests (Fedora container)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: workflow-lint
     container: fedora:latest
     steps:
       - uses: actions/checkout@v4
@@ -44,14 +78,18 @@ jobs:
       - run: npm test
       # The real binary against the container's actual /proc and /sys — a
       # smoke test that every check degrades gracefully instead of throwing.
+      # Block scalar (|) on purpose: a plain multi-line scalar breaks the
+      # whole workflow's YAML when the script contains ": " sequences.
       - name: Real run must not crash or error
-        run: node bin/doctor.js --json > /tmp/report.json || true; node -e '
-          const fs = require("fs");
-          const r = JSON.parse(fs.readFileSync("/tmp/report.json", "utf8"));
-          if (!r.schemaVersion || !Array.isArray(r.findings)) throw new Error("bad report shape");
-          if (r.checkErrors && r.checkErrors.length) throw new Error("checkErrors: " + JSON.stringify(r.checkErrors));
-          console.log("ok: " + r.checksRun + " checks ran, " + r.findings.length + " findings");
-        '
+        run: |
+          node bin/doctor.js --json > /tmp/report.json || true
+          node -e '
+            const fs = require("fs");
+            const r = JSON.parse(fs.readFileSync("/tmp/report.json", "utf8"));
+            if (!r.schemaVersion || !Array.isArray(r.findings)) throw new Error("bad report shape");
+            if (r.checkErrors && r.checkErrors.length) throw new Error("checkErrors: " + JSON.stringify(r.checkErrors));
+            console.log("ok: " + r.checksRun + " checks ran, " + r.findings.length + " findings");
+          '
 
   # The real binary on a real system: a full run must parse as valid JSON
   # with zero check errors, and --list/--schema must stay healthy. Guards
@@ -59,6 +97,8 @@ jobs:
   real-run:
     name: Real run (ubuntu runner)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: workflow-lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
