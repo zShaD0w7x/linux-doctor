@@ -8,6 +8,21 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **Dashboard: the subtraction pass**: removed the ornamental CSS layer
+  (decorative gradients, noise texture, glassmorphism, glowing gauge, stagger
+  card animations, hover lift) and consolidated everything into one calm
+  layer. Findings render as a single readable column with neutral info rows;
+  the healthy state gets a visually lighter card with a green hairline;
+  spacing follows a strict rhythm (header 40 / status 36 / toolbar 28 /
+  history 56); font stacks are honest system fonts. No libraries, no new
+  features; the parity vocabulary is untouched.
+- **JSON schema documents the whole payload (Phase 5)**: `--schema` now
+  covers every field the runtime emits — `nextAction`, `cleanStreak`,
+  `scoreDelta`, `previousScore`, `lastRunAt`, top-level `unchanged`,
+  `scoreBreakdown`, `durations` (`--profile`), and `system.osRelease`.
+  schemaVersion stays **1**: the documented policy is that additive optional
+  fields never bump the version; incompatible changes do. Consumers should
+  ignore unknown properties.
 - **Open-core split (Pro is no longer in this repository)**: the five premium
   checks, all key-signing crypto, and `--license-gen` have moved to the
   separate proprietary package `@linux-doctor/pro`, distributed only through
@@ -26,7 +41,24 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
-
+- **Output drift guard (Phase 5)**: `tests/output-drift.test.js` runs the real
+  binary and asserts every emitted key — top level and in the nested
+  `system` / `diffSinceLast` / finding / scoreBreakdown objects — is
+  documented in `src/schema.js`. A new payload field without a schema entry
+  now fails CI instead of surprising scripts and fleet consumers.
+- **Golden output snapshots (Phase 5)**: the four states from the parity
+  matrix (mixed / healthy-streak / info-only / first-run) are snapshotted for
+  pretty, `--plain`, and `--json` in `tests/golden/snapshots/` and compared
+  byte-for-byte. Regeneration is controlled (`npm run goldens:update`) so any
+  wording or ordering change shows up as a reviewable diff.
+- **Score breakdown everywhere (Phase 5)**: the health score's arithmetic is
+  now auditable — `scoreBreakdown` travels in `--json`, the terminal report
+  prints one compact line under STATUS (`SCORE 77/100 = 100 −15 disk/full …`),
+  and `--plain` carries `# score-breakdown:`. The score is derived from the
+  breakdown by construction (`100 − Σpenalty === score`, pinned by tests).
+- **Fix catalog ↔ registry pin (Phase 5)**: every safe-fix catalog code must
+  exist in the finding-code registry, and each entry must still produce a
+  plan for its own finding shape — a typo'd catalog key fails at test time.
 - **Output parity contract (Faza 4)**: [docs/output-parity.md](docs/output-parity.md)
   documents the one-message-four-channels rule (CLI / `--plain` / `--json` /
   dashboard) with a per-state verification matrix. The vocabulary is pinned
@@ -145,6 +177,18 @@ All notable changes to Linux Doctor are documented here. The format follows
   monkey-patching `window.fetch`; save buttons now fail honestly in static files.
 - **Shell safety**: every value interpolated into a spawned command is
   single-quoted (`shq`) so crafted names cannot break out of their argument.
+
+### Fixed
+
+- **TREND no longer lags a run behind**: the sparkline now ends at the
+  current run's score (previously it showed only stored runs, so a fresh
+  recovery read as a continuing decline). The window still caps at 20
+  points, current run included. Pinned by `output-parity.test.js`.
+- **Score delta is visible in the terminal report**: the pretty STATUS line
+  now carries the same "(+N)" convention as `--plain`
+  (`health 76/100 (+9)`), so recovery reads identically in every channel.
+- **Dashboard Auto-refresh paused state is visible**: the button previously
+  kept its active styling while paused; it now renders amber/dimmed.
 
 ## [0.3.0] - 2026-08-18
 
