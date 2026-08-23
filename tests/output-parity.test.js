@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderReport, renderPlain, renderJson, pickNextFinding } from "../src/report.js";
-import { score } from "../src/history.js";
+import { score, scoreBreakdown } from "../src/history.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -68,6 +68,49 @@ test("parity: score is severity-driven only — history content cannot bend it",
   const a = score([{ severity: "high" }, { severity: "medium" }]);
   const b = score([{ severity: "medium" }, { severity: "high" }]);
   assert.equal(a, b);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5: the score's arithmetic travels with the report — same numbers in
+// every channel, derived once from scoreBreakdown.
+
+test("parity: score breakdown agrees across CLI, --plain and --json", async () => {
+  const bd = scoreBreakdown(FINDINGS);
+  const opts = { ...OPTS, scoreBreakdown: bd };
+  const pretty = await renderReport(FINDINGS, { ...opts });
+  const plain = renderPlain(FINDINGS, { ...opts });
+  const json = JSON.parse(renderJson(FINDINGS, SYSTEM, { ...opts, generatedAt: "2026-08-22T00:00:00Z" }));
+
+  // The fixture itself must be internally consistent: penalties sum to the
+  // score's distance from 100.
+  const total = bd.reduce((acc, b) => acc + b.penalty, 0);
+  assert.equal(100 - total, OPTS.score);
+
+  // Display order (most expensive first) and content agree everywhere.
+  assert.match(pretty, /SCORE     77\/100 = 100 −15 disk\/full −8 services\/failed/);
+  // Score delta uses the same "(+N)" convention in pretty and plain.
+  assert.match(pretty, /health 77\/100 \(\+5\)/);
+  assert.match(plain, /^# score: 77\/100 \(\+5\)$/m);
+  assert.match(plain, /^# score-breakdown: -15 disk\/full \| -8 services\/failed$/m);
+  assert.deepEqual(
+    json.scoreBreakdown.map((b) => [b.code, b.penalty]),
+    [["services/failed", 8], ["disk/full", 15]] // data keeps input order
+  );
+});
+
+test("scoreBreakdown: clean system renders no SCORE line at all", async () => {
+  const pretty = await renderReport([], { system: SYSTEM, score: 100, scoreBreakdown: [], newCount: 0, fixedCount: 0, unchanged: 0 });
+  assert.ok(!pretty.includes("SCORE "), "no arithmetic line when nothing was penalized");
+});
+
+test("trend: the current run is part of the sparkline, not one run behind", async () => {
+  const history = [
+    { at: "a", score: 61, counts: { high: 1, medium: 2, info: 0 } },
+    { at: "b", score: 67, counts: { high: 0, medium: 3, info: 0 } },
+  ];
+  // Current verdict is 76 — the trend must END at 76, not trail at 67.
+  const pretty = await renderReport([], { system: SYSTEM, score: 76, newCount: 0, fixedCount: 0, unchanged: 0, history });
+  assert.match(pretty, /TREND    ▅▆▆  last 3 run\(s\) · 61 → 76 ▲/);
 });
 
 // ---------------------------------------------------------------------------

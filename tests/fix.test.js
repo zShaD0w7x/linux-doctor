@@ -114,14 +114,15 @@ test("renderReport: START HERE block appears before the first severity section",
   assert.match(out, /Free memory\./);
 });
 
-test("renderReport: TREND line renders a capped sparkline window", async () => {
+test("renderReport: TREND line renders a capped sparkline window including the current run", async () => {
   const history = Array.from({ length: 30 }, (_, i) => ({ score: 40 + i, counts: {} }));
   const out = await renderReport([], { system: { distro: "T", kernel: "k", cores: 1, uptime: "1h" }, score: 69, history });
-  assert.match(out, /TREND    [▁▂▃▄▅▆▇█]+ +last 20 run\(s\) · 50 → 69 ▲/);
+  // Window = last 19 stored runs (51..68) + the current run (69) = 20 points.
+  assert.match(out, /TREND    [▁▂▃▄▅▆▇█]+ +last 20 run\(s\) · 51 → 69 ▲/);
 });
 
-test("renderReport: no TREND line without at least two scored runs", async () => {
-  const out = await renderReport([], { system: { distro: "T", kernel: "k", cores: 1, uptime: "1h" }, score: 90, history: [{ score: 90 }] });
+test("renderReport: no TREND line for a first-ever run (fewer than two points)", async () => {
+  const out = await renderReport([], { system: { distro: "T", kernel: "k", cores: 1, uptime: "1h" }, score: 90, history: [] });
   assert.ok(!out.includes("TREND"));
 });
 

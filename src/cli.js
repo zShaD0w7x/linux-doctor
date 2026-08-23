@@ -11,7 +11,7 @@ import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySe
 import { aiSummary } from "./llm.js";
 import { pushReport, validatePushUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
-import { score, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled, cleanStreak } from "./history.js";
+import { score, scoreBreakdown, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled, cleanStreak } from "./history.js";
 import { buildSupportBundle, writeSupportBundle, supportMessage } from "./support.js";
 import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored, addIgnore, addIgnoreCode, removeIgnore, removeIgnoreCode } from "./ignore.js";
 import { loadConfig } from "./config.js";
@@ -131,6 +131,8 @@ function jsonOptions(r, extra = {}) {
   return {
     generatedAt: r.generatedAt,
     score: r.score,
+    // Per-finding penalties — the score's arithmetic, auditable in every channel.
+    scoreBreakdown: r.scoreBreakdown,
     scoreDelta: r.scoreDelta,
     previousScore: r.previousScore,
     newCount: r.newCount,
@@ -598,6 +600,7 @@ function printIgnoreLists(titles, codes) {
       return {
         ...data,
         score: sc,
+        scoreBreakdown: scoreBreakdown(data.findings),
         scoreDelta: null,
         previousScore: null,
         counts,
@@ -635,6 +638,7 @@ function printIgnoreLists(titles, codes) {
     return {
       ...data,
       score: sc,
+      scoreBreakdown: scoreBreakdown(data.findings),
       scoreDelta,
       previousScore: prevSc,
       counts,
@@ -910,13 +914,13 @@ function printIgnoreLists(titles, codes) {
   }
 
   if (args.plain) {
-    let out = renderPlain(displayFindings, { system, score: sc, scoreDelta: report.scoreDelta, newCount, fixedCount: report.fixedCount, unchanged: report.unchanged, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped, checksAtomicSkipped: report.checksAtomicSkipped, skippedChecks: report.skippedChecks, historyDisabled: report.historyDisabled, history: report.historyRuns });
+    let out = renderPlain(displayFindings, { system, score: sc, scoreBreakdown: report.scoreBreakdown, scoreDelta: report.scoreDelta, newCount, fixedCount: report.fixedCount, unchanged: report.unchanged, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped, checksAtomicSkipped: report.checksAtomicSkipped, skippedChecks: report.skippedChecks, historyDisabled: report.historyDisabled, history: report.historyRuns });
     if (args.profile) out += "\n" + formatPlainDurations(report.checkDurations);
     console.log(out);
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
   }
 
-  let out = await renderReport(displayFindings, { aiSummary: summary, system, score: sc, newCount, fixedCount: report.fixedCount, unchanged: report.unchanged, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped, checksAtomicSkipped: report.checksAtomicSkipped, skippedChecks: report.skippedChecks, historyDisabled: report.historyDisabled, changeMessage: report.changeMessage, history: report.historyRuns, categoryByCheck });
+  let out = await renderReport(displayFindings, { aiSummary: summary, system, score: sc, scoreBreakdown: report.scoreBreakdown, scoreDelta: report.scoreDelta, newCount, fixedCount: report.fixedCount, unchanged: report.unchanged, ignoredCount: report.ignoredCount, checkErrors: report.checkErrors, checksRun: report.checksRun, checksSkipped: report.checksSkipped, checksAtomicSkipped: report.checksAtomicSkipped, skippedChecks: report.skippedChecks, historyDisabled: report.historyDisabled, changeMessage: report.changeMessage, history: report.historyRuns, categoryByCheck });
   if (args.profile) out += "\n" + formatDurations(report.checkDurations);
   console.log(out);
   return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;

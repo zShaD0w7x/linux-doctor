@@ -1,0 +1,13 @@
+🩺 Linux Doctor
+==============
+System: Fedora 43 · Kernel 6.12.0 · 8 core(s) · up 3d
+
+✅ Everything is clean — 6 clean run(s) in a row. Keep it up.
+STATUS   0 high, 0 medium, 0 info · health 100/100 (+0)
+TREND    ██████  last 6 run(s) · 100 → 100 ·
+SINCE LAST RUN   no change
+Ran 36 check(s) (1 skipped).
+
+──────────────────────────────
+Linux Doctor only reads system information — it never modifies anything.
+Report bugs or request checks at: github.com/zShaD0w7x/linux-doctor

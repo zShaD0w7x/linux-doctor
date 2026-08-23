@@ -26,8 +26,12 @@ const CODE_RE = /^[a-z0-9-]+\/[a-z0-9-]+$/;
  * The registry. `sev` lists every severity the code may legitimately emit
  * (conditional checks list more than one). `cat` is the check's category.
  * Derived from a full source sweep on 2026-08-22; see docs/severity.md.
+ *
+ * Exported so sibling tests can pin their own contracts against it (the
+ * safe-fix catalog test checks catalog ↔ registry consistency) — the
+ * registry stays THE single source of truth for code identity.
  */
-const REGISTRY = {
+export const REGISTRY = {
   // audio
   "audio/no-output": { sev: ["medium"], cat: "audio" },
   "audio/no-server": { sev: ["medium"], cat: "audio" },

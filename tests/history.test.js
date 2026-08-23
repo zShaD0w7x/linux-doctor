@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { score, historyFile, loadHistory, saveRun, newFindings, diffSinceLast, changeMessage, isHistoryDisabled } from "../src/history.js";
+import { score, scoreBreakdown, historyFile, loadHistory, saveRun, newFindings, diffSinceLast, changeMessage, isHistoryDisabled } from "../src/history.js";
 
 test("score: healthy system is 100", () => {
   assert.equal(score([]), 100);
@@ -33,6 +33,54 @@ test("score: escalation is order-independent", () => {
   const a = [{ severity: "high" }, { severity: "medium" }, { severity: "high" }, { severity: "high" }];
   const b = [...a].reverse();
   assert.equal(score(a), score(b));
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5: the score's arithmetic is auditable — score() is derived from
+// scoreBreakdown(), so the invariant holds by construction and these tests
+// pin it against accidental divergence.
+
+test("scoreBreakdown: invariant 100 − Σpenalty === score, across shuffled inputs", () => {
+  const findings = [
+    { code: "disk/full", severity: "high", title: "Disk nearly full" },
+    { code: "memory/low", severity: "medium", title: "Low memory" },
+    { code: "services/failed", severity: "high", title: "Services failed" },
+    { code: "zram/ok", severity: "info", title: "zram is enabled" },
+    { code: "updates/pending", severity: "medium", title: "Updates pending" },
+    { code: "thermal/warm", severity: "medium", title: "CPU running warm" },
+  ];
+  for (let i = 0; i < 20; i += 1) {
+    const shuffled = [...findings].sort(() => Math.random() - 0.5);
+    const total = scoreBreakdown(shuffled).reduce((acc, b) => acc + b.penalty, 0);
+    assert.equal(100 - total, score(shuffled), `invariant broke on permutation ${i}`);
+  }
+});
+
+test("scoreBreakdown: escalation ladder matches the documented per-ordinal values", () => {
+  // High: 15, 20, 25 — mediums stay flat 8 through the third, the fourth pays 9.
+  const rows = scoreBreakdown([
+    { code: "a/x", severity: "high", title: "A" },
+    { code: "b/y", severity: "medium", title: "B" },
+    { code: "c/z", severity: "high", title: "C" },
+    { code: "d/w", severity: "high", title: "D" },
+    { code: "e/v", severity: "medium", title: "E" },
+    { code: "f/u", severity: "medium", title: "F" },
+    { code: "g/t", severity: "medium", title: "G" },
+  ]);
+  assert.deepEqual(rows.map((r) => r.penalty), [15, 8, 20, 25, 8, 8, 9]);
+});
+
+test("scoreBreakdown: info is free but listed; identity prefers code over title", () => {
+  const rows = scoreBreakdown([
+    { code: "zram/ok", severity: "info", title: "zram is enabled" },
+    { severity: "info", title: "legacy plugin note" },
+  ]);
+  assert.equal(rows.length, 2);
+  for (const r of rows) assert.equal(r.penalty, 0);
+  assert.deepEqual(
+    rows.map((r) => [r.code, r.title]),
+    [["zram/ok", "zram is enabled"], [null, "legacy plugin note"]]
+  );
 });
 
 test("newFindings: flags findings whose title is not in the previous run", () => {

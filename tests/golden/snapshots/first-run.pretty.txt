@@ -1,0 +1,27 @@
+🩺 Linux Doctor
+==============
+System: Arch Linux · Kernel 6.16.1 · 12 core(s) · up 40m
+
+Found 0 high-severity, 1 medium-severity, and 0 informational finding(s).
+STATUS   0 high, 1 medium, 0 info · health 92/100
+SCORE     92/100 = 100 −8 memory/low
+SINCE LAST RUN   1 new
+Ran 36 check(s).
+
+▶ START HERE   #1 System is low on usable memory
+             Close unused browser tabs, then re-run this check.
+
+🟡 MEDIUM
+---------
+
+1. System is low on usable memory
+   2.2 GB pushed to swap.
+
+   Evidence:
+     $ MemAvailable: 2.9G / 15G
+
+   How to fix: Close unused browser tabs, then re-run this check.
+
+──────────────────────────────
+Linux Doctor only reads system information — it never modifies anything.
+Report bugs or request checks at: github.com/zShaD0w7x/linux-doctor

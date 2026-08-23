@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "tool": "linux-doctor",
+  "version": "<version>",
+  "generatedAt": "<generatedAt>",
+  "findings": [
+    {
+      "id": 1,
+      "check": "zram",
+      "code": "zram/ok",
+      "severity": "info",
+      "title": "zram swap is enabled",
+      "detail": null,
+      "evidence": "zram0: 8 GB",
+      "fix": null,
+      "isNew": false
+    }
+  ],
+  "score": 100,
+  "scoreBreakdown": [
+    {
+      "code": "zram/ok",
+      "severity": "info",
+      "title": "zram swap is enabled",
+      "penalty": 0
+    }
+  ],
+  "scoreDelta": null,
+  "previousScore": 100,
+  "newCount": 0,
+  "fixedCount": 1,
+  "unchanged": 0,
+  "diffSinceLast": {
+    "added": [],
+    "fixed": [
+      {
+        "code": "memory/low",
+        "severity": "medium",
+        "title": "System was low on memory"
+      }
+    ],
+    "unchanged": 0
+  },
+  "lastRunAt": "2026-08-22T10:00:00Z",
+  "cleanStreak": 1,
+  "checksRun": 36,
+  "checksSkipped": 2,
+  "checkErrors": [],
+  "system": {
+    "distro": "Ubuntu 25.04",
+    "kernel": "6.14.0",
+    "cores": 4,
+    "uptime": "6h"
+  }
+}

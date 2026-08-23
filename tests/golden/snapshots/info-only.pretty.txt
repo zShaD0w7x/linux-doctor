@@ -1,0 +1,21 @@
+🩺 Linux Doctor
+==============
+System: Ubuntu 25.04 · Kernel 6.14.0 · 4 core(s) · up 6h
+
+✅ No high or medium issues — 1 informational note below.
+STATUS   0 high, 0 medium, 1 info · health 100/100
+TREND    ▇█  last 2 run(s) · 92 → 100 ▲
+SINCE LAST RUN   1 fixed
+Ran 36 check(s) (2 skipped).
+
+⚪ INFO
+------
+
+1. zram swap is enabled
+
+   Evidence:
+     $ zram0: 8 GB
+
+──────────────────────────────
+Linux Doctor only reads system information — it never modifies anything.
+Report bugs or request checks at: github.com/zShaD0w7x/linux-doctor

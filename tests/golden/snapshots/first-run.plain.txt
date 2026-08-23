@@ -1,0 +1,12 @@
+# linux-doctor
+# system: Arch Linux · kernel 6.16.1 · 12 core(s) · up 40m
+# score: 92/100
+# score-breakdown: -8 memory/low
+# new: 1
+# since: 1 new, 0 fixed, 0 unchanged
+# checks: 36
+# summary: 0 high, 1 medium, 0 info
+
+medium	1	System is low on usable memory
+detail	1	2.2 GB pushed to swap.
+fix	1	Close unused browser tabs, then re-run this check.

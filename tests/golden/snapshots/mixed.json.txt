@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "tool": "linux-doctor",
+  "version": "<version>",
+  "generatedAt": "<generatedAt>",
+  "findings": [
+    {
+      "id": 1,
+      "check": "disk",
+      "code": "disk/full",
+      "severity": "high",
+      "title": "/home partition is 91% full",
+      "detail": "Only 12 GB free of 466 GB.",
+      "evidence": "/dev/nvme0n1p3  91% USED  466G",
+      "fix": "Clean old snapshots: `sudo snapper list`.",
+      "isNew": false
+    },
+    {
+      "id": 2,
+      "check": "services",
+      "code": "services/failed",
+      "severity": "medium",
+      "title": "2 services failed to start",
+      "detail": null,
+      "evidence": "app-picom.service loaded failed",
+      "fix": "Inspect with `systemctl status app-picom`.",
+      "isNew": true
+    },
+    {
+      "id": 3,
+      "check": "updates",
+      "code": "updates/pending",
+      "severity": "info",
+      "title": "5 package updates available",
+      "detail": null,
+      "evidence": null,
+      "fix": "Run your system updater.",
+      "isNew": false
+    }
+  ],
+  "score": 77,
+  "scoreBreakdown": [
+    {
+      "code": "disk/full",
+      "severity": "high",
+      "title": "/home partition is 91% full",
+      "penalty": 15
+    },
+    {
+      "code": "services/failed",
+      "severity": "medium",
+      "title": "2 services failed to start",
+      "penalty": 8
+    },
+    {
+      "code": "updates/pending",
+      "severity": "info",
+      "title": "5 package updates available",
+      "penalty": 0
+    }
+  ],
+  "scoreDelta": -23,
+  "previousScore": 100,
+  "newCount": 1,
+  "fixedCount": 0,
+  "unchanged": 2,
+  "diffSinceLast": {
+    "added": [
+      {
+        "code": "services/failed",
+        "severity": "medium",
+        "title": "2 services failed to start"
+      }
+    ],
+    "fixed": [],
+    "unchanged": 2
+  },
+  "lastRunAt": "2026-08-21T09:00:00Z",
+  "cleanStreak": 0,
+  "checksRun": 36,
+  "checksSkipped": 1,
+  "checkErrors": [
+    {
+      "check": "smart",
+      "error": "smartctl unavailable"
+    }
+  ],
+  "system": {
+    "distro": "Bazzite 44",
+    "kernel": "6.1.0",
+    "cores": 16,
+    "uptime": "2h"
+  }
+}

@@ -44,3 +44,26 @@ test("reportSchema: a real report validates against its own schema", () => {
   assert.equal(reportSchema.properties.findings.items.$ref, "#/definitions/finding");
   assert.equal(reportSchema.properties.system.properties.kind.enum.includes("server"), true);
 });
+
+test("reportSchema: documents every optional top-level field the payload carries", () => {
+  // Phase 5: the machine channel's contract covers the whole payload.
+  for (const key of [
+    "nextAction", "cleanStreak", "scoreDelta", "previousScore",
+    "lastRunAt", "unchanged", "scoreBreakdown", "durations",
+    "diffSinceLast", "historyDisabled", "changeMessage", "skippedChecks",
+    "checksAtomicSkipped", "ignoredCount",
+  ]) {
+    assert.ok(key in reportSchema.properties, `schema should document ${key}`);
+  }
+});
+
+test("reportSchema: nullable fields allow null where the runtime emits null", () => {
+  // pickNextFinding returns null on fixless machines; scoreDelta/previousScore/
+  // lastRunAt are null without history. A schema that forbids null would
+  // reject honest payloads.
+  for (const key of ["nextAction", "scoreDelta", "previousScore", "lastRunAt"]) {
+    const t = reportSchema.properties[key].type;
+    assert.ok(Array.isArray(t) && t.includes("null"), `${key} must allow null`);
+  }
+  assert.equal(reportSchema.properties.scoreBreakdown.items.required.includes("penalty"), true);
+});

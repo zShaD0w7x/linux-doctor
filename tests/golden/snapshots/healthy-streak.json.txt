@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "tool": "linux-doctor",
+  "version": "<version>",
+  "generatedAt": "<generatedAt>",
+  "findings": [],
+  "score": 100,
+  "scoreBreakdown": [],
+  "scoreDelta": 0,
+  "previousScore": 100,
+  "newCount": 0,
+  "fixedCount": 0,
+  "unchanged": 0,
+  "diffSinceLast": {
+    "added": [],
+    "fixed": [],
+    "unchanged": 0
+  },
+  "lastRunAt": "2026-08-22T08:00:00Z",
+  "cleanStreak": 5,
+  "checksRun": 36,
+  "checksSkipped": 1,
+  "checkErrors": [],
+  "system": {
+    "distro": "Fedora 43",
+    "kernel": "6.12.0",
+    "cores": 8,
+    "uptime": "3d"
+  }
+}

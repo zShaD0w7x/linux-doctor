@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "tool": "linux-doctor",
+  "version": "<version>",
+  "generatedAt": "<generatedAt>",
+  "findings": [
+    {
+      "id": 1,
+      "check": "memory",
+      "code": "memory/low",
+      "severity": "medium",
+      "title": "System is low on usable memory",
+      "detail": "2.2 GB pushed to swap.",
+      "evidence": "MemAvailable: 2.9G / 15G",
+      "fix": "Close unused browser tabs, then re-run this check.",
+      "isNew": false
+    }
+  ],
+  "score": 92,
+  "scoreBreakdown": [
+    {
+      "code": "memory/low",
+      "severity": "medium",
+      "title": "System is low on usable memory",
+      "penalty": 8
+    }
+  ],
+  "scoreDelta": null,
+  "previousScore": null,
+  "newCount": 1,
+  "fixedCount": 0,
+  "unchanged": 0,
+  "diffSinceLast": {
+    "added": [
+      {
+        "code": "memory/low",
+        "severity": "medium",
+        "title": "System is low on usable memory"
+      }
+    ],
+    "fixed": [],
+    "unchanged": 0
+  },
+  "lastRunAt": null,
+  "cleanStreak": 0,
+  "checksRun": 36,
+  "checksSkipped": 0,
+  "checkErrors": [],
+  "system": {
+    "distro": "Arch Linux",
+    "kernel": "6.16.1",
+    "cores": 12,
+    "uptime": "40m"
+  }
+}

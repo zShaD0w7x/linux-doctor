@@ -22,29 +22,49 @@ export const HISTORY_LIMIT = 50;
 export const HISTORY_VERSION = 2;
 
 /**
- * 0-100 health score: start at 100 and subtract the configured penalty per
- * finding (15 per high-severity, 8 per medium-severity), floor at 0.
+ * Per-finding penalty breakdown, in input order. The n-th finding of a tier
+ * pays SEV_PENALTY + SEV_ESCALATION × max(0, n − (SEV_ESCALATE_FROM − 1)) —
+ * the same escalation ladder score() sums. Info findings are listed with a 0
+ * penalty so consumers can render the full picture. Identity mirrors the
+ * diff's briefFinding shape (code when present, else title), so repeated
+ * codes ("disk/full" on several partitions) stay distinguishable via title.
+ *
+ * score() is DERIVED from this list: one formula, two views — they can never
+ * diverge, and `100 − Σpenalty === score(findings)` holds by construction.
+ */
+export function scoreBreakdown(findings) {
+  const ordinals = {};
+  const rows = [];
+  for (const f of findings || []) {
+    if (!SEV_ORDER.includes(f.severity)) continue;
+    const n = (ordinals[f.severity] = (ordinals[f.severity] || 0) + 1);
+    const base = SEV_PENALTY[f.severity] ?? 0;
+    const step = SEV_ESCALATION[f.severity] ?? 0;
+    const from = SEV_ESCALATE_FROM[f.severity] ?? Number.POSITIVE_INFINITY;
+    rows.push({
+      code: typeof f.code === "string" ? f.code : null,
+      severity: f.severity,
+      title: typeof f.title === "string" ? f.title : null,
+      penalty: base + Math.max(0, n - from + 1) * step,
+    });
+  }
+  return rows;
+}
+
+/**
+ * 0-100 health score: start at 100 and subtract the penalty per finding
+ * (15 per high-severity, 8 per medium-severity), floor at 0.
  * Informational findings are free. Penalties live in src/severities.js.
  *
  * Problems compound, so penalties escalate within a tier (see SEV_ESCALATION):
  * the n-th high costs 15 + 5·(n−1) — four criticals must not land near a pile
- * of annoyances — and mediums past the third cost +1 each. The formula is a
- * closed form over per-tier counts, so the score never depends on input order.
+ * of annoyances — and mediums past the third cost +1 each. Derived from
+ * scoreBreakdown(), whose per-ordinal surcharges sum to the same closed form
+ * over per-tier counts — so the score never depends on input order.
  */
 export function score(findings) {
-  let penalty = 0;
-  for (const sev of SEV_ORDER) {
-    const n = findings.reduce((acc, f) => acc + (f.severity === sev ? 1 : 0), 0);
-    if (n === 0) continue;
-    const base = SEV_PENALTY[sev] ?? 0;
-    const step = SEV_ESCALATION[sev] ?? 0;
-    const from = SEV_ESCALATE_FROM[sev] ?? Number.POSITIVE_INFINITY;
-    // Extra findings (ordinal ≥ `from`) pay base + growing surcharge:
-    // sum over k = from..n of step·(k − from + 1) = step · m(m+1)/2, m = n−from+1.
-    const m = Math.max(0, n - from + 1);
-    penalty += n * base + step * ((m * (m + 1)) / 2);
-  }
-  return Math.max(0, 100 - penalty);
+  const total = scoreBreakdown(findings).reduce((acc, b) => acc + b.penalty, 0);
+  return Math.max(0, 100 - total);
 }
 
 /**

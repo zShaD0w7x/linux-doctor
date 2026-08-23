@@ -1,0 +1,46 @@
+🩺 Linux Doctor
+==============
+System: Bazzite 44 · Kernel 6.1.0 · 16 core(s) · up 2h
+
+Found 1 high-severity, 1 medium-severity, and 1 informational finding(s).
+STATUS   1 high, 1 medium, 1 info · health 77/100 (-23)
+SCORE     77/100 = 100 −15 disk/full −8 services/failed
+TREND    █▇█▆  last 4 run(s) · 100 → 77 ▼
+SINCE LAST RUN   1 new · 2 unchanged
+⚠ 1 check(s) failed to run: smart.
+Ran 36 check(s) (1 skipped, 1 failed).
+
+▶ START HERE   #1 /home partition is 91% full
+             Clean old snapshots: `sudo snapper list`.
+
+🔴 HIGH
+-------
+
+1. [storage] /home partition is 91% full
+   Only 12 GB free of 466 GB.
+
+   Evidence:
+     $ /dev/nvme0n1p3  91% USED  466G
+
+   How to fix: Clean old snapshots: `sudo snapper list`.
+
+🟡 MEDIUM
+---------
+
+2. [system] 2 services failed to start  🆕 NEW
+
+   Evidence:
+     $ app-picom.service loaded failed
+
+   How to fix: Inspect with `systemctl status app-picom`.
+
+⚪ INFO
+------
+
+3. [packages] 5 package updates available
+
+   How to fix: Run your system updater.
+
+──────────────────────────────
+Linux Doctor only reads system information — it never modifies anything.
+Report bugs or request checks at: github.com/zShaD0w7x/linux-doctor

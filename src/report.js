@@ -68,7 +68,7 @@ function firstSentence(text) {
 }
 
 /** Render the full terminal report in American English. */
-export async function renderReport(findings, { aiSummary, system, score, newCount, fixedCount, unchanged = 0, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped, checksAtomicSkipped = 0, skippedChecks = [], historyDisabled = false, changeMessage = null, history = [], categoryByCheck = null } = {}) {
+export async function renderReport(findings, { aiSummary, system, score, scoreDelta, scoreBreakdown = [], newCount, fixedCount, unchanged = 0, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped, checksAtomicSkipped = 0, skippedChecks = [], historyDisabled = false, changeMessage = null, history = [], categoryByCheck = null } = {}) {
   // system is required — the caller (cli.js) always has it; re-running
   // systemInfo() here would waste a handful of subprocess spawns.
   const info = system;
@@ -106,13 +106,27 @@ export async function renderReport(findings, { aiSummary, system, score, newCoun
     out.push(`Found ${high} high-severity, ${med} medium-severity, and ${inf} informational finding(s).`);
   }
   if (typeof score === "number") {
-    out.push(`STATUS   ${high} high, ${med} medium, ${inf} info · health ${score}/100`);
+    // Delta mirrors --plain's "# score: N/100 (+d)" convention — recovery and
+    // regression read identically in every text channel.
+    const delta = typeof scoreDelta === "number" ? (scoreDelta >= 0 ? ` (+${scoreDelta})` : ` (${scoreDelta})`) : "";
+    out.push(`STATUS   ${high} high, ${med} medium, ${inf} info · health ${score}/100${delta}`);
+    // The score's arithmetic, in one auditable line: which finding cost what.
+    // Derived data (scoreBreakdown) — never recomputed here, so the line and
+    // the number can never disagree.
+    const penalized = [...scoreBreakdown].filter((b) => b.penalty > 0).sort((a, b) => b.penalty - a.penalty);
+    if (penalized.length > 0) {
+      const shown = penalized.slice(0, 3).map((b) => `−${b.penalty} ${b.code ?? b.title}`);
+      const more = penalized.length > 3 ? ` (+${penalized.length - 3} more)` : "";
+      out.push(`SCORE     ${score}/100 = 100 ${shown.join(" ")}${more}`);
+    }
   }
   // Score trend over recent runs — visible momentum is what keeps people
-  // running the tool. Only shown with at least two scored runs; capped to a
-  // readable window (the newest ones).
+  // running the tool. The CURRENT run is part of the series (otherwise the
+  // line always lags one run behind and reads backwards). Only shown with at
+  // least two scored points; capped to a readable window (the newest ones).
   const scoredAll = (history || []).filter((r) => typeof r.score === "number");
-  const scored = scoredAll.slice(-TREND_WINDOW);
+  const scored = scoredAll.slice(-(TREND_WINDOW - 1));
+  if (!historyDisabled && typeof score === "number") scored.push({ score });
   if (scored.length >= 2) {
     const first = scored[0].score;
     const last = scored[scored.length - 1].score;
@@ -234,7 +248,7 @@ export function renderTodo(findings) {
  * Metadata goes to `#` comment lines; each finding is one row of
  * `severity<TAB>number<TAB>title`, with `detail`/`fix` rows right after it.
  */
-export function renderPlain(findings, { system, score, scoreDelta, newCount, fixedCount, unchanged = 0, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped, checksAtomicSkipped = 0, skippedChecks = [], historyDisabled = false, history = [] } = {}) {
+export function renderPlain(findings, { system, score, scoreBreakdown = [], scoreDelta, newCount, fixedCount, unchanged = 0, ignoredCount = 0, checkErrors = [], checksRun, checksSkipped, checksAtomicSkipped = 0, skippedChecks = [], historyDisabled = false, history = [] } = {}) {
   const flat = (s) => String(s ?? "").replace(/\t/g, " ").replace(/\s*\n\s*/g, " | ").trim();
   const out = [];
   out.push("# linux-doctor");
@@ -243,6 +257,8 @@ export function renderPlain(findings, { system, score, scoreDelta, newCount, fix
     const delta = typeof scoreDelta === "number" ? (scoreDelta >= 0 ? ` (+${scoreDelta})` : ` (${scoreDelta})`) : "";
     out.push(`# score: ${score}/100${delta}`);
   }
+  const penalizedPlain = [...scoreBreakdown].filter((b) => b.penalty > 0).sort((a, b) => b.penalty - a.penalty);
+  if (penalizedPlain.length > 0) out.push(`# score-breakdown: ${penalizedPlain.map((b) => `-${b.penalty} ${b.code ?? b.title}`).join(" | ")}`);
   const scoredPlain = (history || []).filter((r) => typeof r.score === "number").slice(-TREND_WINDOW);
   if (scoredPlain.length >= 2) out.push(`# trend: ${spark(scoredPlain.map((r) => r.score))} (${scoredPlain[0].score} → ${scoredPlain[scoredPlain.length - 1].score})`);
   if (newCount > 0) out.push(`# new: ${newCount}`);
