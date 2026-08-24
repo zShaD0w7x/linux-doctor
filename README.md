@@ -11,19 +11,37 @@ new, what got fixed, and what stayed the same.
 
 It never changes your system. Fixes are suggestions you run yourself.
 
-## Install & first run
+## Download the app (recommended)
+
+Desktop app — no Node.js, no terminal. Download, run:
+
+- **[Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)** — grab `Linux-Doctor_<version>_amd64.AppImage`
 
 ```bash
-node bin/doctor.js            # run from this directory
-# or, from anywhere:
-npm install -g . && linux-doctor
+chmod +x Linux-Doctor_*_amd64.AppImage
+./Linux-Doctor_*_amd64.AppImage
 ```
 
-No clone needed? Try it straight from GitHub (needs Node.js ≥ 20):
+Also attached to each release: `.deb` (Debian/Ubuntu) and the CLI tarball.
+AppImage runs on most distributions (glibc-based); on immutable systems
+(Fedora Silverblue, Bazzite) it works out of the box.
+
+## Install & first run (CLI)
+
+Needs Node.js ≥ 20.
 
 ```bash
-npx github:zShaD0w7x/linux-doctor
+npx github:zShaD0w7x/linux-doctor     # no install, straight from GitHub
+# or:
+npm install -g linux-doctor && linux-doctor
 ```
+
+Prefer a native CLI package?
+
+- **Arch / AUR:** `linux-doctor` — [PKGBUILD](packaging/PKGBUILD)
+- **Fedora / RHEL / openSUSE:** build an RPM with the [linux-doctor.spec](packaging/linux-doctor.spec)
+
+See [packaging/README.md](packaging/README.md) for details.
 
 ```
 Your system is low on usable memory: 9.4 GB of 15 GB is in use and 2.2 GB is
@@ -43,13 +61,6 @@ TREND    ▄▅▅▆▆▇  last 6 run(s) · 61 → 74 ▲
 ▶ START HERE   #1 System is low on usable memory
                Close apps you are not using, then re-run this check.
 ```
-
-Native packages (no Node needed on PATH):
-
-- **Arch / AUR:** `linux-doctor` — [PKGBUILD](packaging/PKGBUILD)
-- **Fedora / RHEL / openSUSE:** build an RPM with the [linux-doctor.spec](packaging/linux-doctor.spec)
-
-See [packaging/README.md](packaging/README.md) for details.
 
 Shell completions (bash/zsh/fish) are in [completions/](completions/). Install them with:
 

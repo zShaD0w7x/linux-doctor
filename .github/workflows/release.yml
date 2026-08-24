@@ -5,8 +5,9 @@ on:
     tags: ["v*"]
 
 jobs:
-  release:
-    name: Test, pack, and release ${{ github.ref_name }}
+  # CLI: test, pack the npm tarball, create the release with it.
+  cli:
+    name: CLI tarball ${{ github.ref_name }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,3 +27,49 @@ jobs:
         with:
           files: linux-doctor-*.tgz
           generate_release_notes: true
+
+  # Desktop app: Tauri bundles (AppImage first). Built on ubuntu-22.04 so the
+  # AppImage links against an older glibc and runs on most distributions.
+  gui:
+    name: GUI bundles ${{ github.ref_name }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Dev deps are needed here: @tauri-apps/cli drives the build.
+      - run: npm ci
+      - run: npm run build:gui
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            file
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Build Tauri bundles (appimage, deb)
+        run: npx tauri build --bundles appimage,deb
+      - name: Collect artifacts
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          find src-tauri/target/release/bundle -type f \( \
+            -name "*.AppImage" -o -name "*.deb" \) -exec cp {} dist/ \;
+          cd dist
+          for f in *.AppImage; do
+            [ -e "$f" ] && mv "$f" "$(echo "$f" | sed 's/_amd64\.AppImage$/_'$VERSION'_amd64.AppImage/')"
+          done
+          ls -la
+      - name: Attach bundles to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
