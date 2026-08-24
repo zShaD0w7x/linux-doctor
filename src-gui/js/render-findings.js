@@ -9,7 +9,7 @@ function renderCard(f, sev) {
   const SEV_COST = { high: "costs 15 points (+5 each extra)", medium: "costs 8 points (+1 past the third)", info: "informational — free" };
   let html = '<details class="card ' + SEV[sev].cls + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +
     (f.check ? ' data-check="' + esc(f.check) + '"' : "") + ">";
-  html += '<summary><span class="sevicon" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " \u2014 " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">\u25b8</span></summary>';
+  html += '<summary><span class="sevicon" data-sev="' + sev + '" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " \u2014 " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">\u25b8</span></summary>';
   html += '<div class="card-body">';
 
   if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
@@ -34,8 +34,9 @@ function renderCard(f, sev) {
   return html;
 }
 
-function groupSummaryHtml(icon, label, count) {
-  return '<summary><span class="sevicon" aria-hidden="true">' + icon + '</span> ' + esc(label) + " <b>" + count + '</b><span class="chev" aria-hidden="true">\u25b8</span></summary>';
+function groupSummaryHtml(icon, label, count, sev) {
+  const ds = sev ? ' data-sev="' + sev + '"' : "";
+  return '<summary><span class="sevicon"' + ds + ' aria-hidden="true">' + icon + '</span> ' + esc(label) + " <b>" + count + '</b><span class="chev" aria-hidden="true">\u25b8</span></summary>';
 }
 
 function wrapGroup(cls, type, key, summaryInner, cardsHtml, open) {
@@ -52,7 +53,7 @@ function renderReportBySeverity(findings) {
     if (!group.length) continue;
     const cards = group.map((f) => renderCard(f, sev)).join("");
     html += wrapGroup(SEV[sev].cls, "sev", sev,
-      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length), cards, sev === "high");
+      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length, sev), cards, sev === "high");
   }
   return html;
 }

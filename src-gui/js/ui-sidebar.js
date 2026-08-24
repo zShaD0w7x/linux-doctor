@@ -47,7 +47,7 @@ function renderSeverityNav(counts) {
     const n = counts[sev] || 0;
     if (!n) return "";
     return '<button class="sb-item ' + sev + (activeFilter === sev ? " active" : "") + '" data-nav-sev="' + sev + '">' +
-      '<span class="sevicon" aria-hidden="true">' + (SEV_ICONS[sev] || "") + '</span>' +
+      '<span class="sevicon" data-sev="' + sev + '" aria-hidden="true">' + (SEV_ICONS[sev] || "") + '</span>' +
       '<span class="sb-label">' + SEV_NAMES[sev] + '</span>' +
       '<span class="sb-count">' + n + "</span></button>";
   }).join("") || '<div class="bd-clean" style="font-size:11.5px;">Nothing needs attention</div>';

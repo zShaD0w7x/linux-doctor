@@ -23,7 +23,7 @@ function setupNotifyButton() {
   if (!notifyBtn) return;
   const syncNotifyBtn = () => {
     if (!("Notification" in window)) { notifyBtn.style.display = "none"; return; }
-    notifyBtn.textContent = Notification.permission === "granted" ? "\u{1f514}\u2713" : "\u{1f514}";
+    notifyBtn.innerHTML = BELL_SVG + (Notification.permission === "granted" ? '<span style="font-size:10px;font-weight:800">\u2713</span>' : "");
     notifyBtn.title = Notification.permission === "granted" ? "Notifications enabled" : "Enable desktop notifications when health degrades";
     notifyBtn.classList.toggle("on", Notification.permission === "granted");
   };

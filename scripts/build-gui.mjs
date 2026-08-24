@@ -75,7 +75,7 @@ const html = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Linux Doctor</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 13h4l2.5-7 4 12 3-8 1.5 3H22' fill='none' stroke='%233ee29a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 ${css}
 </style>
@@ -84,7 +84,7 @@ ${css}
 <a class="skip-link" href="#report">Skip to findings</a>
 <div class="wrap">
   <header>
-    <span class="logo" aria-hidden="true">🩺</span>
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M2 13h4l2.5-7 4 12 3-8 1.5 3H22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <div>
       <h1>Linux Doctor</h1>
       <div class="sysinfo" id="sysinfo" role="status">Loading…</div>
@@ -125,12 +125,12 @@ ${css}
         </div>
         <div class="filters" id="filters" role="group" aria-label="Severity filter"></div>
         <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false" aria-label="Filter findings">
-        <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">⏱ Auto</button>
+        <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s"><svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-2px"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2.5 2.5M9 2h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Auto</button>
         <button id="expandall" class="toolbtn">⊞ Expand all</button>
         <button id="densitybtn" class="toolbtn" title="Toggle compact density" aria-pressed="false">≡</button>
         <button id="checksmatrixbtn" class="toolbtn" title="See every check and its result">☰ Checks</button>
         <button id="clearbtn" class="toolbtn" type="button" disabled>✕ Clear</button>
-        <button id="threshbtn" class="toolbtn" title="Edit thresholds">⚙️</button>
+        <button id="threshbtn" class="toolbtn" title="Edit thresholds" aria-label="Edit thresholds"><svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="6" r="2.6" fill="currentColor"/><circle cx="8" cy="12" r="2.6" fill="currentColor"/><circle cx="17" cy="18" r="2.6" fill="currentColor"/></svg></button>
       </div>
       <div id="threshpanel" class="thresh-panel" hidden>
         <div class="thresh-head">Thresholds <span class="thresh-sub">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;">✕</button></div>

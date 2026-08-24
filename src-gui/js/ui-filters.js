@@ -1,7 +1,7 @@
 /* === Severity filters + search === */
 let activeFilter = "all";
 
-const PILL_ICONS = { all: "\u25c9", high: "\u{1f534}", medium: "\u{1f7e1}", info: "\u{1f535}" };
+const PILL_ICONS = { all: ICON_ALL, high: SEV_ICONS.high, medium: SEV_ICONS.medium, info: SEV_ICONS.info };
 
 function renderFilters(counts) {
   const total = counts.high + counts.medium + counts.info;

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Linux Doctor</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 13h4l2.5-7 4 12 3-8 1.5 3H22' fill='none' stroke='%233ee29a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* ── base.css ── */
 /* === CSS Variables, Reset, Typography === */
@@ -71,7 +71,9 @@ header.scrolled { border-bottom-color: var(--border); box-shadow: 0 4px 20px rgb
 header .logo {
   font-size: 22px; width: 42px; height: 42px; display: grid; place-items: center;
   background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
+  color: var(--green);
 }
+header .logo svg { display: block; }
 h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 .sysinfo { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
 .sysinfo .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); vertical-align: 1px; margin-right: 5px; }
@@ -195,7 +197,17 @@ button:disabled { opacity: .5; cursor: default; transform: none; }
 .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .18s ease; color: var(--muted); }
 .group[open] summary .chev { transform: rotate(90deg); }
 .group-body { padding: 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
-.sevicon { font-size: 13px; line-height: 1; flex-shrink: 0; }
+.sevicon { font-size: 13px; line-height: 1; flex-shrink: 0; display: inline-flex; align-items: center; }
+
+/* === Inline severity dots (replace emoji) === */
+svg.sevdot { width: 11px; height: 11px; flex-shrink: 0; }
+.sevicon svg.sevdot { fill: var(--muted); }
+.sevicon.high svg.sevdot, .bd-pen ~ svg.sevdot { fill: var(--red); }
+span.sevicon[data-sev="high"] svg.sevdot { fill: var(--red); }
+span.sevicon[data-sev="medium"] svg.sevdot { fill: var(--yellow); }
+span.sevicon[data-sev="info"] svg.sevdot { fill: var(--blue); }
+/* Inside filter pills the dot follows the pill's text color (active states invert). */
+.fpill svg.sevdot, .fpill.active svg.sevdot { fill: currentColor; stroke: currentColor; }
 
 /* === Footer === */
 footer { margin-top: 64px; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
@@ -603,7 +615,7 @@ body.compact #report { gap: 16px; }
 <a class="skip-link" href="#report">Skip to findings</a>
 <div class="wrap">
   <header>
-    <span class="logo" aria-hidden="true">🩺</span>
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M2 13h4l2.5-7 4 12 3-8 1.5 3H22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <div>
       <h1>Linux Doctor</h1>
       <div class="sysinfo" id="sysinfo" role="status">Loading…</div>
@@ -644,12 +656,12 @@ body.compact #report { gap: 16px; }
         </div>
         <div class="filters" id="filters" role="group" aria-label="Severity filter"></div>
         <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false" aria-label="Filter findings">
-        <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">⏱ Auto</button>
+        <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s"><svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-2px"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2.5 2.5M9 2h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Auto</button>
         <button id="expandall" class="toolbtn">⊞ Expand all</button>
         <button id="densitybtn" class="toolbtn" title="Toggle compact density" aria-pressed="false">≡</button>
         <button id="checksmatrixbtn" class="toolbtn" title="See every check and its result">☰ Checks</button>
         <button id="clearbtn" class="toolbtn" type="button" disabled>✕ Clear</button>
-        <button id="threshbtn" class="toolbtn" title="Edit thresholds">⚙️</button>
+        <button id="threshbtn" class="toolbtn" title="Edit thresholds" aria-label="Edit thresholds"><svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="6" r="2.6" fill="currentColor"/><circle cx="8" cy="12" r="2.6" fill="currentColor"/><circle cx="17" cy="18" r="2.6" fill="currentColor"/></svg></button>
       </div>
       <div id="threshpanel" class="thresh-panel" hidden>
         <div class="thresh-head">Thresholds <span class="thresh-sub">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;">✕</button></div>
@@ -711,7 +723,20 @@ let lastData = null;
 /* ── state.js ── */
 /* === Central state store === */
 const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
-const SEV_ICONS = { high: "\u{1f534}", medium: "\u{1f7e1}", info: "\u{1f535}" };
+
+/* Severity markers as inline SVG (theme-colored via CSS), not emoji —
+   identical rendering everywhere, no font dependency, crisp at any scale.
+   Inside filter pills they inherit currentColor so active states invert. */
+const SEV_ICONS = {
+  high: '<svg class="sevdot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5"/></svg>',
+  medium: '<svg class="sevdot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5"/></svg>',
+  info: '<svg class="sevdot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5"/></svg>',
+};
+const ICON_ALL = '<svg class="sevdot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="none" stroke-width="2"/></svg>';
+const LOGO_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 13h4l2.5-7 4 12 3-8 1.5 3H22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const BELL_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 16h15L18 12.5V9a6 6 0 0 0-6-6Zm-2 15a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const TIMER_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2.5 2.5M9 2h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
 const SEV_ORDER = ["high", "medium", "info"];
 const SEV_NAMES = { high: "High severity", medium: "Medium severity", info: "Informational" };
 const THEME_ORDER = ["light", "dark", "auto"];
@@ -957,7 +982,7 @@ function setAllOpen(open) {
 /* === Severity filters + search === */
 let activeFilter = "all";
 
-const PILL_ICONS = { all: "\u25c9", high: "\u{1f534}", medium: "\u{1f7e1}", info: "\u{1f535}" };
+const PILL_ICONS = { all: ICON_ALL, high: SEV_ICONS.high, medium: SEV_ICONS.medium, info: SEV_ICONS.info };
 
 function renderFilters(counts) {
   const total = counts.high + counts.medium + counts.info;
@@ -1181,7 +1206,7 @@ function setupNotifyButton() {
   if (!notifyBtn) return;
   const syncNotifyBtn = () => {
     if (!("Notification" in window)) { notifyBtn.style.display = "none"; return; }
-    notifyBtn.textContent = Notification.permission === "granted" ? "\u{1f514}\u2713" : "\u{1f514}";
+    notifyBtn.innerHTML = BELL_SVG + (Notification.permission === "granted" ? '<span style="font-size:10px;font-weight:800">\u2713</span>' : "");
     notifyBtn.title = Notification.permission === "granted" ? "Notifications enabled" : "Enable desktop notifications when health degrades";
     notifyBtn.classList.toggle("on", Notification.permission === "granted");
   };
@@ -1381,7 +1406,7 @@ function renderSeverityNav(counts) {
     const n = counts[sev] || 0;
     if (!n) return "";
     return '<button class="sb-item ' + sev + (activeFilter === sev ? " active" : "") + '" data-nav-sev="' + sev + '">' +
-      '<span class="sevicon" aria-hidden="true">' + (SEV_ICONS[sev] || "") + '</span>' +
+      '<span class="sevicon" data-sev="' + sev + '" aria-hidden="true">' + (SEV_ICONS[sev] || "") + '</span>' +
       '<span class="sb-label">' + SEV_NAMES[sev] + '</span>' +
       '<span class="sb-count">' + n + "</span></button>";
   }).join("") || '<div class="bd-clean" style="font-size:11.5px;">Nothing needs attention</div>';
@@ -1703,7 +1728,7 @@ function renderCard(f, sev) {
   const SEV_COST = { high: "costs 15 points (+5 each extra)", medium: "costs 8 points (+1 past the third)", info: "informational — free" };
   let html = '<details class="card ' + SEV[sev].cls + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +
     (f.check ? ' data-check="' + esc(f.check) + '"' : "") + ">";
-  html += '<summary><span class="sevicon" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " \u2014 " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">\u25b8</span></summary>';
+  html += '<summary><span class="sevicon" data-sev="' + sev + '" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " \u2014 " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">\u25b8</span></summary>';
   html += '<div class="card-body">';
 
   if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
@@ -1728,8 +1753,9 @@ function renderCard(f, sev) {
   return html;
 }
 
-function groupSummaryHtml(icon, label, count) {
-  return '<summary><span class="sevicon" aria-hidden="true">' + icon + '</span> ' + esc(label) + " <b>" + count + '</b><span class="chev" aria-hidden="true">\u25b8</span></summary>';
+function groupSummaryHtml(icon, label, count, sev) {
+  const ds = sev ? ' data-sev="' + sev + '"' : "";
+  return '<summary><span class="sevicon"' + ds + ' aria-hidden="true">' + icon + '</span> ' + esc(label) + " <b>" + count + '</b><span class="chev" aria-hidden="true">\u25b8</span></summary>';
 }
 
 function wrapGroup(cls, type, key, summaryInner, cardsHtml, open) {
@@ -1746,7 +1772,7 @@ function renderReportBySeverity(findings) {
     if (!group.length) continue;
     const cards = group.map((f) => renderCard(f, sev)).join("");
     html += wrapGroup(SEV[sev].cls, "sev", sev,
-      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length), cards, sev === "high");
+      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length, sev), cards, sev === "high");
   }
   return html;
 }
