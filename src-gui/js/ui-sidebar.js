@@ -65,6 +65,7 @@ function renderCategoryNav(findings) {
     const n = tally.get(cat) || 0;
     if (!n) return "";
     return '<button class="sb-item" data-nav-cat="' + cat + '">' +
+      '<span class="sb-ic" aria-hidden="true">' + catIcon(cat) + '</span>' +
       '<span class="sb-label">' + esc(CATEGORY_LABELS[cat] || cat) + '</span>' +
       '<span class="sb-count">' + n + "</span></button>";
   }).join("");

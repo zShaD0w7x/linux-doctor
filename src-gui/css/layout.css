@@ -148,6 +148,10 @@ span.sevicon[data-sev="info"] svg.sevdot { fill: var(--blue); }
 /* Inside filter pills the dot follows the pill's text color (active states invert). */
 .fpill svg.sevdot, .fpill.active svg.sevdot { fill: currentColor; stroke: currentColor; }
 
+/* === Category icons === */
+svg.cat-ic { display: inline-block; vertical-align: -2px; }
+.sb-ic { display: inline-flex; align-items: center; width: 16px; justify-content: center; flex-shrink: 0; }
+
 /* === Footer === */
 footer { margin-top: 64px; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
 

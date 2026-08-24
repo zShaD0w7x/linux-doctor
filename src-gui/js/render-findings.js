@@ -75,7 +75,7 @@ function renderReportByCategory(findings) {
     group.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity));
     const cards = group.map((f) => renderCard(f, f.severity)).join("");
     html += wrapGroup("", "cat", cat,
-      groupSummaryHtml("\u25a3", CATEGORY_LABELS[cat] || cat, group.length), cards, false);
+      groupSummaryHtml(catIcon(cat), CATEGORY_LABELS[cat] || cat, group.length), cards, false);
   }
   return html;
 }
