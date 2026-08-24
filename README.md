@@ -13,13 +13,13 @@ It never changes your system. Fixes are suggestions you run yourself.
 
 ## Download the app (recommended)
 
-Desktop app — no Node.js, no terminal. Download, run:
+Desktop app — no install, no package manager:
 
-- **[Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)** — grab `Linux-Doctor_<version>_amd64.AppImage`
+- **[Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)** — grab `Linux.Doctor_<version>_amd64.AppImage`
 
 ```bash
-chmod +x Linux-Doctor_*_amd64.AppImage
-./Linux-Doctor_*_amd64.AppImage
+chmod +x Linux.Doctor_*_amd64.AppImage
+./Linux.Doctor_*_amd64.AppImage
 ```
 
 Also attached to each release: `.deb` (Debian/Ubuntu) and the CLI tarball.
