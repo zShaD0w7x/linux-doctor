@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v*"]
 
+# The release steps publish artifacts via GITHUB_TOKEN — without this the
+# default token is read-only and softprops/action-gh-release gets a 403.
+permissions:
+  contents: write
+
 jobs:
   # CLI: test, pack the npm tarball, create the release with it.
   cli:
@@ -19,11 +24,14 @@ jobs:
       - run: npm test
       - name: Build the publishable tarball
         run: |
+          set -x
           VERSION="${GITHUB_REF_NAME#v}"
+          npm --version && node --version
           rm -f linux-doctor-*.tgz
-          TARBALL="$(npm pack 2>/dev/null | tail -n 1)"
-          echo "packed: $TARBALL"
-          test -f "$TARBALL" || { echo "::error::npm pack produced no tarball"; ls -la; exit 1; }
+          npm pack
+          ls -la
+          TARBALL="$(ls linux-doctor-*.tgz | head -n 1)"
+          test -f "$TARBALL" || { echo "::error::no tarball after npm pack"; exit 1; }
           mv -f "$TARBALL" "linux-doctor-${VERSION}.tgz"
       - name: Create the GitHub release
         uses: softprops/action-gh-release@v2
