@@ -607,6 +607,12 @@ body.compact #report { gap: 16px; }
   body { background: #fff !important; color: #111 !important; padding: 12px !important; background-image: none !important; }
   .status, .group, .card, .crow { box-shadow: none !important; break-inside: avoid; border: 1px solid #ddd !important; }
   .card-body { animation: none !important; }
+
+  /* Keep the brand mark and health colors in print — browsers strip
+     backgrounds by default and may drop var()-driven strokes. */
+  .logo, .gauge svg, .statusmsg { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .logo svg path { stroke: #0e9c5a !important; }   /* fixed brand green on paper */
+  .gauge .ring { stroke-width: 7 !important; }      /* ring keeps its inline stroke color */
 }
 
 </style>
@@ -1594,7 +1600,9 @@ function setupChecksMatrix() {
 function reportMarkdown(data) {
   const { system = {}, findings = [] } = data;
   const lines = [];
-  lines.push("# Linux Doctor report");
+  // Markdown viewers (GitHub, VSCode…) render emoji from their own fonts,
+  // so the stethoscope is safe — and wanted — here, unlike inside the app UI.
+  lines.push("# \u{1fa7a} Linux Doctor report");
   lines.push("");
   lines.push("- **System:** " + [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" \u00b7 "));
   if (typeof data.score === "number") {

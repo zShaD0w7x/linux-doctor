@@ -2,7 +2,9 @@
 function reportMarkdown(data) {
   const { system = {}, findings = [] } = data;
   const lines = [];
-  lines.push("# Linux Doctor report");
+  // Markdown viewers (GitHub, VSCode…) render emoji from their own fonts,
+  // so the stethoscope is safe — and wanted — here, unlike inside the app UI.
+  lines.push("# \u{1fa7a} Linux Doctor report");
   lines.push("");
   lines.push("- **System:** " + [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" \u00b7 "));
   if (typeof data.score === "number") {
