@@ -26,6 +26,10 @@ Also attached to each release: `.deb` (Debian/Ubuntu) and the CLI tarball.
 AppImage runs on most distributions (glibc-based); on immutable systems
 (Fedora Silverblue, Bazzite) it works out of the box.
 
+> The desktop app shells out to Node.js ≥ 20 for the checks themselves
+> (bundled-runtime builds are planned). Everything else — window, dashboard,
+> history — needs nothing.
+
 ## Install & first run (CLI)
 
 Needs Node.js ≥ 20.

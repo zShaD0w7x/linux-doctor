@@ -41,10 +41,33 @@ toolbox run -c ldbuild -- bash -lc '
   sudo dnf install -y nodejs npm rust cargo \
     webkit2gtk4.1-devel gtk3-devel librsvg2-devel file patchelf openssl-devel'
 cd <repo>
-toolbox run -c ldbuild -- bash -lc 'npm ci && npm run build:gui && npx tauri build --bundles appimage'
+toolbox run -c ldbuild -- bash -lc 'npm ci && npm run build:gui && npx tauri build --bundles deb'
 ```
 
-Artifacts land in `src-tauri/target/release/bundle/appimage/`.
+Artifacts land in `src-tauri/target/release/bundle/deb/`.
+
+Two gotchas learned the hard way:
+
+- **Run what you built inside the same container** (`toolbox run -c ldbuild
+  -- ./src-tauri/target/release/linux-doctor` with
+  `WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000`). A binary
+  compiled against the container's WebKitGTK crashes on the host's older
+  libs (`free(): corrupted unsorted chunks`).
+- **AppImage bundling may fail on bleeding-edge Fedora containers**: the
+  `strip` shipped inside linuxdeploy rejects modern `.relr.dyn` ELF sections
+  found in current Fedora libraries (`unknown type [0x13]`). Exporting
+  `APPIMAGE_EXTRACT_AND_RUN=1` is required regardless (no FUSE), but does
+  not fix strip. Practical split: build **deb locally**, let **CI produce
+  the AppImage** on ubuntu-22.04.
+
+## Node runtime resolution
+
+The desktop shell runs the Node CLI under the hood. It picks the interpreter
+in this order: `$LINUX_DOCTOR_NODE`, `<resources>/runtime/node` (a runtime
+dropped into the package by future release packaging), then `node` from
+PATH. Today the app therefore needs Node.js ≥ 20 installed — bundling a
+runtime into `.deb`/`.AppImage` is the planned follow-up so end users need
+nothing on their PATH.
 
 ## Asset naming convention
 

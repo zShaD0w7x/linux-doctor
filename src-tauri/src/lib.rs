@@ -56,15 +56,39 @@ fn repo_root(app: &tauri::AppHandle) -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
+/// Resolves the Node interpreter used to run the CLI, in priority order:
+/// 1. `$LINUX_DOCTOR_NODE` — explicit override for custom installs.
+/// 2. `<resources>/runtime/node` — a bundled runtime shipped inside the
+///    package (future-proofing: release packaging can drop a Node binary
+///    there so end users need nothing on their PATH).
+/// 3. Plain `"node"` from PATH — the common case today.
+fn node_bin(app: &tauri::AppHandle) -> PathBuf {
+    if let Ok(p) = std::env::var("LINUX_DOCTOR_NODE") {
+        let b = PathBuf::from(&p);
+        if !p.is_empty() && b.is_file() {
+            return b;
+        }
+    }
+    if let Ok(dir) = app.path().resource_dir() {
+        let b = dir.join("runtime").join("node");
+        if b.is_file() {
+            return b;
+        }
+    }
+    PathBuf::from("node")
+}
+
 /// Runs every check via the Node CLI and returns the raw JSON report bytes.
 /// Exit code 0 (healthy) and 1 (findings found) are both valid reports.
-fn collect_report(root: &PathBuf) -> Result<Vec<u8>, String> {
-    let out = Command::new("node")
+fn collect_report(root: &PathBuf, node: &PathBuf) -> Result<Vec<u8>, String> {
+    let out = Command::new(node)
         .args(["bin/doctor.js", "--json"])
         .current_dir(root)
         .output()
         .map_err(|e| {
-            format!("Could not run Node.js: {e}. Linux Doctor needs Node.js >= 20 with `node` on your PATH.")
+            format!(
+                "Could not run Node.js ({e}). Linux Doctor needs Node.js >= 20 with `node` on your PATH — or set LINUX_DOCTOR_NODE to a Node binary."
+            )
         })?;
     let code = out.status.code().unwrap_or(-1);
     if code != 0 && code != 1 {
@@ -80,7 +104,7 @@ fn collect_report(root: &PathBuf) -> Result<Vec<u8>, String> {
 /// Serves `GET /report` (and CORS preflight) on loopback. Runs in a background
 /// thread; each connection is handled on its own thread so "Re-run checks" can
 /// overlap safely (all checks are read-only).
-fn serve_report(root: PathBuf) {
+fn serve_report(root: PathBuf, node: PathBuf) {
     thread::spawn(move || {
         let listener = match TcpListener::bind(("127.0.0.1", REPORT_PORT)) {
             Ok(listener) => listener,
@@ -92,12 +116,13 @@ fn serve_report(root: PathBuf) {
         eprintln!("🩺 Linux Doctor report server: http://127.0.0.1:{REPORT_PORT}/report");
         for stream in listener.incoming().flatten() {
             let root = root.clone();
-            thread::spawn(move || handle_client(stream, &root));
+            let node = node.clone();
+            thread::spawn(move || handle_client(stream, &root, &node));
         }
     });
 }
 
-fn handle_client(mut stream: TcpStream, root: &PathBuf) {
+fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
     // Read the request head — we only care about the method and path.
     let mut buf = [0u8; 2048];
     let n = stream.read(&mut buf).unwrap_or(0);
@@ -113,7 +138,7 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf) {
 
     let (status, body) = match (method.as_str(), path.as_str()) {
         ("OPTIONS", _) => ("204 No Content", Vec::new()),
-        ("GET", "/report") | ("GET", "/report/") => match collect_report(root) {
+        ("GET", "/report") | ("GET", "/report/") => match collect_report(root, node) {
             Ok(bytes) => ("200 OK", bytes),
             Err(msg) => (
                 "500 Internal Server Error",
@@ -138,7 +163,9 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            serve_report(repo_root(app.handle()));
+            let root = repo_root(app.handle());
+            let node = node_bin(app.handle());
+            serve_report(root, node);
             Ok(())
         })
         .run(tauri::generate_context!())
