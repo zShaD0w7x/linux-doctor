@@ -138,15 +138,23 @@ button:disabled { opacity: .5; cursor: default; transform: none; }
 .group-body { padding: 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
 .sevicon { font-size: 13px; line-height: 1; flex-shrink: 0; display: inline-flex; align-items: center; }
 
-/* === Inline severity dots (replace emoji) === */
-svg.sevdot { width: 11px; height: 11px; flex-shrink: 0; }
-.sevicon svg.sevdot { fill: var(--muted); }
-.sevicon.high svg.sevdot, .bd-pen ~ svg.sevdot { fill: var(--red); }
-span.sevicon[data-sev="high"] svg.sevdot { fill: var(--red); }
-span.sevicon[data-sev="medium"] svg.sevdot { fill: var(--yellow); }
-span.sevicon[data-sev="info"] svg.sevdot { fill: var(--blue); }
-/* Inside filter pills the dot follows the pill's text color (active states invert). */
-.fpill svg.sevdot, .fpill.active svg.sevdot { fill: currentColor; stroke: currentColor; }
+/* === Severity dots — pure CSS, glyph-proof === */
+.sev-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
+  background: var(--muted);
+}
+.sev-dot.high { background: var(--red); }
+.sev-dot.medium { background: var(--yellow); }
+.sev-dot.info { background: var(--blue); }
+.sev-dot.all { background: transparent; border: 2px solid currentColor; }
+/* Inside filter pills the ring follows the pill's text color (active states invert). */
+.fpill .sev-dot { background: transparent; border: 2px solid currentColor; }
+/* Matrix statuses */
+.sev-dot.ok { background: var(--green); }
+.sev-dot.err { background: var(--red); }
+.sev-dot.na { background: transparent; border: 2px solid var(--muted); }
+.sev-dot.atomic { background: var(--purple); }
 
 /* === Category icons === */
 svg.cat-ic { display: inline-block; vertical-align: -2px; }

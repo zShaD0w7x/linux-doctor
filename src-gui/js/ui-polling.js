@@ -57,7 +57,7 @@ function setupPolling() {
       autoRefresh = !autoRefresh;
       autoBtn.classList.toggle("on", autoRefresh);
       syncAutoPausedUI();
-      showToast(autoRefresh ? "\u23f1 Auto-refresh on" : "\u23f8 Auto-refresh off");
+      showToast(autoRefresh ? "Auto-refresh on" : "Auto-refresh off");
     });
   }
   setInterval(syncAutoPausedUI, 1000);

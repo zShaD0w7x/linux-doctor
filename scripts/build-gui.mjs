@@ -92,11 +92,11 @@ ${css}
     <div class="actions">
       <button id="notifybtn" title="Enable desktop notifications when health degrades">🔔</button>
       <button id="theme" title="Toggle theme">🌓</button>
-      <button id="export" title="Copy the report as Markdown">⧉ MD</button>
-      <button id="copyjson" title="Copy the raw JSON report">{} JSON</button>
-      <button id="pdfbtn" title="Export as PDF (print)">⤓ PDF</button>
-      <button id="helpbtn" title="Keyboard shortcuts (press ?)">?</button>
-      <button id="rerun" class="primary">↻ Re-run checks</button>
+      <button id="export" title="Copy the report as Markdown">MD</button>
+      <button id="copyjson" title="Copy the raw JSON report">JSON</button>
+      <button id="pdfbtn" title="Export as PDF (print)">PDF</button>
+      <button id="helpbtn" title="Keyboard shortcuts (press ?)">Help</button>
+      <button id="rerun" class="primary">Re-run checks</button>
     </div>
   </header>
   <div id="status" class="status running" aria-live="polite" role="status">
@@ -125,19 +125,19 @@ ${css}
         </div>
         <div class="filters" id="filters" role="group" aria-label="Severity filter"></div>
         <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false" aria-label="Filter findings">
-    <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s"><svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-2px" aria-hidden="true"><circle cx="12" cy="13" r="8" fill="none" stroke="#3ee29a" stroke-width="2"/><path d="M12 9v4l2.5 2.5M9 2h6" fill="none" stroke="#3ee29a" stroke-width="2" stroke-linecap="round"/></svg> Auto</button>
-    <button id="expandall" class="toolbtn">⊞ Expand all</button>
-    <button id="densitybtn" class="toolbtn" title="Toggle compact density" aria-pressed="false"><svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-2px" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="#8a93a6" stroke-width="2" stroke-linecap="round"/></svg> Density</button>
-    <button id="checksmatrixbtn" class="toolbtn" title="See every check and its result"><svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-2px" aria-hidden="true"><path d="M4 6h2m0 0 1.5 1.5L11 4M4 14h2m0 0 1.5 1.5L11 12M15 6h6m-6 8h6M4 20h17" fill="none" stroke="#4a7bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Checks</button>
-        <button id="clearbtn" class="toolbtn" type="button" disabled>✕ Clear</button>
+    <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">Auto</button>
+    <button id="expandall" class="toolbtn">Expand all</button>
+    <button id="densitybtn" class="toolbtn" title="Toggle compact density" aria-pressed="false">Density</button>
+    <button id="checksmatrixbtn" class="toolbtn" title="See every check and its result">Checks</button>
+        <button id="clearbtn" class="toolbtn" type="button" disabled>Clear</button>
         <button id="threshbtn" class="toolbtn" title="Edit thresholds" aria-label="Edit thresholds"><svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="6" r="2.6" fill="currentColor"/><circle cx="8" cy="12" r="2.6" fill="currentColor"/><circle cx="17" cy="18" r="2.6" fill="currentColor"/></svg></button>
       </div>
       <div id="threshpanel" class="thresh-panel" hidden>
-        <div class="thresh-head">Thresholds <span class="thresh-sub">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;">✕</button></div>
+        <div class="thresh-head">Thresholds <span class="thresh-sub">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;" aria-label="Close">×</button></div>
         <div id="threshbody" class="thresh-body"></div>
         <div class="thresh-actions">
           <button id="threshsave" class="primary" style="padding:6px 12px; font-size:12px;">Save</button>
-          <button id="threshcopy" class="toolbtn">⧉ Copy JSON</button>
+          <button id="threshcopy" class="toolbtn">Copy JSON</button>
           <span id="threshmsg" style="font-size:11px; color:var(--muted); margin-left:8px;"></span>
         </div>
       </div>
@@ -176,7 +176,7 @@ ${css}
 <div id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Details">
   <div class="modal-card">
-    <button id="modal-x" class="modal-x" title="Close (Esc)">✕</button>
+    <button id="modal-x" class="modal-x" title="Close (Esc)" aria-label="Close">×</button>
     <div id="modal-body"></div>
   </div>
 </div>

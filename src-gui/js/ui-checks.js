@@ -15,24 +15,23 @@ function checksMatrixHtml(data, checks) {
   const atomic = new Set((data.skippedChecks || []).map((s) => s.id));
 
   const SEV_RANK = { high: 0, medium: 1, info: 2 };
-  const SEV_DOT_COLOR = { high: "#ff6b74", medium: "#ffce5a", info: "#74acff" };
-  const dot = (c) => '<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="' + c + '"/></svg>';
+  const dot = (cls) => '<span class="sev-dot ' + cls + '"></span>';
   const ST = {
-    err:    '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#ff6b74"/><path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>',
-    ok:     '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#3ee29a"/><path d="M3.8 6.2l1.5 1.5L8.4 4.4" stroke="#0b241a" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    na:     '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#8a93a6" stroke-width="1.6"/><path d="M4 6h4" stroke="#8a93a6" stroke-width="1.6" stroke-linecap="round"/></svg>',
-    atomic: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#c08bff"/><path d="M4.8 4v4M7.2 4v4" stroke="#241333" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    err:    { i: dot("err"),    t: "failed" },
+    ok:     { i: dot("ok"),     t: "clean" },
+    na:     { i: dot("na"),     t: "" },
+    atomic: { i: dot("atomic"), t: "" },
   };
   function statusOf(c) {
-    if (errors.has(c.id)) return { rank: 0, icon: ST.err, cls: "err", note: esc(errors.get(c.id) || "failed to run") };
+    if (errors.has(c.id)) return { rank: 0, icon: ST.err.i, cls: "err", note: esc(errors.get(c.id) || "failed to run") };
     const fs = findingsByCheck.get(c.id) || [];
     if (fs.length) {
       fs.sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9));
-      return { rank: 1, icon: dot(SEV_DOT_COLOR[fs[0].severity]), cls: fs[0].severity, note: fs.length + " finding" + (fs.length > 1 ? "s" : ""), goto: true };
+      return { rank: 1, icon: dot(fs[0].severity), cls: fs[0].severity, note: fs.length + " finding" + (fs.length > 1 ? "s" : ""), goto: true };
     }
-    if (!c.appliesHere) return { rank: 3, icon: ST.na, cls: "na", note: "runs on: " + (c.appliesTo || []).join(", ") };
-    if (c.skipOnAtomic || atomic.has(c.id)) return { rank: 3, icon: ST.atomic, cls: "na", note: c.atomicReason || "skipped on immutable/atomic systems" };
-    return { rank: 2, icon: ST.ok, cls: "ok", note: "clean" };
+    if (!c.appliesHere) return { rank: 3, icon: ST.na.i, cls: "na", note: "runs on: " + (c.appliesTo || []).join(", ") };
+    if (c.skipOnAtomic || atomic.has(c.id)) return { rank: 3, icon: ST.atomic.i, cls: "na", note: c.atomicReason || "skipped on immutable/atomic systems" };
+    return { rank: 2, icon: ST.ok.i, cls: "ok", note: "clean" };
   }
 
   const cats = new Map();

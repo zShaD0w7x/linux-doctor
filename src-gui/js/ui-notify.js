@@ -23,17 +23,17 @@ function setupNotifyButton() {
   if (!notifyBtn) return;
   const syncNotifyBtn = () => {
     if (!("Notification" in window)) { notifyBtn.style.display = "none"; return; }
-    notifyBtn.innerHTML = BELL_SVG + (Notification.permission === "granted" ? '<span style="font-size:10px;font-weight:800">\u2713</span>' : "");
-    notifyBtn.title = Notification.permission === "granted" ? "Notifications enabled" : "Enable desktop notifications when health degrades";
+    notifyBtn.textContent = "Alerts" + (Notification.permission === "granted" ? " \u2713" : "");
+    notifyBtn.title = Notification.permission === "granted" ? "Desktop notifications are enabled" : "Enable desktop notifications when health degrades";
     notifyBtn.classList.toggle("on", Notification.permission === "granted");
   };
   syncNotifyBtn();
   notifyBtn.addEventListener("click", async () => {
     if (!("Notification" in window)) { showToast("Notifications not supported in this browser"); return; }
-    if (Notification.permission === "granted") { showToast("\u{1f514} Notifications already enabled"); return; }
+    if (Notification.permission === "granted") { showToast("Notifications already enabled"); return; }
     const perm = await Notification.requestPermission();
     syncNotifyBtn();
-    showToast(perm === "granted" ? "\u{1f514} Notifications enabled" : "Notifications not granted");
+    showToast(perm === "granted" ? "Notifications enabled" : "Notifications not granted");
     if (perm === "granted" && lastData) maybeNotify(lastData);
   });
 }

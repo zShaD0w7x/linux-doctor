@@ -6,8 +6,8 @@ function applyTheme() {
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   const btn = $("#theme");
   if (btn) {
-    btn.textContent = t === "light" ? "\u2600\ufe0f" : t === "dark" ? "\u{1f319}" : "\u{1f313}";
-    btn.title = "Theme: " + t + " \u2014 click to change";
+    btn.textContent = "Theme";
+    btn.title = "Theme: " + t + (dark ? " (dark)" : " (light)") + " \u2014 click to change";
   }
 }
 function cycleTheme() {

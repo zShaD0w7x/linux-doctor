@@ -73,7 +73,7 @@ if (pdfBtn) {
   pdfBtn.addEventListener("click", () => {
     document.querySelectorAll(".group, .card, .crow, details.ev").forEach(el => el.setAttribute("open", ""));
     setTimeout(() => window.print(), 120);
-    showToast("\u{1f5a8}\ufe0f Print dialog opened \u2014 save as PDF");
+    showToast("Print dialog opened \u2014 save as PDF");
   });
 }
 
@@ -222,7 +222,7 @@ if (densityBtn) {
     const compact = document.body.classList.toggle("compact");
     try { localStorage.setItem("ld-density", compact ? "compact" : "comfortable"); } catch {}
     syncDensityBtn();
-    showToast(compact ? "\u2261 Compact density" : "\u2637 Comfortable density");
+    showToast(compact ? "Compact density" : "Comfortable density");
   });
 }
 

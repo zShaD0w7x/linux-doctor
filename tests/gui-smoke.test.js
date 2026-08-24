@@ -127,6 +127,23 @@ test("gui script renders a static report without errors (--html path)", () => {
   assert.doesNotThrow(() => vm.runInContext(script, sandbox, { filename: "gui-bundle.js" }));
 });
 
+test("no fragile glyphs that render as missing boxes in WebKitGTK", () => {
+  // Codepoints with spotty font coverage on Linux webviews. Buttons/labels
+  // must use text or CSS shapes instead.
+  const FORBIDDEN = [
+    "\u29C9", // ⧉ two joined squares
+    "\u2913", // ⤓ download arrow
+    "\u229E", "\u229F", // ⊞ ⊟ squared plus/minus
+    "\u25C9", // ◉ fisheye
+    "\u2699", // ⚙ gear (emoji presentation)
+    "\u23F1", "\u23F8", // stopwatch / pause
+    "\u2705", "\u26A0", "\u23ED", // ✅ ⚠ ⏭ emoji-presentation glyphs
+    "\u{1F5A8}", "\u{1F514}", // printer, bell
+  ];
+  const offenders = FORBIDDEN.filter((ch) => script.includes(ch));
+  assert.deepEqual(offenders, [], `fragile glyphs found in bundle: ${offenders.map((c) => "U+" + c.codePointAt(0).toString(16)).join(", ")}`);
+});
+
 test("checks matrix builds from a live-shaped payload", () => {
   const sandbox = makeSandbox({ staticData: null });
   vm.runInContext(script, sandbox, { filename: "gui-bundle.js" });
