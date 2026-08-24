@@ -29,21 +29,16 @@ AppImage runs on most distributions (glibc-based); on immutable systems
 **Troubleshooting the AppImage on very new Mesa (Fedora/Bazzite, AMD):**
 the bundle's WebKitGTK comes from an older LTS base and its accelerated
 paths can abort against bleeding-edge Mesa (`Could not create default EGL
-display`). Try, in order:
+display`). Verified workaround — force software rendering (a diagnostics
+dashboard does not need GPU anyway):
 
 ```bash
-# 1 · usually enough:
-WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
-  ./Linux.Doctor_*_amd64.AppImage
-
-# 2 · still failing? drop the app's old wayland-egl so the host's is used:
-./Linux.Doctor_*_amd64.AppImage --appimage-extract
-rm squashfs-root/usr/lib/libwayland-egl*
-./squashfs-root/AppRun
-
-# 3 · guaranteed fallback (CPU rendering):
 LIBGL_ALWAYS_SOFTWARE=1 ./Linux.Doctor_*_amd64.AppImage
 ```
+
+Compositing/dmabuf env flags alone are not sufficient on these hosts
+(tested on Bazzite 44). Long-term fix tracked: build desktop
+bundles on a newer LTS base so bundled WebKitGTK matches modern Mesa.
 
 > The desktop app shells out to Node.js ≥ 20 for the checks themselves
 > (bundled-runtime builds are planned). Everything else — window, dashboard,
