@@ -26,6 +26,14 @@ Also attached to each release: `.deb` (Debian/Ubuntu) and the CLI tarball.
 AppImage runs on most distributions (glibc-based); on immutable systems
 (Fedora Silverblue, Bazzite) it works out of the box.
 
+**Troubleshooting the AppImage** — hybrid/NVIDIA machines may hit
+`Could not create default EGL display` at startup (the bundled GL stack vs.
+your driver). Run it with software rendering:
+
+```bash
+LIBGL_ALWAYS_SOFTWARE=1 ./Linux.Doctor_*_amd64.AppImage
+```
+
 > The desktop app shells out to Node.js ≥ 20 for the checks themselves
 > (bundled-runtime builds are planned). Everything else — window, dashboard,
 > history — needs nothing.
