@@ -20,8 +20,11 @@ jobs:
       - name: Build the publishable tarball
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          npm pack
-          mv linux-doctor-*.tgz "linux-doctor-${VERSION}.tgz"
+          rm -f linux-doctor-*.tgz
+          TARBALL="$(npm pack 2>/dev/null | tail -n 1)"
+          echo "packed: $TARBALL"
+          test -f "$TARBALL" || { echo "::error::npm pack produced no tarball"; ls -la; exit 1; }
+          mv -f "$TARBALL" "linux-doctor-${VERSION}.tgz"
       - name: Create the GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -73,3 +76,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          generate_release_notes: true
