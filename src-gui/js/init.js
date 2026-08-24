@@ -1,5 +1,28 @@
 /* === Entry point: load, bind, start === */
 
+// Inline-SVG capability probe. Icons ship as inline SVG (never font glyphs);
+// every icon carries a hidden emoji fallback (.ico .fb). If SVG ever fails
+// to render — hostile CSP, stripped build, exotic sandbox — this flips the
+// root to .no-svg and CSS swaps every fallback in at once.
+(function svgProbe() {
+  try {
+    const el = document.createElement("div");
+    el.innerHTML = '<svg width="8" height="8"><rect width="8" height="8"/></svg>';
+    el.style.position = "absolute";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    const r = el.firstChild.getBoundingClientRect();
+    el.remove();
+    if (!(r.width > 0 && r.height > 0)) markNoSvg();
+  } catch {
+    markNoSvg();
+  }
+  function markNoSvg() {
+    const root = document.documentElement;
+    if (root && root.classList && typeof root.classList.add === "function") root.classList.add("no-svg");
+  }
+})();
+
 // Theme
 applyTheme();
 $("#theme").addEventListener("click", cycleTheme);

@@ -160,6 +160,15 @@ button:disabled { opacity: .5; cursor: default; transform: none; }
 svg.cat-ic { display: inline-block; vertical-align: -2px; }
 .sb-ic { display: inline-flex; align-items: center; width: 16px; justify-content: center; flex-shrink: 0; }
 
+/* === Icon + emoji fallback pattern ===
+   Primary: inline SVG. Fallback: .fb emoji, hidden unless the svg probe
+   adds html.no-svg (SVG failed to render). Buttons keep their tooltips. */
+.ico { position: relative; display: inline-flex; align-items: center; }
+.ico svg { display: block; }
+.ico .fb { display: none; font-size: 13px; line-height: 1; }
+html.no-svg .ico svg { display: none !important; }
+html.no-svg .ico .fb { display: inline !important; }
+
 /* === Footer === */
 footer { margin-top: 64px; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
 

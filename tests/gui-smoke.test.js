@@ -138,10 +138,23 @@ test("no fragile glyphs that render as missing boxes in WebKitGTK", () => {
     "\u2699", // ⚙ gear (emoji presentation)
     "\u23F1", "\u23F8", // stopwatch / pause
     "\u2705", "\u26A0", "\u23ED", // ✅ ⚠ ⏭ emoji-presentation glyphs
-    "\u{1F5A8}", "\u{1F514}", // printer, bell
+    // NOTE: 🌙 ☀️ 🔔 ❓ are ALLOWED — they are the sanctioned .fb emoji
+    // fallbacks for inline-SVG icons (see the hybrid pattern test below).
   ];
   const offenders = FORBIDDEN.filter((ch) => script.includes(ch));
   assert.deepEqual(offenders, [], `fragile glyphs found in bundle: ${offenders.map((c) => "U+" + c.codePointAt(0).toString(16)).join(", ")}`);
+});
+
+test("icon+emoji hybrid pattern is wired (svg primary, .fb fallback, probe)", () => {
+  // Fallback spans exist for the mapped buttons…
+  assert.ok(script.includes('<span class="fb">🔔</span>'), "bell emoji fallback");
+  assert.ok(script.includes('<span class="fb">🌙</span>') && script.includes('<span class="fb">☀️</span>'), "theme emoji fallbacks");
+  assert.ok(html.includes('<span class="fb">❓</span>'), "help emoji fallback (template)");
+  // …the no-svg swap rule ships in CSS…
+  assert.ok(html.includes("html.no-svg .ico svg"), "no-svg CSS rule present");
+  assert.ok(html.includes('.ico .fb { display: none'), "fallbacks hidden by default");
+  // …and the runtime probe flips the root class when SVG fails.
+  assert.ok(script.includes('classList.add("no-svg")'), "svg probe installed");
 });
 
 test("checks matrix builds from a live-shaped payload", () => {

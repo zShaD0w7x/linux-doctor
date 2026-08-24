@@ -18,12 +18,15 @@ function maybeNotify(data) {
   } catch {}
 }
 
+const BELL_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 16h15L18 12.5V9a6 6 0 0 0-6-6Zm-2 15a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="fb">🔔</span>';
+
 function setupNotifyButton() {
   const notifyBtn = $("#notifybtn");
   if (!notifyBtn) return;
   const syncNotifyBtn = () => {
     if (!("Notification" in window)) { notifyBtn.style.display = "none"; return; }
-    notifyBtn.textContent = "Alerts" + (Notification.permission === "granted" ? " \u2713" : "");
+    notifyBtn.innerHTML = '<span class="ico" aria-hidden="true">' + BELL_ICON + "</span>" +
+      (Notification.permission === "granted" ? '<span style="font-size:10px;font-weight:800">\u2713</span>' : "");
     notifyBtn.title = Notification.permission === "granted" ? "Desktop notifications are enabled" : "Enable desktop notifications when health degrades";
     notifyBtn.classList.toggle("on", Notification.permission === "granted");
   };
