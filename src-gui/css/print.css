@@ -1,0 +1,9 @@
+/* === Print === */
+@media print {
+  header .actions, .toolbar, #toast-wrap, footer, .history, #fixed, #skipped, #diff,
+  #sidebar, .skel, .skip-link, .modal { display: none !important; }
+  .layout { display: block !important; }
+  body { background: #fff !important; color: #111 !important; padding: 12px !important; background-image: none !important; }
+  .status, .group, .card, .crow { box-shadow: none !important; break-inside: avoid; border: 1px solid #ddd !important; }
+  .card-body { animation: none !important; }
+}

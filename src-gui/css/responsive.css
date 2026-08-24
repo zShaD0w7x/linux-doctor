@@ -1,0 +1,25 @@
+/* === Mobile === */
+@media (max-width: 700px) {
+  header { flex-wrap: wrap; }
+  .actions { margin-left: 0; width: 100%; }
+  .status { flex-wrap: wrap; gap: 12px; padding: 12px 14px; }
+  .status-main { width: 100%; }
+  .toolbar { top: 108px; flex-direction: column; align-items: stretch; }
+  .filters { justify-content: center; }
+  #search { min-width: 0; }
+  .group-body { padding: 12px; }
+  .card summary { padding: 11px 12px; }
+  .card-body { padding: 12px; gap: 10px; }
+  .card .detail { font-size: 13px; }
+  .fix .fixtext { min-width: 0; font-size: 11.5px; }
+  .fix button, .fix .reportbtn { height: 40px; font-size: 12px; }
+  #nexthep { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  .history { margin-top: 36px; }
+  .status.calm::before { left: 16px; right: 16px; }
+  /* Touch targets: every interactive control reaches ~40px tall. */
+  button { min-height: 38px; }
+  .fpill, .segbtn { padding: 9px 14px; }
+  .sb-item { display: none; } /* sidebar is hidden <1100px anyway */
+  .evidence { font-size: 10.5px; max-height: 160px; }
+  .ev-copy, .ev-expand { padding: 8px 12px; min-height: 36px; }
+}

@@ -1,0 +1,49 @@
+/* === CSS Variables, Reset, Typography === */
+:root {
+  --bg: #0b0e14; --bg2: #0f131c; --card: #151a25; --card2: #1b2130; --border: #232b3a;
+  --text: #eef1f7; --muted: #8a93a6;
+  --red: #ff6b74; --yellow: #ffce5a; --green: #3ee29a; --blue: #74acff; --purple: #c08bff;
+  --accent: #4a7bff; --accent2: #7aa7ff; --hover: #1f2737; --evidence-bg: #0d111c;
+  --shadow: 0 1px 2px rgba(0,0,0,.18), 0 6px 20px rgba(0,0,0,.16);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.22);
+  --radius: 14px; --radius-sm: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+:root[data-theme="light"] {
+  --bg: #f4f6fa; --bg2: #eef1f6; --card: #ffffff; --card2: #f5f7fb; --border: #e2e7f0;
+  --text: #1a1f2b; --muted: #5e6878;
+  --red: #e0464f; --yellow: #b07d00; --green: #0e9c5a; --blue: #2f6ad6; --purple: #843fe0;
+  --hover: #eef1f7; --evidence-bg: #f7f9fc;
+  --shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.08);
+  --shadow-sm: 0 1px 2px rgba(20,30,50,.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: 40px 22px 80px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+.empty { text-align: center; color: var(--muted); padding: 64px 0; font-size: 14px; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: var(--card2); }
+
+/* === Accessibility === */
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--accent); color: #fff; padding: 10px 16px;
+  border-radius: 0 0 10px 0; font-size: 13px; font-weight: 650;
+}
+.skip-link:focus { left: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body { transition: background-color .15s ease, color .15s ease; }
+
+/* Respect users who opt out of motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

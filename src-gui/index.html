@@ -6,781 +6,814 @@
 <title>Linux Doctor</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
 <style>
-  :root {
-    --bg: #0b0e14; --bg2: #0f131c; --card: #151a25; --card2: #1b2130; --border: #232b3a;
-    --text: #eef1f7; --muted: #8a93a6;
-    --red: #ff6b74; --yellow: #ffce5a; --green: #3ee29a; --blue: #74acff; --purple: #c08bff;
-    --accent: #4a7bff; --accent2: #7aa7ff; --hover: #1f2737; --evidence-bg: #0d111c;
-    --shadow: 0 1px 2px rgba(0,0,0,.18), 0 6px 20px rgba(0,0,0,.16);
-    --shadow-sm: 0 1px 2px rgba(0,0,0,.22);
-    --radius: 14px; --radius-sm: 10px;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  }
-  :root[data-theme="light"] {
-    --bg: #f4f6fa; --bg2: #eef1f6; --card: #ffffff; --card2: #f5f7fb; --border: #e2e7f0;
-    --text: #1a1f2b; --muted: #5e6878;
-    --red: #e0464f; --yellow: #b07d00; --green: #0e9c5a; --blue: #2f6ad6; --purple: #843fe0;
-    --hover: #eef1f7; --evidence-bg: #f7f9fc;
-    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.08);
-    --shadow-sm: 0 1px 2px rgba(20,30,50,.1);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    padding: 40px 22px 80px;
-  }
-  .wrap { max-width: 1080px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 14px; margin-bottom: 30px; position: sticky; top: 0; z-index: 20; background: var(--bg); margin: -14px -22px 30px; padding: 14px 22px; border-bottom: 1px solid transparent; transition: border-color .2s ease, box-shadow .2s ease; }
-  header.scrolled { border-bottom-color: var(--border); box-shadow: 0 4px 20px rgba(0,0,0,.08); }
-  header .logo {
-    font-size: 22px; width: 42px; height: 42px; display: grid; place-items: center;
-    background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
-  }
-  h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
-  .sysinfo { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
-  .sysinfo .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); vertical-align: 1px; margin-right: 5px; }
-  .sysinfo .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 20%, transparent); }
-  .sysinfo .ver { font-family: var(--mono); }
-  .actions { margin-left: auto; display: flex; gap: 8px; }
-  button {
-    background: var(--card2); color: var(--text); border: 1px solid var(--border);
-    padding: 8px 13px; border-radius: var(--radius-sm); font-size: 12.5px; cursor: pointer; font-weight: 550;
-    transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
-  }
-  button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--border) 50%, var(--text) 50%); transform: translateY(-1px); }
-  button:active { transform: translateY(0); }
-  button.primary { background: linear-gradient(180deg, #4a7bff, #3362f0); border-color: #2a52d8; color: #fff; box-shadow: 0 2px 10px rgba(51,98,240,.3); }
-  button.primary:hover { background: linear-gradient(180deg, #5a88ff, #3b6dff); }
-  button:disabled { opacity: .5; cursor: default; transform: none; }
-  #autorefresh.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  /* Paused auto-refresh must look different from active — amber, dimmed. */
-  #autorefresh.paused {
-    background: color-mix(in srgb, var(--yellow) 12%, var(--card2));
-    border-color: color-mix(in srgb, var(--yellow) 35%, transparent);
-    color: var(--yellow);
-    opacity: .85;
-  }
-  /* Zona 2 · Status: gauge + health on the left, status message on the right. */
-  .status { display: flex; align-items: center; gap: 26px; padding: 26px 30px; margin-bottom: 28px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-sm); }
-  .status.running { justify-content: center; color: var(--muted); }
-  .status.warn { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
-  .status-main { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
-  .status-body { flex: 1; min-width: 0; }
-  .statusmsg { font-size: 16px; font-weight: 700; line-height: 1.45; }
-  .statusmsg.ok { color: var(--green); }
-  .statusmsg.warn { color: var(--red); }
-  .status-meta { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
-  .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .newbadge, .fixedbadge { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 7px; flex-shrink: 0; }
-  .newbadge { color: #1a0f2e; background: var(--purple); }
-  .fixedbadge { color: #06231a; background: var(--green); }
-  .lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; }
-  .checkid { font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; background: var(--card); }
-  /* Hero status bar: gauge + health, then the status message. */
-  .gauge { position: relative; width: 68px; height: 68px; flex-shrink: 0; }
-  .gauge svg { width: 100%; height: 100%; }
-  .gauge .track { fill: none; stroke: var(--border); stroke-width: 7; }
-  .gauge .ring { fill: none; stroke-width: 7; stroke-linecap: round; }
-  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .scorenum { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .scoreout { font-size: 9px; color: var(--muted); margin-top: 2px; font-weight: 600; letter-spacing: .04em; }
-  .hero-main { min-width: 0; }
-  .hero-main .k { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
-  .scoredelta { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
-  .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
-  /* Toolbar: the control strip — severity filters + live search + actions. */
-  .toolbar { display: flex; gap: 10px; align-items: center; margin: 0 0 26px; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); flex-wrap: wrap; position: sticky; top: 70px; z-index: 19; transition: box-shadow .2s ease, border-color .2s ease; }
-  .toolbar.scrolled { box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--border) 80%, var(--text) 20%); }
-  .filters { display: flex; gap: 6px; }
-  .fpill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card2); color: var(--muted); cursor: pointer; transition: all .15s ease; }
-  .fpill:hover { color: var(--text); border-color: color-mix(in srgb, var(--border) 50%, var(--text) 50%); }
-  .fpill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
-  .fpill.high.active { background: var(--red); border-color: var(--red); color: #2a0c0f; }
-  .fpill.medium.active { background: var(--yellow); border-color: var(--yellow); color: #2a2000; }
-  .fpill.info.active { background: var(--blue); border-color: var(--blue); color: #06182f; }
-  .fpill:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
-  #search { flex: 1; min-width: 160px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 13px; color: var(--text); font-size: 13px; }
-  .toolbtn { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: var(--card2); }
-  #search::placeholder { color: var(--muted); }
-  #search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
-  /* Findings: one readable column of sentences, evenly spaced. */
-  #report { display: flex; flex-direction: column; gap: 24px; max-width: 1040px; margin: 0 auto; width: 100%; }
-  #report > .empty { text-align: center; color: var(--muted); padding: 64px 0; font-size: 14px; }
-  #nomatch { text-align: center; color: var(--muted); padding: 28px 0; font-size: 13px; }
-  #drillhint { text-align: center; color: var(--muted); padding: 28px 0; font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 4px; }
-  .content { display: grid; gap: 24px; max-width: 1040px; margin: 0 auto; width: 100%; }
-  .group { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm); }
-  .group summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 650; color: var(--muted); border-bottom: 1px solid transparent; transition: background .15s ease; }
-  .group[open] summary { border-bottom-color: var(--border); background: color-mix(in srgb, var(--card2) 60%, var(--card)); }
-  .group.high summary { color: var(--red); }
-  .group.medium summary { color: var(--yellow); }
-  .group.info summary { color: var(--blue); }
-  .group summary::-webkit-details-marker { display: none; }
-  .group summary b { color: var(--text); }
-  .group summary .chev { margin-left: auto; font-size: 11px; transition: transform .18s ease; color: var(--muted); }
-  .group[open] summary .chev { transform: rotate(90deg); }
-  .group-body { padding: 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
-  .group .card { border: 1px solid var(--border); border-left-width: 3px; background: var(--card2); margin-bottom: 0; height: 100%; display: flex; flex-direction: column; }
-  .group .card .card-body { flex: 1; }
-  .group .card:last-child { margin-bottom: 0; }
-  .crow { border-left: 3px solid var(--blue); border-radius: 6px; margin-bottom: 3px; background: transparent; transition: background .15s ease; }
-  .crow:hover { background: var(--card); }
-  .crow summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px 9px; cursor: pointer; user-select: none; }
-  .crow summary::-webkit-details-marker { display: none; }
-  .crow summary h3 { font-size: 12.5px; font-weight: 550; flex: 1; letter-spacing: -0.01em; color: var(--text); }
-  .crow summary .chev { color: var(--muted); font-size: 11px; transition: transform .18s ease; }
-  .crow[open] summary .chev { transform: rotate(90deg); }
-  .crow[open] { background: var(--card); }
-  .crow .card-body { padding: 0 10px 9px 12px; }
-  .crow .fix .fixtext { font-size: 11.5px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 14px; margin-bottom: 10px; overflow: hidden; transition: border-color .15s ease, transform .12s ease, box-shadow .15s ease; }
-  .card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--border) 40%, var(--text) 60%); box-shadow: var(--shadow-sm); }
-  .card.high { border-left-color: var(--red); }
-  .card.medium { border-left-color: var(--yellow); }
-  .card.info { border-left-color: var(--blue); }
-  .card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
-  .card summary h3 { font-size: 14.5px; font-weight: 650; flex: 1; letter-spacing: -0.01em; }
-  .card summary .chev { color: var(--muted); font-size: 12px; transition: transform .18s ease; }
-  .card[open] summary .chev { transform: rotate(90deg); }
-  .card-body { padding: 0 16px 14px; animation: fadein .2s ease; }
-  @keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
-  .badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 7px; flex-shrink: 0; }
-  .badge.high { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
-  .badge.medium { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
-  .badge.info { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
-  .card .detail { color: var(--text); margin-top: 8px; font-size: 13.5px; line-height: 1.55; }
-  .evidence { margin-top: 9px; background: var(--evidence-bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-  .evidence.expanded { max-height: none; }
-  .evidence::-webkit-scrollbar { width: 6px; height: 6px; }
-  .evidence::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
-  .ev-expand { margin-top: 6px; font-size: 11px; color: var(--blue); background: none; border: 1px solid transparent; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
-  .ev-expand:hover { background: var(--hover); border-color: var(--border); }
-  .card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: var(--card2); }
-  details.ev { margin-top: 9px; }
-  details.ev summary { cursor: pointer; color: var(--blue); font-size: 12.5px; user-select: none; }
-  .fix { margin-top: 9px; display: flex; gap: 8px; align-items: flex-start; }
-  .fix .fixtext { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-family: var(--mono); font-size: 12px; flex: 1; color: var(--text); }
-  .fix button { flex-shrink: 0; }
-  .fix .reportbtn { flex-shrink: 0; align-self: center; font-size: 12px; color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
-  .fix .reportbtn:hover { color: var(--text); background: var(--hover); }
-  footer { margin-top: 64px; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
-  #trend { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow-sm); }
-  .trendtitle { font-size: 12px; color: var(--muted); }
-  .trendtitle b { color: var(--text); }
-  .trendtitle .delta-up, .trendtitle .delta-down, .trendtitle .delta-flat { font-weight: 700; margin-left: 2px; }
-  .trendrange { color: var(--muted); font-size: 11px; }
-  #trend svg { flex-shrink: 0; }
-  #trend .trend-wrap { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; width: 100%; }
-  #trend .trendchart { display: flex; flex-direction: column; gap: 4px; }
-  #trend .sevlegend { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px 5px; flex-wrap: wrap; }
-  #trend .sevlegend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-left: 8px; }
-  #trend .sevlegend .lg.high { background: var(--red); }
-  #trend .sevlegend .lg.medium { background: var(--yellow); }
-  #trend .sevlegend .lg.info { background: var(--blue); }
-  #trend { max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
-  #fixed, #skipped { max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
-  /* Toast */
-  #toast-wrap { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-  .toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; box-shadow: var(--shadow); animation: toastin .25s ease, toastout .25s ease 2.7s forwards; max-width: 92vw; }
-  .toast button { pointer-events: auto; background: var(--accent); color: #fff; border-color: transparent; padding: 4px 10px; font-size: 12px; }
-  @keyframes toastin { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform:none;} }
-  @keyframes toastout { to { opacity:0; transform: translateY(8px);} }
-  /* Search highlight */
-  mark.hl { background: color-mix(in srgb, var(--yellow) 32%, transparent); color: inherit; padding: 0 2px; border-radius: 3px; border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent); }
-  /* Severity icons */
-  .sevicon { font-size: 13px; line-height: 1; flex-shrink:0; }
-  .pill-icon { font-size: 11px; margin-right: 2px; }
-  /* History: secondary, recessed, colapsabil — jos, nu amestecat în findings */
-  .history { max-width: 1040px; margin: 44px auto 0; width: 100%; }
-  .history .hist-details { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card2); box-shadow: var(--shadow); overflow: hidden; }
-  .history .hist-summary { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: baseline; gap: 8px; padding: 12px 15px; font-size: 13px; font-weight: 650; color: var(--muted); }
-  .history .hist-summary::-webkit-details-marker { display: none; }
-  .history .hist-summary .hist-sub { font-size: 11.5px; font-weight: 500; }
-  .history .hist-summary .chev { margin-left: auto; transition: transform .18s ease; color: var(--muted); }
-  .history .hist-details[open] .chev { transform: rotate(90deg); }
-  .history #trend { margin: 0; border: none; box-shadow: none; background: transparent; padding: 4px 15px 16px; max-width: none; }
-  .thresh-panel {
-    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 12px; margin: -18px 0 26px; box-shadow: var(--shadow-sm);
-    max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%;
-  }
-  .thresh-head { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:10px; }
-  .thresh-body { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
-  .thresh-field { display:flex; flex-direction:column; gap:4px; }
-  .thresh-field label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
-  .thresh-field input { background: var(--bg2); border:1px solid var(--border); border-radius:8px; padding:6px 8px; color:var(--text); font-size:12px; font-family: var(--mono); }
-  .thresh-field input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
-  .thresh-actions { display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
-  @media print {
-    header .actions, .toolbar, #toast-wrap, footer, .history, #fixed, #skipped, #diff { display: none !important; }
-    body { background: #fff !important; color: #111 !important; padding: 12px !important; background-image: none !important; }
-    .status, .group, .card, .crow { box-shadow: none !important; break-inside: avoid; border: 1px solid #ddd !important; }
-    .card-body { animation: none !important; }
-  }
-  @media (max-width: 700px) {
-    header { flex-wrap: wrap; }
-    .actions { margin-left: 0; width: 100%; }
-    .status { flex-wrap: wrap; gap: 12px; padding: 12px 14px; }
-    .status-main { width: 100%; }
-    .toolbar { top: 108px; }
-    .group-body { padding: 12px; }
-    .status.calm::before { left: 16px; right: 16px; }
-  }
+/* ── base.css ── */
+/* === CSS Variables, Reset, Typography === */
+:root {
+  --bg: #0b0e14; --bg2: #0f131c; --card: #151a25; --card2: #1b2130; --border: #232b3a;
+  --text: #eef1f7; --muted: #8a93a6;
+  --red: #ff6b74; --yellow: #ffce5a; --green: #3ee29a; --blue: #74acff; --purple: #c08bff;
+  --accent: #4a7bff; --accent2: #7aa7ff; --hover: #1f2737; --evidence-bg: #0d111c;
+  --shadow: 0 1px 2px rgba(0,0,0,.18), 0 6px 20px rgba(0,0,0,.16);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.22);
+  --radius: 14px; --radius-sm: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+:root[data-theme="light"] {
+  --bg: #f4f6fa; --bg2: #eef1f6; --card: #ffffff; --card2: #f5f7fb; --border: #e2e7f0;
+  --text: #1a1f2b; --muted: #5e6878;
+  --red: #e0464f; --yellow: #b07d00; --green: #0e9c5a; --blue: #2f6ad6; --purple: #843fe0;
+  --hover: #eef1f7; --evidence-bg: #f7f9fc;
+  --shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.08);
+  --shadow-sm: 0 1px 2px rgba(20,30,50,.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: 40px 22px 80px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+.empty { text-align: center; color: var(--muted); padding: 64px 0; font-size: 14px; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: var(--card2); }
 
-  /* ===== Refinements — the subtraction pass =====
-     One calm layer over the base system. Premium here means air, restraint
-     and honest typography: color only where severity demands it, one
-     dominant zone (the status hero), history recessed. Nothing glows. */
-  /* Header: solid and quiet; the hairline appears only while scrolled. */
-  header { margin-bottom: 40px; }
-  /* Primary action: solid accent, one small shadow. */
-  button.primary {
-    background: var(--accent); border-color: var(--accent); color: #fff;
-    box-shadow: var(--shadow-sm); font-weight: 650;
-  }
-  button.primary:hover { background: var(--accent2); filter: none; transform: none; box-shadow: var(--shadow-sm); }
-  /* Hero status: the single dominant zone. */
-  .status { margin-bottom: 36px; }
-  /* Healthy state is visually lighter: no heavy shadow, a quiet green
-     hairline as the only celebration. Calm when healthy, clear when not. */
-  .status.calm { box-shadow: none; }
-  .status.calm::before {
-    content: ""; position: absolute; top: -1px; left: 26px; right: 26px;
-    height: 2px; border-radius: 2px; background: var(--green);
-  }
-  /* Control strip: an instrument row, not a card — it gains a surface only
-     while stuck over content, so findings scroll beneath it legibly. */
-  .toolbar {
-    margin: 0 0 28px;
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-  }
-  .toolbar.scrolled {
-    background: var(--card);
-    border-color: var(--border);
-    box-shadow: var(--shadow-sm);
-  }
-  /* Segmented severity filter — the one component skin worth keeping. */
-  .filters {
-    background: var(--bg2); border: 1px solid var(--border);
-    padding: 3px; border-radius: 999px; gap: 2px;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
-  }
-  .fpill { border: none; background: transparent; padding: 6px 12px; box-shadow: none; transform: none; }
-  .fpill:hover { background: transparent; color: var(--text); }
-  .fpill.active { background: var(--text); color: var(--bg); box-shadow: none; }
-  .fpill.high.active { background: var(--red); border-color: transparent; color: #fff; }
-  .fpill.medium.active { background: var(--yellow); border-color: transparent; color: #1a1200; }
-  .fpill.info.active { background: var(--blue); border-color: transparent; color: #fff; }
-  /* Search: quiet magnifier glyph, standard radius. */
-  #search {
-    border-radius: 10px;
-    padding-left: 32px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a93a6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20L16.5 16.5'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: 10px 50%;
-  }
-  #search:focus { background-color: var(--bg2); }
-  /* Cards confirm hover with a border shift — they never lift or glow. */
-  .card:hover, .crow:hover { transform: none; box-shadow: none; }
-  /* Info rows are neutral prose; severity color is reserved for problems. */
-  .crow { border-left-color: transparent; }
-  .group.info summary { color: var(--muted); }
-  /* History: further below, still secondary. */
-  .history { margin-top: 56px; }
+/* === Accessibility === */
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--accent); color: #fff; padding: 10px 16px;
+  border-radius: 0 0 10px 0; font-size: 13px; font-weight: 650;
+}
+.skip-link:focus { left: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body { transition: background-color .15s ease, color .15s ease; }
 
-  /* ===== Card body — functional anatomy (kept from the rework) =====
-     The finding reads as a sentence (detail), shows its data on demand
-     (evidence) and ends with the action (fix). Labels stay minimal. */
-  .card-body {
-    display: flex; flex-direction: column; gap: 14px;
-    padding: 14px 16px 16px;
+/* Respect users who opt out of motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
   }
-  /* The explanation IS the content: plain prose, no box around it. */
-  .card .detail {
-    font-size: 13.8px; line-height: 1.65; letter-spacing: -0.01em;
-    color: var(--text);
-  }
-  details.ev {
-    background: color-mix(in srgb, var(--bg2) 50%, transparent);
-    border: 1px solid var(--border); border-radius: 11px; padding: 0;
-    overflow: hidden;
-  }
-  details.ev[open] { border-color: color-mix(in srgb, var(--border) 70%, var(--blue) 15%); }
-  details.ev summary {
-    list-style: none; display: flex; align-items: center; gap: 8px;
-    padding: 9px 12px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em;
-    color: var(--muted); cursor: pointer; user-select: none;
-    background: var(--card2);
-  }
-  details.ev[open] summary { border-bottom: 1px solid var(--border); color: var(--text); background: var(--card); }
-  details.ev summary::-webkit-details-marker { display: none; }
-  .evidence {
-    margin-top: 0; border: none; border-radius: 0;
-    background: var(--evidence-bg);
-    max-height: 200px;
-  }
-  .evidence.expanded { max-height: none; }
-  .ev-expand {
-    margin: 0; align-self: flex-start;
-    background: var(--card2); border: 1px solid var(--border); border-radius: 999px;
-    padding: 4px 10px; font-weight: 600;
-  }
-  .ev-copy {
-    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
-    padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
-  }
-  .ev-copy:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
-  .fix {
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
-    margin-top: 2px; padding-top: 14px;
-    border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
-  }
-  .fix .fixtext {
-    flex: 1 1 100%; min-width: 260px;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 11px; padding: 11px 14px;
-    font-size: 12.6px; line-height: 1.55;
-    position: relative;
-  }
-  .fix .fixtext::before {
-    content: "Fix";
-    display: block; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 6px;
-  }
-  .fix button, .fix .reportbtn {
-    height: 34px; border-radius: 10px; font-weight: 600; font-size: 12.5px;
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .fix button[data-copy] {
-    background: var(--accent); color: #fff; border-color: var(--accent);
-  }
-  .fix button[data-ignore] {
-    background: transparent; border-color: var(--border); color: var(--muted);
-  }
-  .fix button[data-ignore]:hover { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); }
-  .fix .reportbtn {
-    background: transparent; border: 1px solid transparent; color: var(--muted);
-    padding: 0 10px; text-decoration: none;
-  }
-  .fix .reportbtn:hover { color: var(--text); background: var(--hover); border-color: var(--border); }
-  .fix .reportbtn::before { content: "↗"; font-size: 11px; }
-  /* crow (info) now uses same card-body but keep compact tweaks */
-  .crow .card-body { gap: 10px; padding: 10px 12px 12px; }
-  .crow .detail { font-size: 13.2px; padding: 10px 12px; }
-  .crow .fix .fixtext { font-size: 12px; }
-  /* Start here banner — mirrors the CLI's ▶ START HERE line. Guidance, not
-     alarm: a green hairline edge on a plain card, no tinted fill. */
-  #nexthep {
-    max-width: 1040px; margin: 0; width: 100%;
-    border: 1px solid color-mix(in srgb, var(--green) 30%, var(--border));
-    border-left: 3px solid var(--green);
-    background: var(--card);
-    border-radius: var(--radius); padding: 13px 18px;
-    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
-    box-shadow: none;
-  }
-  #nexthep .nh-icon { font-size: 15px; color: var(--green); font-weight: 800; letter-spacing: .06em; flex-shrink: 0; }
-  #nexthep .nh-body { flex: 1; min-width: 220px; }
-  #nexthep .nh-title { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
-  #nexthep .nh-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  #nexthep .nh-hint code { font-family: var(--mono); font-size: 11px; }
-  #nexthep.flash { animation: nhflash 1.6s ease 1; }
-  @keyframes nhflash { 0%,60% { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); } 100% {} }
+}
+
+
+/* ── layout.css ── */
+/* === Header === */
+header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 40px;
+  position: sticky; top: 0; z-index: 20; background: var(--bg);
+  margin: -14px -22px 30px; padding: 14px 22px;
+  border-bottom: 1px solid transparent;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+header.scrolled { border-bottom-color: var(--border); box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+header .logo {
+  font-size: 22px; width: 42px; height: 42px; display: grid; place-items: center;
+  background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
+}
+h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.sysinfo { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+.sysinfo .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); vertical-align: 1px; margin-right: 5px; }
+.sysinfo .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 20%, transparent); }
+.sysinfo .ver { font-family: var(--mono); }
+.actions { margin-left: auto; display: flex; gap: 8px; }
+button {
+  background: var(--card2); color: var(--text); border: 1px solid var(--border);
+  padding: 8px 13px; border-radius: var(--radius-sm); font-size: 12.5px; cursor: pointer; font-weight: 550;
+  transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--border) 50%, var(--text) 50%); transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+button.primary {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  box-shadow: var(--shadow-sm); font-weight: 650;
+}
+button.primary:hover { background: var(--accent2); filter: none; transform: none; box-shadow: var(--shadow-sm); }
+button:disabled { opacity: .5; cursor: default; transform: none; }
+#autorefresh.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+#autorefresh.paused {
+  background: color-mix(in srgb, var(--yellow) 12%, var(--card2));
+  border-color: color-mix(in srgb, var(--yellow) 35%, transparent);
+  color: var(--yellow); opacity: .85;
+}
+
+/* === Status Hero === */
+.status {
+  display: flex; align-items: center; gap: 26px; padding: 26px 30px; margin-bottom: 36px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.status.running { justify-content: center; color: var(--muted); }
+.status.warn { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
+.status.calm { box-shadow: none; }
+.status.calm::before {
+  content: ""; position: absolute; top: -1px; left: 26px; right: 26px;
+  height: 2px; border-radius: 2px; background: var(--green);
+}
+.status-main { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+.status-body { flex: 1; min-width: 0; }
+.statusmsg { font-size: 16px; font-weight: 700; line-height: 1.45; }
+.statusmsg.ok { color: var(--green); }
+.statusmsg.warn { color: var(--red); }
+.status-meta { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.newbadge, .fixedbadge { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 7px; flex-shrink: 0; }
+.newbadge { color: #1a0f2e; background: var(--purple); }
+.fixedbadge { color: #06231a; background: var(--green); }
+.lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; }
+.checkid { font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; background: var(--card); }
+
+/* === Gauge === */
+.gauge { position: relative; width: 68px; height: 68px; flex-shrink: 0; }
+.gauge svg { width: 100%; height: 100%; }
+.gauge .track { fill: none; stroke: var(--border); stroke-width: 7; }
+.gauge .ring { fill: none; stroke-width: 7; stroke-linecap: round; }
+.gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.scorenum { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.scoreout { font-size: 9px; color: var(--muted); margin-top: 2px; font-weight: 600; letter-spacing: .04em; }
+.hero-main { min-width: 0; }
+.hero-main .k { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
+.scoredelta { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+.delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
+
+/* === Toolbar === */
+.toolbar {
+  display: flex; gap: 10px; align-items: center;
+  margin: 0 0 28px; padding: 10px 12px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius);
+  box-shadow: none; flex-wrap: wrap;
+  position: sticky; top: 70px; z-index: 19;
+  transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
+}
+.toolbar.scrolled {
+  background: var(--card); border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.filters {
+  display: flex; gap: 2px;
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 3px; border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+}
+.fpill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: all .15s ease; transform: none; box-shadow: none; }
+.fpill:hover { color: var(--text); background: transparent; }
+.fpill.active { background: var(--text); color: var(--bg); box-shadow: none; }
+.fpill.high.active { background: var(--red); border-color: transparent; color: #fff; }
+.fpill.medium.active { background: var(--yellow); border-color: transparent; color: #1a1200; }
+.fpill.info.active { background: var(--blue); border-color: transparent; color: #fff; }
+.fpill:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
+.pill-icon { font-size: 11px; margin-right: 2px; }
+#search {
+  flex: 1; min-width: 160px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 13px 8px 32px; color: var(--text); font-size: 13px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a93a6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20L16.5 16.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 10px 50%;
+}
+#search::placeholder { color: var(--muted); }
+#search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); background-color: var(--bg2); }
+.toolbtn { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: var(--card2); }
+
+/* === Content grid === */
+.content { display: grid; gap: 24px; max-width: 1040px; margin: 0 auto; width: 100%; }
+#report { display: flex; flex-direction: column; gap: 24px; max-width: 1040px; margin: 0 auto; width: 100%; }
+#nomatch { text-align: center; color: var(--muted); padding: 28px 0; font-size: 13px; }
+#drillhint { text-align: center; color: var(--muted); padding: 28px 0; font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 4px; }
+.diff-sub { font-weight: 500; color: var(--muted); }
+
+/* === Groups === */
+.group { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.group summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 650; color: var(--muted); border-bottom: 1px solid transparent; transition: background .15s ease; }
+.group[open] summary { border-bottom-color: var(--border); background: color-mix(in srgb, var(--card2) 60%, var(--card)); }
+.group.high summary { color: var(--red); }
+.group.medium summary { color: var(--yellow); }
+.group.info summary { color: var(--muted); }
+.group summary::-webkit-details-marker { display: none; }
+.group summary b { color: var(--text); }
+.group summary .chev { margin-left: auto; font-size: 11px; transition: transform .18s ease; color: var(--muted); }
+.group[open] summary .chev { transform: rotate(90deg); }
+.group-body { padding: 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
+.sevicon { font-size: 13px; line-height: 1; flex-shrink: 0; }
+
+/* === Footer === */
+footer { margin-top: 64px; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
+
+/* === Two-column layout: overview sidebar + main column === */
+/* Single column by default; the sidebar appears only on wide screens. */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.sidebar {
+  display: none;
+  position: sticky; top: 130px; align-self: start;
+  max-height: calc(100vh - 160px); overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+}
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+.sb-block { margin-bottom: 20px; }
+.sb-block:last-child { margin-bottom: 4px; }
+.sb-block h2 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--muted); font-weight: 750; margin-bottom: 10px;
+}
+.sb-nav { display: flex; flex-direction: column; gap: 2px; }
+.sb-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 9px; border-radius: 9px; border: none; background: transparent;
+  color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  text-align: left; transition: background .12s ease;
+}
+.sb-item:hover { background: var(--hover); }
+.sb-item .sb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-item .sb-count {
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--muted); background: var(--card2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 1px 8px; flex-shrink: 0;
+}
+.sb-item.high .sb-count { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.sb-item.medium .sb-count { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 35%, transparent); }
+.sb-item.active { background: var(--hover); outline: 1px solid var(--border); }
+@media (min-width: 1100px) {
+  .layout { grid-template-columns: 264px minmax(0, 1fr); gap: 28px; }
+  .sidebar { display: block; }
+}
+
+
+/* ── cards.css ── */
+/* === Finding Cards === */
+.card {
+  background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted);
+  border-radius: 14px; margin-bottom: 0; overflow: hidden;
+  transition: border-color .15s ease;
+}
+.card:hover { border-color: color-mix(in srgb, var(--border) 40%, var(--text) 60%); }
+.card.high { border-left-color: var(--red); }
+.card.medium { border-left-color: var(--yellow); }
+.card.info { border-left-color: var(--blue); }
+.card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
+.card summary h3 { font-size: 14.5px; font-weight: 650; flex: 1; letter-spacing: -0.01em; }
+.card summary .chev { color: var(--muted); font-size: 12px; transition: transform .18s ease; }
+.card[open] summary .chev { transform: rotate(90deg); }
+.card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 7px; flex-shrink: 0; }
+.badge.high { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+.badge.medium { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
+.badge.info { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
+
+/* === Card Body === */
+.card-body {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 14px 16px 16px;
+  animation: fadein .2s ease;
+}
+@keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+.card .detail {
+  font-size: 13.8px; line-height: 1.65; letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* === Evidence === */
+details.ev {
+  background: color-mix(in srgb, var(--bg2) 50%, transparent);
+  border: 1px solid var(--border); border-radius: 11px; padding: 0; overflow: hidden;
+}
+details.ev[open] { border-color: color-mix(in srgb, var(--border) 70%, var(--blue) 15%); }
+details.ev summary {
+  list-style: none; display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--muted); cursor: pointer; user-select: none;
+  background: var(--card2);
+}
+details.ev[open] summary { border-bottom: 1px solid var(--border); color: var(--text); background: var(--card); }
+details.ev summary::-webkit-details-marker { display: none; }
+.evidence {
+  margin-top: 0; border: none; border-radius: 0;
+  background: var(--evidence-bg);
+  max-height: 200px; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  padding: 9px 11px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  white-space: pre-wrap; word-break: break-word;
+}
+.evidence.expanded { max-height: none; }
+.evidence::-webkit-scrollbar { width: 6px; height: 6px; }
+.evidence::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+.ev-expand {
+  margin: 0; align-self: flex-start;
+  background: var(--card2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--blue); cursor: pointer;
+}
+.ev-expand:hover { background: var(--hover); border-color: var(--border); }
+.ev-copy {
+  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.ev-copy:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+
+/* === Fix Section === */
+.fix {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+  margin-top: 2px; padding-top: 14px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+}
+.fix .fixtext {
+  flex: 1 1 100%; min-width: 260px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 11px; padding: 11px 14px;
+  font-size: 12.6px; line-height: 1.55;
+  position: relative; font-family: var(--mono); color: var(--text);
+}
+.fix .fixtext::before {
+  content: "Fix";
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px;
+}
+.fix button, .fix .reportbtn {
+  height: 34px; border-radius: 10px; font-weight: 600; font-size: 12.5px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.fix button[data-copy] {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.fix button[data-ignore] {
+  background: transparent; border-color: var(--border); color: var(--muted);
+}
+.fix button[data-ignore]:hover { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); }
+.fix .reportbtn {
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  padding: 0 10px; text-decoration: none; font-size: 12px; align-self: center;
+}
+.fix .reportbtn:hover { color: var(--text); background: var(--hover); border-color: var(--border); }
+.fix .reportbtn::before { content: "↗"; font-size: 11px; }
+
+/* === Compact rows (info) === */
+.crow { border-left: 3px solid transparent; border-radius: 6px; margin-bottom: 3px; background: transparent; transition: background .15s ease; }
+.crow:hover { background: var(--card); }
+.crow summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px 9px; cursor: pointer; user-select: none; }
+.crow summary::-webkit-details-marker { display: none; }
+.crow summary h3 { font-size: 12.5px; font-weight: 550; flex: 1; letter-spacing: -0.01em; color: var(--text); }
+.crow summary .chev { color: var(--muted); font-size: 11px; transition: transform .18s ease; }
+.crow[open] summary .chev { transform: rotate(90deg); }
+.crow[open] { background: var(--card); }
+.crow .card-body { gap: 10px; padding: 10px 12px 12px; }
+.crow .detail { font-size: 13.2px; padding: 10px 12px; }
+.crow .fix .fixtext { font-size: 12px; }
+
+/* === Search highlight === */
+mark.hl { background: color-mix(in srgb, var(--yellow) 32%, transparent); color: inherit; padding: 0 2px; border-radius: 3px; border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent); }
+
+/* === Compact density (body.compact) === */
+body.compact .group summary { padding: 10px 14px; }
+body.compact .group-body { gap: 8px; padding: 10px; }
+body.compact .card summary { padding: 8px 12px; }
+body.compact .card summary h3 { font-size: 13.5px; }
+body.compact .card-body { gap: 10px; padding: 10px 12px 12px; }
+body.compact .card .detail { font-size: 13px; line-height: 1.5; }
+body.compact .fix { padding-top: 10px; }
+body.compact .fix .fixtext { padding: 8px 11px; font-size: 12px; }
+body.compact #report { gap: 16px; }
+
+
+/* ── components.css ── */
+/* === Toast === */
+#toast-wrap { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; box-shadow: var(--shadow); animation: toastin .25s ease, toastout .25s ease 2.7s forwards; max-width: 92vw; }
+.toast button { pointer-events: auto; background: var(--accent); color: #fff; border-color: transparent; padding: 4px 10px; font-size: 12px; }
+@keyframes toastin { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform:none;} }
+@keyframes toastout { to { opacity:0; transform: translateY(8px);} }
+
+/* === Threshold Panel === */
+.thresh-panel {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px; margin: -18px 0 26px; box-shadow: var(--shadow-sm);
+  max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%;
+}
+.thresh-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.thresh-sub { font-weight: 500; color: var(--muted); font-size: 11px; text-transform: none; letter-spacing: 0; }
+.thresh-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.thresh-field { display: flex; flex-direction: column; gap: 4px; }
+.thresh-field label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.thresh-field input { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; color: var(--text); font-size: 12px; font-family: var(--mono); }
+.thresh-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.thresh-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+/* === History === */
+.history { max-width: 1040px; margin: 56px auto 0; width: 100%; }
+.history .hist-details { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card2); box-shadow: var(--shadow); overflow: hidden; }
+.history .hist-summary { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: baseline; gap: 8px; padding: 12px 15px; font-size: 13px; font-weight: 650; color: var(--muted); }
+.history .hist-summary::-webkit-details-marker { display: none; }
+.history .hist-summary .hist-sub { font-size: 11.5px; font-weight: 500; }
+.history .hist-summary .chev { margin-left: auto; transition: transform .18s ease; color: var(--muted); }
+.history .hist-details[open] .chev { transform: rotate(90deg); }
+.history #trend { margin: 0; border: none; box-shadow: none; background: transparent; padding: 4px 15px 16px; max-width: none; }
+
+/* === Trend Charts === */
+#trend { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow-sm); max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
+.trendtitle { font-size: 12px; color: var(--muted); }
+.trendtitle b { color: var(--text); }
+.trendtitle .delta-up, .trendtitle .delta-down, .trendtitle .delta-flat { font-weight: 700; margin-left: 2px; }
+.trendrange { color: var(--muted); font-size: 11px; }
+#trend svg { flex-shrink: 0; }
+#trend .trend-wrap { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; width: 100%; }
+#trend .trendchart { display: flex; flex-direction: column; gap: 4px; }
+#trend .sevlegend { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px 5px; flex-wrap: wrap; }
+#trend .sevlegend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-left: 8px; }
+#trend .sevlegend .lg.high { background: var(--red); }
+#trend .sevlegend .lg.medium { background: var(--yellow); }
+#trend .sevlegend .lg.info { background: var(--blue); }
+
+/* === Start Here Banner === */
+#nexthep {
+  max-width: 1040px; margin: 0; width: 100%;
+  border: 1px solid color-mix(in srgb, var(--green) 30%, var(--border));
+  border-left: 3px solid var(--green);
+  background: var(--card);
+  border-radius: var(--radius); padding: 13px 18px;
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  box-shadow: none;
+}
+#nexthep .nh-icon { font-size: 15px; color: var(--green); font-weight: 800; letter-spacing: .06em; flex-shrink: 0; }
+#nexthep .nh-body { flex: 1; min-width: 220px; }
+#nexthep .nh-title { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+#nexthep .nh-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+#nexthep .nh-hint code { font-family: var(--mono); font-size: 11px; }
+#nexthep.flash { animation: nhflash 1.6s ease 1; }
+@keyframes nhflash { 0%,60% { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); } 100% {} }
+
+/* === Score breakdown bars (sidebar "Why this score") === */
+.bd-row { margin: 0 0 12px; }
+.bd-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.bd-title { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-pen { font-size: 11.5px; font-weight: 750; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.bd-pen.high { color: var(--red); }
+.bd-pen.medium { color: var(--yellow); }
+.bd-code { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
+.bd-bar { height: 4px; border-radius: 3px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.bd-fill { height: 100%; border-radius: 3px; background: var(--red); }
+.bd-fill.medium { background: var(--yellow); }
+.bd-more { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.bd-clean { font-size: 12px; color: var(--green); font-weight: 650; }
+
+/* === Skeleton loading === */
+.skel {
+  height: 64px; border-radius: 14px; margin-bottom: 14px;
+  background: linear-gradient(90deg, var(--card2) 25%, var(--hover) 50%, var(--card2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+  border: 1px solid var(--border);
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* === Segmented group-by control === */
+.seg {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+}
+.segbtn {
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+}
+.segbtn:hover { color: var(--text); background: transparent; }
+.segbtn.active { background: var(--text); color: var(--bg); }
+
+/* === Hero mini-sparkline chip === */
+.chip-trend { display: inline-flex; align-items: center; }
+.chip-trend svg { display: block; opacity: .9; }
+
+/* === Auto-refresh "updated" pulse === */
+#autorefresh.updated {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 28%, transparent);
+}
+
+/* === Modal shell (checks matrix, help) === */
+.modal {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(4,6,10,.55);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  max-width: 740px; width: 100%;
+  max-height: min(82vh, 780px); overflow: auto;
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+  position: relative;
+}
+.modal-x {
+  position: absolute; top: 12px; right: 12px;
+  padding: 4px 10px; font-size: 12px;
+}
+.mx-head { font-size: 15px; font-weight: 750; letter-spacing: -0.01em; margin-bottom: 4px; padding-right: 36px; }
+.mx-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.mx-cat {
+  margin: 16px 0 6px; font-size: 10.5px; font-weight: 750;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+}
+.mx-cat:first-of-type { margin-top: 4px; }
+.mx-row {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 6px 9px; border-radius: 9px; font-size: 12.5px;
+}
+.mx-row.link { cursor: pointer; }
+.mx-row.link:hover { background: var(--hover); }
+.mx-st { width: 20px; text-align: center; flex-shrink: 0; }
+.mx-id { font-family: var(--mono); font-size: 10.5px; color: var(--muted); flex-shrink: 0; width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-note { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.mx-note.high { color: var(--red); font-weight: 650; }
+.mx-note.medium { color: var(--yellow); font-weight: 650; }
+.mx-note.info { color: var(--blue); font-weight: 650; }
+.mx-note.ok { color: var(--green); }
+/* Help grid */
+.help-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; font-size: 13px; margin-top: 6px; }
+
+/* === All-clean hero state === */
+.cleanhero {
+  display: flex; align-items: center; gap: 18px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: 26px 30px;
+  position: relative;
+}
+.cleanhero::before {
+  content: ""; position: absolute; top: -1px; left: 26px; right: 26px;
+  height: 2px; border-radius: 2px; background: var(--green);
+}
+.cleanhero .ch-icon {
+  width: 46px; height: 46px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green); font-size: 22px; font-weight: 800;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+}
+.cleanhero .ch-title { font-size: 16px; font-weight: 750; color: var(--green); }
+.cleanhero .ch-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+
+/* ── responsive.css ── */
+/* === Mobile === */
+@media (max-width: 700px) {
+  header { flex-wrap: wrap; }
+  .actions { margin-left: 0; width: 100%; }
+  .status { flex-wrap: wrap; gap: 12px; padding: 12px 14px; }
+  .status-main { width: 100%; }
+  .toolbar { top: 108px; flex-direction: column; align-items: stretch; }
+  .filters { justify-content: center; }
+  #search { min-width: 0; }
+  .group-body { padding: 12px; }
+  .card summary { padding: 11px 12px; }
+  .card-body { padding: 12px; gap: 10px; }
+  .card .detail { font-size: 13px; }
+  .fix .fixtext { min-width: 0; font-size: 11.5px; }
+  .fix button, .fix .reportbtn { height: 40px; font-size: 12px; }
+  #nexthep { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  .history { margin-top: 36px; }
+  .status.calm::before { left: 16px; right: 16px; }
+  /* Touch targets: every interactive control reaches ~40px tall. */
+  button { min-height: 38px; }
+  .fpill, .segbtn { padding: 9px 14px; }
+  .sb-item { display: none; } /* sidebar is hidden <1100px anyway */
+  .evidence { font-size: 10.5px; max-height: 160px; }
+  .ev-copy, .ev-expand { padding: 8px 12px; min-height: 36px; }
+}
+
+
+/* ── print.css ── */
+/* === Print === */
+@media print {
+  header .actions, .toolbar, #toast-wrap, footer, .history, #fixed, #skipped, #diff,
+  #sidebar, .skel, .skip-link, .modal { display: none !important; }
+  .layout { display: block !important; }
+  body { background: #fff !important; color: #111 !important; padding: 12px !important; background-image: none !important; }
+  .status, .group, .card, .crow { box-shadow: none !important; break-inside: avoid; border: 1px solid #ddd !important; }
+  .card-body { animation: none !important; }
+}
 
 </style>
 </head>
 <body>
+<a class="skip-link" href="#report">Skip to findings</a>
 <div class="wrap">
   <header>
-    <span class="logo">🩺</span>
+    <span class="logo" aria-hidden="true">🩺</span>
     <div>
       <h1>Linux Doctor</h1>
-      <div class="sysinfo" id="sysinfo">Loading…</div>
+      <div class="sysinfo" id="sysinfo" role="status">Loading…</div>
     </div>
     <div class="actions">
       <button id="notifybtn" title="Enable desktop notifications when health degrades">🔔</button>
       <button id="theme" title="Toggle theme">🌓</button>
-      <button id="export" title="Copy the report as Markdown">⧉ Copy</button>
+      <button id="export" title="Copy the report as Markdown">⧉ MD</button>
+      <button id="copyjson" title="Copy the raw JSON report">{} JSON</button>
       <button id="pdfbtn" title="Export as PDF (print)">⤓ PDF</button>
+      <button id="helpbtn" title="Keyboard shortcuts (press ?)">?</button>
       <button id="rerun" class="primary">↻ Re-run checks</button>
     </div>
   </header>
-  <div id="status" class="status running">Reading your system…</div>
-  <div class="toolbar">
-    <div class="filters" id="filters"></div>
-    <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false">
-    <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">⏱ Auto</button>
-    <button id="expandall" class="toolbtn">⊞ Expand all</button>
-    <button id="clearbtn" class="toolbtn" type="button" disabled>✕ Clear</button>
-    <button id="threshbtn" class="toolbtn" title="Edit thresholds">⚙️</button>
+  <div id="status" class="status running" aria-live="polite" role="status">
+    <span class="spinner" aria-hidden="true"></span>Reading your system…
   </div>
-  <div id="threshpanel" class="thresh-panel" hidden>
-    <div class="thresh-head">Thresholds <span style="font-weight:500; color:var(--muted); font-size:11px;">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;">✕</button></div>
-    <div id="threshbody" class="thresh-body"></div>
-    <div class="thresh-actions">
-      <button id="threshsave" class="primary" style="padding:6px 12px; font-size:12px;">Save</button>
-      <button id="threshcopy" class="toolbtn">⧉ Copy JSON</button>
-      <span id="threshmsg" style="font-size:11px; color:var(--muted); margin-left:8px;"></span>
+  <div class="layout">
+    <aside id="sidebar" class="sidebar" hidden aria-label="Report overview">
+      <section class="sb-block">
+        <h2>Why this score</h2>
+        <div id="sb-breakdown"></div>
+      </section>
+      <section class="sb-block">
+        <h2>Severity</h2>
+        <nav id="sb-sevnav" class="sb-nav"></nav>
+      </section>
+      <section class="sb-block">
+        <h2>Categories</h2>
+        <nav id="sb-catnav" class="sb-nav"></nav>
+      </section>
+    </aside>
+    <div class="maincol">
+      <div class="toolbar" role="toolbar" aria-label="Report controls">
+        <div class="seg" role="group" aria-label="Group findings by">
+          <button class="segbtn active" data-groupby="severity">Severity</button>
+          <button class="segbtn" data-groupby="category">Category</button>
+        </div>
+        <div class="filters" id="filters" role="group" aria-label="Severity filter"></div>
+        <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false" aria-label="Filter findings">
+        <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">⏱ Auto</button>
+        <button id="expandall" class="toolbtn">⊞ Expand all</button>
+        <button id="densitybtn" class="toolbtn" title="Toggle compact density" aria-pressed="false">≡</button>
+        <button id="checksmatrixbtn" class="toolbtn" title="See every check and its result">☰ Checks</button>
+        <button id="clearbtn" class="toolbtn" type="button" disabled>✕ Clear</button>
+        <button id="threshbtn" class="toolbtn" title="Edit thresholds">⚙️</button>
+      </div>
+      <div id="threshpanel" class="thresh-panel" hidden>
+        <div class="thresh-head">Thresholds <span class="thresh-sub">— tune when to flag</span> <button id="threshclose" class="toolbtn" style="margin-left:auto; padding:2px 8px;">✕</button></div>
+        <div id="threshbody" class="thresh-body"></div>
+        <div class="thresh-actions">
+          <button id="threshsave" class="primary" style="padding:6px 12px; font-size:12px;">Save</button>
+          <button id="threshcopy" class="toolbtn">⧉ Copy JSON</button>
+          <span id="threshmsg" style="font-size:11px; color:var(--muted); margin-left:8px;"></span>
+        </div>
+      </div>
+      <main class="content">
+        <div id="nexthep" hidden></div>
+        <div id="drillhint" class="empty" hidden></div>
+        <div id="report" aria-live="polite"><div class="empty">Reading your system…</div></div>
+        <div id="nomatch" class="empty" hidden></div>
+        <details id="fixed" class="group" hidden>
+          <summary>Fixed since last check · <b id="fixed-count"></b><span class="chev">▸</span></summary>
+          <div class="group-body" id="fixed-body"></div>
+        </details>
+        <details id="skipped" class="group" hidden>
+          <summary>Skipped checks <b id="skipped-count"></b><span class="chev">▸</span></summary>
+          <div class="group-body" id="skipped-body"></div>
+        </details>
+        <details id="checkerrors" class="group" hidden>
+          <summary>Failed checks · <b id="checkerrors-count"></b><span class="chev">▸</span></summary>
+          <div class="group-body" id="checkerrors-body"></div>
+        </details>
+        <details id="diff" class="group" hidden>
+          <summary>Changes since last run · <b id="diff-count"></b> <span class="diff-sub">new vs fixed</span><span class="chev">▸</span></summary>
+          <div class="group-body" id="diff-body"></div>
+        </details>
+      </main>
     </div>
   </div>
-  <main class="content">
-    <div id="nexthep" hidden></div>
-    <div id="drillhint" class="empty" hidden></div>
-    <div id="report"><div class="empty">Reading your system…</div></div>
-    <div id="nomatch" class="empty" hidden></div>
-    <details id="fixed" class="group" hidden>
-      <summary>Fixed since last check · <b id="fixed-count"></b><span class="chev">▸</span></summary>
-      <div class="group-body" id="fixed-body"></div>
-    </details>
-    <details id="skipped" class="group" hidden>
-      <summary>Skipped checks <b id="skipped-count"></b><span class="chev">▸</span></summary>
-      <div class="group-body" id="skipped-body"></div>
-    </details>
-    <details id="checkerrors" class="group" hidden>
-      <summary>Failed checks · <b id="checkerrors-count"></b><span class="chev">▸</span></summary>
-      <div class="group-body" id="checkerrors-body"></div>
-    </details>
-    <details id="diff" class="group" hidden>
-      <summary>Changes since last run · <b id="diff-count"></b> <span style="font-weight:500; color:var(--muted)">new vs fixed</span><span class="chev">▸</span></summary>
-      <div class="group-body" id="diff-body"></div>
-    </details>
-  </main>
   <section id="history" class="history" hidden>
     <details class="hist-details">
       <summary class="hist-summary">History <span class="hist-sub">score &amp; findings across recent runs</span><span class="chev">▸</span></summary>
       <div id="trend"></div>
     </details>
   </section>
-  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate findings · <kbd>Enter</kbd> open/close</footer>
+  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>Esc</kbd> clear</footer>
 </div>
 <div id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
+<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Details">
+  <div class="modal-card">
+    <button id="modal-x" class="modal-x" title="Close (Esc)">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
 <script>
-// The desktop app fetches its report over loopback HTTP — see
-// src-tauri/src/lib.rs for why we avoid Tauri IPC here.
-const $ = (s) => document.querySelector(s);
+/* ── dom.js ── */
+/* === DOM helpers === */
+const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
-const expandBtn = $("#expandall");
-const themeBtn = $("#theme");
-const autoBtn = $("#autorefresh");
-let statusTimer = null;
-let autoRefresh = true;
-let pollTimer = null;
-let pollBusy = false;
-// True inside the Tauri desktop app, where the report is served over loopback
-// HTTP on 17321. In a plain browser (--web) that port does not exist, so we
-// skip the probes entirely instead of logging connection errors.
-const isDesktop = () => typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
-// The last fetched report, kept so the Ignore button can re-render locally
-// (filtering one finding out) instead of re-running all checks.
+let lastReportData = null;
 let lastData = null;
-// Static HTML report (--html): the CLI embeds the payload as window.__DATA__
-// before this script. When present we render it directly and never touch the
-// network — no polling, and save buttons report honestly that they cannot
-// persist from a static file.
+
+
+/* ── state.js ── */
+/* === Central state store === */
+const SEV = { high: { label: "High", cls: "high" }, medium: { label: "Medium", cls: "medium" }, info: { label: "Info", cls: "info" } };
+const SEV_ICONS = { high: "\u{1f534}", medium: "\u{1f7e1}", info: "\u{1f535}" };
+const SEV_ORDER = ["high", "medium", "info"];
+const SEV_NAMES = { high: "High severity", medium: "Medium severity", info: "Informational" };
+const THEME_ORDER = ["light", "dark", "auto"];
+const POLL_MS = 20000;
+/* Category grouping: known check categories in display order; anything
+   unmapped (plugins, older payloads) lands under "other". */
+const CATEGORY_ORDER = ["system", "software", "security", "network", "updates", "hardware", "data", "other"];
+const CATEGORY_LABELS = {
+  system: "System", software: "Software", security: "Security",
+  network: "Network", updates: "Updates", hardware: "Hardware",
+  data: "Data", other: "Other",
+};
+/* How findings are grouped in the report: "severity" | "category". */
+let groupBy = "severity";
+/* check id → category, filled from /api/checks before the first render. */
+let checksCategoryMap = new Map();
+
+
+/* ── api.js ── */
+/* === Data fetching === */
+const isDesktop = () => typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 const STATIC_DATA = typeof window !== "undefined" && window.__DATA__ ? window.__DATA__ : null;
 
-// Theme: follows the system (prefers-color-scheme) by default; the 🌓 button
-// cycles light → dark → auto. The choice is remembered in localStorage.
-const THEME_ORDER = ["light", "dark", "auto"];
-function currentTheme() { try { return localStorage.getItem("ld-theme") || "auto"; } catch { return "auto"; } }
-function applyTheme() {
-  const t = currentTheme();
-  const dark = t === "dark" || (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-  themeBtn.textContent = t === "light" ? "☀️" : t === "dark" ? "🌙" : "🌓";
-  themeBtn.title = "Theme: " + t + " — click to change";
-}
-themeBtn.addEventListener("click", () => {
-  const next = THEME_ORDER[(THEME_ORDER.indexOf(currentTheme()) + 1) % THEME_ORDER.length];
-  try { localStorage.setItem("ld-theme", next); } catch { /* private mode */ }
-  applyTheme();
-});
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
-applyTheme();
-// Sticky header/toolbar visual separation on scroll
-const hdr = document.querySelector('header');
-const tbar = document.querySelector('.toolbar');
-window.addEventListener('scroll', () => {
-  const sc = window.scrollY > 8;
-  if (hdr) hdr.classList.toggle('scrolled', sc);
-  if (tbar) tbar.classList.toggle('scrolled', sc);
-}, { passive: true });
-
-// Live auto-refresh: re-fetch the report every 20s and re-render silently when
-// it actually changed. Polling pauses while the user is mid-interaction — a
-// re-render would reset their reading state, so we back off while the search
-// box has text, a specific severity filter is active, any finding is expanded,
-// or a check run is in progress.
-const POLL_MS = 20000;
-function reportSignature(d) {
-  if (!d) return "";
-  return JSON.stringify([d.generatedAt || "", d.score || 0, d.scoreDelta || 0, d.findings || [], d.diffSinceLast || null]);
-}
-function pollPaused() {
-  if (!autoRefresh || document.hidden || pollBusy) return true;
-  if ($("#rerun").disabled) return true; // a run is in progress
-  if ($("#search").value.trim()) return true;
-  if (activeFilter && activeFilter !== "all") return true;
-  return document.querySelectorAll("#report details[open]").length > 0;
-}
-async function poll() {
-  if (pollPaused()) return;
-  pollBusy = true;
-  try {
-    const data = await fetchReport();
-    if (reportSignature(data) !== reportSignature(lastData)) render(data);
-  } catch { /* server down — keep the last report */ }
-  finally { pollBusy = false; }
-}
-function startPolling() {
-  clearInterval(pollTimer);
-  pollTimer = setInterval(poll, POLL_MS);
-}
-function syncAutoPausedUI(){
-  if (!autoBtn) return;
-  const paused = pollPaused();
-  autoBtn.classList.toggle("paused", paused && autoRefresh);
-  if (!autoRefresh) autoBtn.title = "Auto-refresh off — click to enable";
-  else if (paused) autoBtn.title = "Paused — clear filter/search or collapse cards to resume";
-  else autoBtn.title = "Auto-refresh every 20s";
-}
-autoBtn.addEventListener("click", () => {
-  autoRefresh = !autoRefresh;
-  autoBtn.classList.toggle("on", autoRefresh);
-  syncAutoPausedUI();
-  showToast(autoRefresh ? "⏱ Auto-refresh on" : "⏸ Auto-refresh off");
-});
-// keep paused indicator fresh (filters/search/collapsed state changes)
-setInterval(syncAutoPausedUI, 1000);
-document.addEventListener("toggle", (e) => {
-  if (e.target.matches("#report details")) syncAutoPausedUI();
-  if (e.target.classList.contains("ev") && e.target.open) {
-    const ev = e.target.querySelector(".evidence");
-    const btn = e.target.querySelector(".ev-expand");
-    if (ev && btn && ev.scrollHeight > 228) btn.hidden = false;
-  }
-}, true);
-
-// "Checked X ago" pill: relative time, refreshed every 30s. Goes amber when
-// the report is older than an hour (stale cron/desktop run).
-function setStatus(generatedAt) {
-  const txt = $("#statuspill-txt");
-  const dot = $("#statusdot");
-  const ms = Date.now() - new Date(generatedAt).getTime();
-  const secs = Math.max(0, Math.round(ms / 1000));
-  let label;
-  if (secs < 5) label = "checked just now";
-  else if (secs < 60) label = "checked " + secs + "s ago";
-  else if (secs < 3600) label = "checked " + Math.floor(secs / 60) + "m ago";
-  else if (secs < 86400) label = "checked " + Math.floor(secs / 3600) + "h ago";
-  else label = "checked " + Math.floor(secs / 86400) + "d ago";
-  txt.textContent = label;
-  dot.className = "dot" + (secs >= 3600 ? " stale" : "");
-}
-
 async function fetchReport() {
-  // Static HTML report (--html): the payload was embedded at generation time.
   if (STATIC_DATA) return STATIC_DATA;
-  // Desktop app: the Rust shell serves the report over loopback HTTP.
-  // Try it first, then fall back to the browser dashboard endpoint (--web).
   if (isDesktop()) {
     try {
       const res = await fetch("http://127.0.0.1:17321/report", { cache: "no-store" });
       if (res.ok) return res.json();
-    } catch {
-      /* loopback server not up yet */
-    }
+    } catch {}
   }
   const res = await fetch("/api/report", { cache: "no-store" });
   if (!res.ok) throw new Error("HTTP " + res.status);
   return res.json();
 }
 
-async function load() {
-  const status = $("#status");
-  const report = $("#report");
-  const rerun = $("#rerun");
-  status.className = "status running";
-  status.innerHTML = '<span class="spinner"></span>Reading your system…';
-  expandBtn.textContent = "⊞ Expand all";
-  report.innerHTML = '<div class="empty"><span class="spinner"></span>Reading your system…</div>';
-  rerun.disabled = true;
-  rerun.textContent = "↻ Running…";
-  try {
-    render(await fetchReport());
-  } catch (err) {
-    status.className = "status warn";
-    status.innerHTML = "";
-    status.textContent = "⚠️ Could not run checks: " + (err && err.message ? err.message : err);
-    report.innerHTML = '<div class="empty">Run failed — see the message above. Make sure Node.js ≥ 20 is installed and on PATH.</div>';
-  } finally {
-    rerun.disabled = false;
-    rerun.textContent = "↻ Re-run checks";
-  }
-}
-
-// Trend graphs from local history (last N runs). Hidden when there are fewer
-// than two runs with a numeric score. Tries the desktop server, then the web one.
-// Two charts: a health-score area sparkline and a new severity-count stacked
-// bar chart, so the dashboard shows both "is the score moving?" and "what kind
-// of findings are accumulating?" — pure SVG, zero dependencies.
-async function renderTrend(currentScore) {
-  if (STATIC_DATA) return; // a static file carries no run history
-  const trend = $("#trend");
-  let runs = [];
+async function fetchHistory() {
+  if (STATIC_DATA) return [];
   if (isDesktop()) {
     try {
       const res = await fetch("http://127.0.0.1:17321/history", { cache: "no-store" });
-      if (res.ok) runs = (await res.json()).runs || [];
-    } catch { /* loopback server not up yet */ }
+      if (res.ok) return (await res.json()).runs || [];
+    } catch {}
   }
-  if (!runs.length) {
+  try {
+    const res = await fetch("/api/history", { cache: "no-store" });
+    if (res.ok) return (await res.json()).runs || [];
+  } catch {}
+  return [];
+}
+
+async function fetchChecks() {
+  if (STATIC_DATA) return [];
+  if (isDesktop()) {
     try {
-      const res = await fetch("/api/history", { cache: "no-store" });
-      if (res.ok) runs = (await res.json()).runs || [];
-    } catch { /* no history endpoint */ }
+      const res = await fetch("http://127.0.0.1:17321/checks", { cache: "no-store" });
+      if (res.ok) return (await res.json()).checks || [];
+    } catch {}
   }
-  // Keep only runs that actually carry a score, and cap to a readable window.
-  const data = runs.filter((r) => typeof r.score === "number").slice(-12);
-  $("#history").hidden = data.length < 2;
-  if ($("#history").hidden) return;
+  try {
+    const res = await fetch("/api/checks", { cache: "no-store" });
+    if (res.ok) return (await res.json()).checks || [];
+  } catch {}
+  return [];
+}
 
-  trend.innerHTML = '<div class="trend-wrap">' + scoreChart(data) + severityChart(data) + '</div>';
-  // Auto-open history when health is degraded (<80) — most useful when it matters
-  if (typeof currentScore === "number" && currentScore < 80) {
-    const det = document.querySelector(".hist-details");
-    if (det) det.open = true;
+/* check id → category map, fetched once and reused across renders.
+   Fills the shared checksCategoryMap; never throws. */
+async function loadCategoryMap() {
+  try {
+    const list = await fetchChecks();
+    checksCategoryMap = new Map(list.map((c) => [c.id, c.category || "other"]));
+  } catch {
+    checksCategoryMap = new Map();
   }
-  // Click on history point/bar -> show diff for that run
-  setTimeout(()=>{
-    const histData = data;
-    const showRun = (idx)=>{
-      const r = histData[idx];
-      if (!r) return;
-      const prev = idx>0 ? histData[idx-1] : null;
-      let msg = "Run " + (idx+1) + "/" + histData.length + " · " + fmtWhen(r.at) + " · score " + r.score + "/100";
-      if (prev) msg += " (prev " + prev.score + ")";
-      showToast(msg + " — opening Changes");
-      const diffEl = $("#diff");
-      if (diffEl) { diffEl.hidden=false; diffEl.open=true; diffEl.scrollIntoView({behavior:"smooth", block:"start"}); }
-      // also expand history details
-      const det = document.querySelector(".hist-details");
-      if (det) det.open=true;
-    };
-    trend.querySelectorAll(".hist-dot, .hist-bar").forEach(el=>{
-      el.addEventListener("click", ()=>{ const idx=Number(el.dataset.idx||el.closest("[data-idx]")?.dataset.idx); if(Number.isFinite(idx)) showRun(idx); });
-    });
-  }, 80);
+  return checksCategoryMap;
 }
 
-// Compact "Mon/Day HH:MM" for tooltips/axis from an ISO timestamp.
-function fmtWhen(at) {
-  const d = new Date(at);
-  if (isNaN(d.getTime())) return "";
-  const p = (n) => String(n).padStart(2, "0");
-  return (d.getMonth() + 1) + "/" + d.getDate() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+
+/* ── clipboard.js ── */
+/* === Clipboard === */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch { ok = false; }
+    ta.remove();
+    return ok;
+  }
 }
 
-// Health-score area sparkline with a dashed 50-point "needs attention" line.
-function scoreChart(data) {
-  const W = 260, H = 50, pad = 6;
-  const scores = data.map((r) => r.score);
-  const min = Math.min(...scores), max = Math.max(...scores);
-  const span = Math.max(1, max - min);
-  const X = (i) => pad + (i * (W - 2 * pad)) / (scores.length - 1);
-  const Y = (s) => H - pad - ((s - min) / span) * (H - 2 * pad);
-  const pts = scores.map((s, i) => [X(i).toFixed(1), Y(s).toFixed(1)]);
-  const last = scores[scores.length - 1];
-  const color = last >= 80 ? "var(--green)" : last >= 50 ? "var(--yellow)" : "var(--red)";
-  const first = scores[0];
-  const dir = last > first ? { txt: "▲ Improving", cls: "delta-up" }
-    : last < first ? { txt: "▼ Declining", cls: "delta-down" }
-    : { txt: "◆ Stable", cls: "delta-flat" };
-  const range = min === max ? String(last) : min + " → " + last;
-  const line = pts.map((p) => p.join(",")).join(" ");
-  const area = "M" + line.replace(/ /g, " L") + " L" + (W - pad) + "," + (H - pad) + " L" + pad + "," + (H - pad) + " Z";
-  const dots = pts.map((p, i) =>
-    '<circle data-idx="'+i+'" cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="transparent" style="cursor:pointer" class="hist-dot">' +
-    '<title>' + scores[i] + "/100 · " + fmtWhen(data[i].at) + ' — click to show diff</title></circle>').join("");
-  const end = pts[pts.length - 1];
-  // Only draw the 50 threshold when the score range actually crosses it.
-  const thresh = (min < 50 && max > 50)
-    ? '<line x1="' + pad + '" y1="' + Y(50).toFixed(1) + '" x2="' + (W - pad) + '" y2="' + Y(50).toFixed(1) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'
-    : "";
-  return '<div class="trendchart">' +
-    '<div class="trendtitle">Health score · last ' + scores.length + ' run(s): <b>' + last + '/100</b>' +
-    ' <span class="' + dir.cls + '">' + dir.txt + '</span> <span class="trendrange">(' + range + ')</span></div>' +
-    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Health score trend">' +
-    thresh + '<path d="' + area + '" fill="' + color + '" opacity="0.18"/>' +
-    '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    dots + '<circle cx="' + end[0] + '" cy="' + end[1] + '" r="3" fill="' + color + '"/></svg></div>';
-}
 
-// Stacked bar chart of high/medium/info counts per run (new graph). Shared
-// vertical scale, hover reveals the per-severity breakdown for each run.
-function severityChart(data) {
-  const W = 300, H = 72, spad = 8, sgap = 4;
-  const counts = data.map((r) => ({
-    high: (r.counts && r.counts.high) || 0,
-    medium: (r.counts && r.counts.medium) || 0,
-    info: (r.counts && r.counts.info) || 0,
-    at: r.at,
-  }));
-  const maxTotal = Math.max(1, ...counts.map((c) => c.high + c.medium + c.info));
-  const n = counts.length;
-  const bw = (W - 2 * spad - (n - 1) * sgap) / n;
-  const totalH = H - 2 * spad;
-  const bars = counts.map((c, i) => {
-    const x = (spad + i * (bw + sgap)).toFixed(1);
-    const iH = totalH * c.info / maxTotal;
-    const mH = totalH * c.medium / maxTotal;
-    const hH = totalH * c.high / maxTotal;
-    // Stack from the bottom: info, then medium, then high on top.
-    const yInfo = (H - spad - iH).toFixed(1);
-    const yMed = (H - spad - iH - mH).toFixed(1);
-    const yHigh = (H - spad - iH - mH - hH).toFixed(1);
-    const tip = "high: " + c.high + " · medium: " + c.medium + " · info: " + c.info + (fmtWhen(c.at) ? " · " + fmtWhen(c.at) : "");
-    return '<g data-idx="'+i+'" style="cursor:pointer" class="hist-bar"><rect x="' + x + '" y="' + yInfo + '" width="' + bw.toFixed(1) + '" height="' + iH.toFixed(1) + '" fill="var(--blue)" opacity="0.85"><title>' + tip + ' — click to show diff</title></rect>' +
-      '<rect x="' + x + '" y="' + yMed + '" width="' + bw.toFixed(1) + '" height="' + mH.toFixed(1) + '" fill="var(--yellow)" opacity="0.9"><title>' + tip + '</title></rect>' +
-      '<rect x="' + x + '" y="' + yHigh + '" width="' + bw.toFixed(1) + '" height="' + hH.toFixed(1) + '" fill="var(--red)" opacity="0.9"><title>' + tip + '</title></rect></g>';
-  }).join("");
-  return '<div class="trendchart">' +
-    '<div class="trendtitle">Findings by severity · last ' + n + ' run(s)</div>' +
-    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Severity counts over time">' + bars + '</svg>' +
-    '<div class="sevlegend"><span class="lg high"></span>high <span class="lg medium"></span>medium <span class="lg info"></span>info</div>' +
-    '</div>';
-}
-
-// Animated count-up for the score. Cheap (one element + one SVG ring, ~900ms).
-const SCORE_RING_R = 25;
-const SCORE_RING_C = 2 * Math.PI * SCORE_RING_R;
-function animateScore(target) {
-  const num = $("#scorenum");
-  const ring = $("#scorering");
-  if (!num) return;
-  const t0 = performance.now();
-  const dur = 900;
-  const step = (now) => {
-    const p = Math.min(1, (now - t0) / dur);
-    // Ease-out so the big jump at the start reads as "counting up".
-    const v = target * (1 - Math.pow(1 - p, 3));
-    num.textContent = Math.round(v);
-    if (ring) ring.style.strokeDashoffset = SCORE_RING_C * (1 - v / 100);
-    if (p < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-// Toast helper — used for Copy and Ignore/Undo
+/* ── ui-toast.js ── */
+/* === Toast notifications === */
 function showToast(html, ms = 3000) {
   const wrap = $("#toast-wrap");
   if (!wrap) return;
@@ -791,15 +824,211 @@ function showToast(html, ms = 3000) {
   setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(8px)"; setTimeout(() => el.remove(), 260); }, ms);
   return el;
 }
-let lastUndo = null;
-// Highlight search term inside a card (title/detail/evidence/fix) with <mark>
+
+
+/* ── ui-modal.js ── */
+/* === Shared modal shell === */
+function openModal(html) {
+  const modal = $("#modal");
+  const body = $("#modal-body");
+  if (!modal || !body) return;
+  body.innerHTML = html;
+  modal.hidden = false;
+  $("#modal-x")?.focus();
+}
+
+function closeModal() {
+  const modal = $("#modal");
+  if (modal && !modal.hidden) modal.hidden = true;
+}
+
+function isModalOpen() {
+  const modal = $("#modal");
+  return !!modal && !modal.hidden;
+}
+
+function setupModal() {
+  const modal = $("#modal");
+  if (!modal) return;
+  // Backdrop click closes; clicks inside the card do not.
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+  $("#modal-x")?.addEventListener("click", closeModal);
+}
+
+/* Keyboard shortcuts help (?). */
+function openHelp() {
+  openModal(
+    '<div class="mx-head">Keyboard shortcuts</div>' +
+    '<div class="mx-sub">Everything works with the mouse too.</div>' +
+    '<div class="help-grid">' +
+    "<div><kbd>\u2191</kbd> <kbd>\u2193</kbd></div><div>Navigate findings</div>" +
+    "<div><kbd>Enter</kbd> / <kbd>Space</kbd></div><div>Open or close a finding</div>" +
+    "<div><kbd>/</kbd></div><div>Focus the search box</div>" +
+    "<div><kbd>Esc</kbd></div><div>Close this dialog \u00b7 clear search &amp; filters \u00b7 close thresholds</div>" +
+    '<div><kbd>?</kbd></div><div>Show this help</div>' +
+    "</div>");
+}
+
+
+/* ── ui-theme.js ── */
+/* === Theme toggle === */
+function currentTheme() { try { return localStorage.getItem("ld-theme") || "auto"; } catch { return "auto"; } }
+function applyTheme() {
+  const t = currentTheme();
+  const dark = t === "dark" || (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  const btn = $("#theme");
+  if (btn) {
+    btn.textContent = t === "light" ? "\u2600\ufe0f" : t === "dark" ? "\u{1f319}" : "\u{1f313}";
+    btn.title = "Theme: " + t + " \u2014 click to change";
+  }
+}
+function cycleTheme() {
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(currentTheme()) + 1) % THEME_ORDER.length];
+  try { localStorage.setItem("ld-theme", next); } catch {}
+  applyTheme();
+}
+
+
+/* ── ui-keyboard.js ── */
+/* === Keyboard navigation === */
+function setupKeyboard() {
+  document.addEventListener("keydown", (e) => {
+    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "");
+
+    // "/" focuses search (unless the user is already typing somewhere).
+    if (e.key === "/" && !typing) {
+      e.preventDefault();
+      $("#search")?.focus();
+      return;
+    }
+
+    // "?" opens the shortcuts help (Shift+/ — same key without typing context).
+    if (e.key === "?" && !typing) {
+      e.preventDefault();
+      openHelp();
+      return;
+    }
+
+    // Escape: close the modal, then the thresholds panel, else clear search+filter.
+    if (e.key === "Escape") {
+      if (isModalOpen()) { closeModal(); return; }
+      const panel = $("#threshpanel");
+      if (panel && !panel.hidden) { panel.hidden = true; return; }
+      if (!typing && (activeFilter !== "all" || $("#search").value)) {
+        activeFilter = "all";
+        $("#search").value = "";
+        document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
+        syncGroupsOpen();
+        applyFilters();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const cards = [...document.querySelectorAll("#report .card, #report .crow")];
+      if (!cards.length) return;
+      let idx = cards.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") idx = idx < 0 ? 0 : Math.min(cards.length - 1, idx + 1);
+      else idx = idx < 0 ? 0 : Math.max(0, idx - 1);
+      e.preventDefault();
+      cards[idx].focus({ preventScroll: true });
+      cards[idx].scrollIntoView({ block: "nearest" });
+    } else if ((e.key === "Enter" || e.key === " ") && document.activeElement && (document.activeElement.classList.contains("card") || document.activeElement.classList.contains("crow"))) {
+      const el = document.activeElement;
+      if (el.open) el.removeAttribute("open");
+      else el.setAttribute("open", "");
+      e.preventDefault();
+    }
+  });
+}
+
+function setAllOpen(open) {
+  document.querySelectorAll("#report .group, #report .card, #report .crow").forEach((el) => {
+    if (open) el.setAttribute("open", "");
+    else el.removeAttribute("open");
+  });
+  const btn = $("#expandall");
+  if (btn) btn.textContent = open ? "\u229f Collapse all" : "\u229e Expand all";
+}
+
+
+/* ── ui-filters.js ── */
+/* === Severity filters + search === */
+let activeFilter = "all";
+
+const PILL_ICONS = { all: "\u25c9", high: "\u{1f534}", medium: "\u{1f7e1}", info: "\u{1f535}" };
+
+function renderFilters(counts) {
+  const total = counts.high + counts.medium + counts.info;
+  const defs = [
+    { sev: "all", label: "All" + (total ? " (" + total + ")" : ""), icon: PILL_ICONS.all },
+    { sev: "high", label: "High" + (counts.high ? " (" + counts.high + ")" : ""), icon: PILL_ICONS.high },
+    { sev: "medium", label: "Medium" + (counts.medium ? " (" + counts.medium + ")" : ""), icon: PILL_ICONS.medium },
+    { sev: "info", label: "Info" + (counts.info ? " (" + counts.info + ")" : ""), icon: PILL_ICONS.info },
+  ];
+  const empty = (sev) => sev !== "all" && (counts[sev] || 0) === 0;
+  if (empty(activeFilter)) activeFilter = "all";
+  $("#filters").innerHTML = defs.map((d) =>
+    '<button class="fpill ' + d.sev + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + d.sev + '"' +
+    (empty(d.sev) ? " disabled" : "") + '><span class="pill-icon" aria-hidden="true">' + d.icon + '</span> ' + d.label + '</button>'
+  ).join("");
+  syncClear();
+}
+
+function applyFilters() {
+  const report = $("#report");
+  const hint = $("#drillhint");
+  report.hidden = !activeFilter;
+  hint.hidden = !!activeFilter;
+  if (activeFilter) {
+    hint.textContent = "";
+  } else {
+    hint.textContent = groupBy === "category"
+      ? "Select a category to see findings."
+      : "Select a severity to see findings.";
+  }
+  const qRaw = $("#search").value.trim();
+  const q = qRaw.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll("#report .group").forEach((g) => {
+    // Severity gate at card level so it also works inside category groups
+    // (a category bucket mixes severities; the group itself has none).
+    let any = false;
+    g.querySelectorAll(".card, .crow").forEach((c) => {
+      const sevOk = activeFilter === "all" || c.classList.contains(activeFilter);
+      const match = sevOk && (!q || c.textContent.toLowerCase().includes(q));
+      c.style.display = match ? "" : "none";
+      if (match) {
+        any = true;
+        highlightMatches(c, qRaw);
+      } else {
+        highlightMatches(c, "");
+      }
+    });
+    if (!qRaw) g.querySelectorAll(".card, .crow").forEach(c => highlightMatches(c, ""));
+    g.hidden = !any;
+    if (any) visible++;
+  });
+  const nomatch = $("#nomatch");
+  nomatch.hidden = !(activeFilter && qRaw && visible === 0);
+  if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
+  syncClear();
+  syncAutoPausedUI();
+}
+
+function syncClear() {
+  const clear = $("#clearbtn");
+  const hasFilter = activeFilter && activeFilter !== "all";
+  const hasSearch = $("#search").value.trim().length > 0;
+  clear.disabled = !(hasFilter || hasSearch);
+}
+
 function highlightMatches(card, q) {
-  // clear previous
   card.querySelectorAll("mark.hl").forEach(m => {
     const t = document.createTextNode(m.textContent);
     m.replaceWith(t);
   });
-  // normalize text nodes so split marks don't accumulate
   card.normalize();
   if (!q) return;
   const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -807,7 +1036,6 @@ function highlightMatches(card, q) {
   const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
       if (!n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-      // skip inside buttons/links
       if (n.parentElement && n.parentElement.closest("button, a")) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     }
@@ -830,141 +1058,825 @@ function highlightMatches(card, q) {
       frag.appendChild(mark);
       last = m.index + m[0].length;
     }
-    if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+    if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last, txt.length)));
     n.replaceWith(frag);
   }
 }
 
-// Severity filter + live search. Pure DOM toggles — no re-fetch.
-// activeFilter: null = report hidden (drill-down), "all" = every group,
-// "high"/"medium"/"info" = that group only. Defaults to "all" so the report
-// is visible as soon as the app opens.
-let activeFilter = "all";
-
-const PILL_ICONS = { all: "◉", high: "🔴", medium: "🟡", info: "🔵" };
-const SEV_ICONS = { high: "🔴", medium: "🟡", info: "🔵" };
-function renderFilters(counts) {
-  // The counts live on the pills now: All (N) / High (N) / Medium (N) / Info (N).
-  const total = counts.high + counts.medium + counts.info;
-  const defs = [
-    { sev: "all", label: "All" + (total ? " (" + total + ")" : ""), icon: PILL_ICONS.all },
-    { sev: "high", label: "High" + (counts.high ? " (" + counts.high + ")" : ""), icon: PILL_ICONS.high },
-    { sev: "medium", label: "Medium" + (counts.medium ? " (" + counts.medium + ")" : ""), icon: PILL_ICONS.medium },
-    { sev: "info", label: "Info" + (counts.info ? " (" + counts.info + ")" : ""), icon: PILL_ICONS.info },
-  ];
-  // A severity with no findings can't be filtered on; if the active chip is
-  // one of them (e.g. after a re-run that fixed everything), fall back to All.
-  const empty = (sev) => sev !== "all" && (counts[sev] || 0) === 0;
-  if (empty(activeFilter)) activeFilter = "all";
-  $("#filters").innerHTML = defs.map((d) =>
-    '<button class="fpill ' + d.sev + (activeFilter === d.sev ? " active" : "") + '" data-sev="' + d.sev + '"' +
-    (empty(d.sev) ? " disabled" : "") + '><span class="pill-icon">' + d.icon + '</span> ' + d.label + '</button>'
-  ).join("");
-  syncClear();
-}
-
-function applyFilters() {
-  const report = $("#report");
-  const hint = $("#drillhint");
-  report.hidden = !activeFilter;
-  hint.hidden = !!activeFilter;
-  if (activeFilter) {
-    hint.textContent = "";
-  } else {
-    hint.textContent = "Select a severity to see findings.";
-  }
-  const qRaw = $("#search").value.trim();
-  const q = qRaw.toLowerCase();
-  let visible = 0;
-  document.querySelectorAll("#report .group").forEach((g) => {
-    const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
-    const sevOk = activeFilter === "all" || sev === activeFilter;
-    let any = false;
-    g.querySelectorAll(".card, .crow").forEach((c) => {
-      const match = !q || c.textContent.toLowerCase().includes(q);
-      c.style.display = match ? "" : "none";
-      if (match) {
-        any = true;
-        highlightMatches(c, qRaw);
-      } else {
-        // clear highlight on hidden so it doesn't persist when shown again
-        highlightMatches(c, "");
-      }
-    });
-    // also clear highlight on whole group when no query
-    if (!qRaw) g.querySelectorAll(".card, .crow").forEach(c => highlightMatches(c, ""));
-    g.hidden = !(sevOk && any);
-    if (sevOk && any) visible++;
-  });
-  const nomatch = $("#nomatch");
-  nomatch.hidden = !(activeFilter && qRaw && visible === 0);
-  if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
-  syncClear();
-  syncAutoPausedUI();
-}
-
-// Clear (✕) is only actionable when something is filtering the report.
-function syncClear() {
-  const clear = $("#clearbtn");
-  const hasFilter = activeFilter && activeFilter !== "all";
-  const hasSearch = $("#search").value.trim().length > 0;
-  clear.disabled = !(hasFilter || hasSearch);
-}
-
-$("#clearbtn").addEventListener("click", () => {
-  activeFilter = "all";
-  $("#search").value = "";
-  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
-  syncGroupsOpen();
-  applyFilters();
-});
-
 function syncGroupsOpen() {
-  // Filtering reveals the group — open it so findings are visible right away.
-  // On "All", only High opens (progressive disclosure: Informational can hold
-  // dozens of items); a specific severity opens its own group.
+  // Severity mode: filtering reveals the group — open it so findings are
+  // visible right away. On "All", only High opens (progressive disclosure:
+  // Informational can hold dozens of items); a specific severity opens its
+  // own group. Category mode: leave expansion to the user.
   document.querySelectorAll("#report .group").forEach((g) => {
-    const sev = g.classList.contains("high") ? "high" : g.classList.contains("medium") ? "medium" : "info";
-    g.open = activeFilter === sev || (activeFilter === "all" && sev === "high");
+    if (g.dataset.type === "cat") return;
+    g.open = activeFilter === g.dataset.key || (activeFilter === "all" && g.dataset.key === "high");
   });
   syncAutoPausedUI();
 }
 
-$("#filters").addEventListener("click", (e) => {
-  const btn = e.target.closest(".fpill");
-  if (!btn) return;
-  activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
-  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
-  syncGroupsOpen();
-  applyFilters();
-});
-$("#search").addEventListener("input", applyFilters);
 
-// "Checks that were skipped on this system": pull /api/checks (the web server
-// serves it; the desktop app returns nothing, so the section stays hidden).
+/* ── ui-polling.js ── */
+/* === Auto-refresh polling === */
+let autoRefresh = true;
+let pollTimer = null;
+let pollBusy = false;
+
+function reportSignature(d) {
+  if (!d) return "";
+  return JSON.stringify([d.generatedAt || "", d.score || 0, d.scoreDelta || 0, d.findings || [], d.diffSinceLast || null]);
+}
+
+function pollPaused() {
+  if (!autoRefresh || document.hidden || pollBusy) return true;
+  if ($("#rerun").disabled) return true;
+  if ($("#search").value.trim()) return true;
+  if (activeFilter && activeFilter !== "all") return true;
+  return document.querySelectorAll("#report details[open]").length > 0;
+}
+
+function syncAutoPausedUI() {
+  const autoBtn = $("#autorefresh");
+  if (!autoBtn) return;
+  const paused = pollPaused();
+  autoBtn.classList.toggle("paused", paused && autoRefresh);
+  if (!autoRefresh) autoBtn.title = "Auto-refresh off \u2014 click to enable";
+  else if (paused) autoBtn.title = "Paused \u2014 clear filter/search or collapse cards to resume";
+  else autoBtn.title = "Auto-refresh every 20s";
+}
+
+async function poll() {
+  if (pollPaused()) return;
+  pollBusy = true;
+  try {
+    const data = await fetchReport();
+    if (reportSignature(data) !== reportSignature(lastData)) {
+      render(data);
+      // Quiet confirmation that the background refresh changed something —
+      // a green pulse on the Auto button, gone in ~1.5s. No toast noise.
+      const btn = $("#autorefresh");
+      if (btn) {
+        btn.classList.add("updated");
+        setTimeout(() => btn.classList.remove("updated"), 1600);
+      }
+    }
+  } catch {}
+  finally { pollBusy = false; }
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(poll, POLL_MS);
+}
+
+function setupPolling() {
+  const autoBtn = $("#autorefresh");
+  if (autoBtn) {
+    autoBtn.addEventListener("click", () => {
+      autoRefresh = !autoRefresh;
+      autoBtn.classList.toggle("on", autoRefresh);
+      syncAutoPausedUI();
+      showToast(autoRefresh ? "\u23f1 Auto-refresh on" : "\u23f8 Auto-refresh off");
+    });
+  }
+  setInterval(syncAutoPausedUI, 1000);
+  document.addEventListener("toggle", (e) => {
+    if (e.target.matches("#report details")) syncAutoPausedUI();
+    if (e.target.classList.contains("ev") && e.target.open) {
+      const ev = e.target.querySelector(".evidence");
+      const btn = e.target.querySelector(".ev-expand");
+      if (ev && btn && ev.scrollHeight > 228) btn.hidden = false;
+    }
+  }, true);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { clearInterval(pollTimer); }
+    else { startPolling(); }
+  });
+}
+
+
+/* ── ui-notify.js ── */
+/* === Browser desktop notifications === */
+function maybeNotify(data) {
+  try {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const hasHigh = (data.findings || []).some(f => f.severity === "high");
+    const newHigh = ((data.diffSinceLast && data.diffSinceLast.added) || []).some(f => f.severity === "high" || f.severity === "medium");
+    const degraded = (typeof data.scoreDelta === "number" && data.scoreDelta < 0 && data.score < 80) || (hasHigh && newHigh);
+    if (!degraded) return;
+    const key = "ld-notify-" + data.score + "-" + (data.generatedAt || "");
+    const last = localStorage.getItem(key);
+    if (last) return;
+    localStorage.setItem(key, "1");
+    setTimeout(() => localStorage.removeItem(key), 10 * 60 * 1000);
+    const title = hasHigh ? "Linux Doctor: health degraded (" + data.score + "/100)" : "Linux Doctor: new findings";
+    const body = (data.changeMessage || (data.newCount ? data.newCount + " new \u00b7 " + data.fixedCount + " fixed" : "")) + " \u2014 open dashboard for details";
+    new Notification(title, { body, icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>\u{1fa7a}</text></svg>" });
+  } catch {}
+}
+
+function setupNotifyButton() {
+  const notifyBtn = $("#notifybtn");
+  if (!notifyBtn) return;
+  const syncNotifyBtn = () => {
+    if (!("Notification" in window)) { notifyBtn.style.display = "none"; return; }
+    notifyBtn.textContent = Notification.permission === "granted" ? "\u{1f514}\u2713" : "\u{1f514}";
+    notifyBtn.title = Notification.permission === "granted" ? "Notifications enabled" : "Enable desktop notifications when health degrades";
+    notifyBtn.classList.toggle("on", Notification.permission === "granted");
+  };
+  syncNotifyBtn();
+  notifyBtn.addEventListener("click", async () => {
+    if (!("Notification" in window)) { showToast("Notifications not supported in this browser"); return; }
+    if (Notification.permission === "granted") { showToast("\u{1f514} Notifications already enabled"); return; }
+    const perm = await Notification.requestPermission();
+    syncNotifyBtn();
+    showToast(perm === "granted" ? "\u{1f514} Notifications enabled" : "Notifications not granted");
+    if (perm === "granted" && lastData) maybeNotify(lastData);
+  });
+}
+
+
+/* ── ui-thresholds.js ── */
+/* === Threshold editor panel === */
+let threshData = null;
+
+async function loadThresh() {
+  try {
+    const r = await fetch("/api/thresholds", { cache: "no-store" });
+    if (!r.ok) throw new Error("" + r.status);
+    const j = await r.json();
+    threshData = j.thresholds || j.defaults || {};
+    const defs = j.defaults || {};
+    const fields = [
+      ["diskFullPct", "Disk full %", "90"], ["diskWarnPct", "Disk warn %", "80"],
+      ["memLowRatio", "Mem low ratio", "0.15"], ["memWarnRatio", "Mem warn ratio", "0.25"],
+      ["loadWarnRatio", "Load warn", "0.7"], ["loadHighRatio", "Load high", "1.0"], ["loadCriticalRatio", "Load crit", "1.5"],
+      ["tempWarnC", "Temp warn \u00b0C", "85"], ["tempHotC", "Temp hot \u00b0C", "95"],
+      ["procWarnRatio", "Proc warn", "0.2"], ["procHighRatio", "Proc high", "0.4"],
+      ["journalWarnBytes", "Journal bytes", "2147483648"], ["containerWarnGB", "Cont. warn GB", "20"], ["containerHighGB", "Cont. high GB", "50"],
+    ];
+    $("#threshbody").innerHTML = fields.map(([k, label, def]) => {
+      const v = threshData[k] ?? defs[k] ?? def;
+      return '<div class="thresh-field"><label for="th-' + k + '">' + label + ' <span style="font-weight:400; text-transform:none; letter-spacing:0;">(' + k + ')</span></label><input id="th-' + k + '" data-k="' + k + '" type="number" step="any" value="' + esc(v) + '"></div>';
+    }).join("");
+    if (!threshData || Object.keys(threshData).length === 0) {
+      try {
+        const r2 = await fetch("http://127.0.0.1:17321/thresholds", { cache: "no-store" });
+        if (r2.ok) { const j2 = await r2.json(); if (j2.thresholds) threshData = j2.thresholds; }
+      } catch {}
+    }
+  } catch (e) { $("#threshbody").innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load thresholds: ' + esc(e.message) + '</div>'; }
+}
+
+function setupThresholds() {
+  const threshBtn = $("#threshbtn");
+  const threshPanel = $("#threshpanel");
+  const threshBody = $("#threshbody");
+  const threshMsg = $("#threshmsg");
+  if (!threshBtn || !threshPanel) return;
+
+  threshBtn.addEventListener("click", async () => {
+    const hidden = threshPanel.hidden;
+    threshPanel.hidden = !hidden;
+    if (!hidden) return;
+    await loadThresh();
+  });
+
+  $("#threshclose")?.addEventListener("click", () => threshPanel.hidden = true);
+
+  $("#threshcopy")?.addEventListener("click", async () => {
+    const data = {};
+    threshBody.querySelectorAll("input[data-k]").forEach(inp => { const k = inp.dataset.k; const v = Number(inp.value); if (Number.isFinite(v)) data[k] = v; });
+    await copyText(JSON.stringify({ thresholds: data }, null, 2));
+    threshMsg.textContent = "\u2713 Copied JSON";
+    showToast("\u2713 Thresholds JSON copied \u2014 paste into ~/.config/linux-doctor/config.json");
+    setTimeout(() => threshMsg.textContent = "", 1500);
+  });
+
+  $("#threshsave")?.addEventListener("click", async () => {
+    const data = {};
+    threshBody.querySelectorAll("input[data-k]").forEach(inp => { const k = inp.dataset.k; const v = Number(inp.value); if (Number.isFinite(v)) data[k] = v; });
+    threshMsg.textContent = "Saving\u2026";
+    let ok = false;
+    try { const r = await fetch("/api/thresholds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ thresholds: data }) }); ok = r.ok; } catch {}
+    if (!ok) { try { const r2 = await fetch("http://127.0.0.1:17321/thresholds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ thresholds: data }) }); ok = r2.ok; } catch {} }
+    threshMsg.textContent = ok ? "\u2713 Saved \u2014 re-run checks to apply" : "\u2717 Save failed";
+    showToast(ok ? "\u2713 Thresholds saved" : "\u2717 Could not save thresholds");
+    if (ok) setTimeout(() => threshPanel.hidden = true, 900);
+  });
+}
+
+
+/* ── ui-history.js ── */
+/* === History section + chart interaction === */
+let statusTimer = null;
+
+function setStatus(generatedAt) {
+  const txt = $("#statuspill-txt");
+  const dot = $("#statusdot");
+  if (!txt || !dot) return;
+  const ms = Date.now() - new Date(generatedAt).getTime();
+  const secs = Math.max(0, Math.round(ms / 1000));
+  let label;
+  if (secs < 5) label = "checked just now";
+  else if (secs < 60) label = "checked " + secs + "s ago";
+  else if (secs < 3600) label = "checked " + Math.floor(secs / 60) + "m ago";
+  else if (secs < 86400) label = "checked " + Math.floor(secs / 3600) + "h ago";
+  else label = "checked " + Math.floor(secs / 86400) + "d ago";
+  txt.textContent = label;
+  dot.className = "dot" + (secs >= 3600 ? " stale" : "");
+}
+
+async function renderTrend(currentScore) {
+  if (STATIC_DATA) return;
+  const trend = $("#trend");
+  const runs = await fetchHistory();
+  const data = runs.filter((r) => typeof r.score === "number").slice(-12);
+  $("#history").hidden = data.length < 2;
+  if ($("#history").hidden) return;
+
+  // Hero mini-sparkline: the score's recent direction, visible at a glance.
+  const spark = $("#hero-spark");
+  if (spark) {
+    spark.innerHTML = miniSpark(data);
+    spark.hidden = false;
+  }
+
+  trend.innerHTML = '<div class="trend-wrap">' + scoreChart(data) + severityChart(data) + '</div>';
+
+  if (typeof currentScore === "number" && currentScore < 80) {
+    const det = document.querySelector(".hist-details");
+    if (det) det.open = true;
+  }
+
+  setTimeout(() => {
+    const histData = data;
+    const showRun = (idx) => {
+      const r = histData[idx];
+      if (!r) return;
+      const prev = idx > 0 ? histData[idx - 1] : null;
+      let msg = "Run " + (idx + 1) + "/" + histData.length + " \u00b7 " + fmtWhen(r.at) + " \u00b7 score " + r.score + "/100";
+      if (prev) msg += " (prev " + prev.score + ")";
+      showToast(msg + " \u2014 opening Changes");
+      const diffEl = $("#diff");
+      if (diffEl) { diffEl.hidden = false; diffEl.open = true; diffEl.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      const det = document.querySelector(".hist-details");
+      if (det) det.open = true;
+    };
+    trend.querySelectorAll(".hist-dot, .hist-bar").forEach(el => {
+      el.addEventListener("click", () => { const idx = Number(el.dataset.idx || el.closest("[data-idx]")?.dataset.idx); if (Number.isFinite(idx)) showRun(idx); });
+    });
+  }, 80);
+}
+
+
+/* ── ui-sidebar.js ── */
+/* === Overview sidebar: score breakdown bars + severity/category nav === */
+
+function renderSidebar(data, counts) {
+  const sidebar = $("#sidebar");
+  if (!sidebar) return;
+  const findings = data.findings || [];
+  sidebar.hidden = false;
+
+  renderBreakdownBars(data);
+  renderSeverityNav(counts);
+  renderCategoryNav(findings);
+}
+
+/* "Why this score": top penalized findings as proportional bars.
+   Mirrors the CLI's SCORE line (top-3 + "+N more") using the same
+   server-computed scoreBreakdown — never re-derived here. */
+function renderBreakdownBars(data) {
+  const el = $("#sb-breakdown");
+  if (!el) return;
+  const rows = (data.scoreBreakdown || []).filter((b) => b.penalty > 0)
+    .sort((a, b) => b.penalty - a.penalty);
+  if (!rows.length) {
+    el.innerHTML = '<div class="bd-clean">\u2713 No score penalties</div>';
+    return;
+  }
+  const TOP = 3;
+  const max = rows[0].penalty;
+  const shown = rows.slice(0, TOP);
+  el.innerHTML = shown.map((b) => {
+    const pct = Math.max(6, Math.round((b.penalty / max) * 100));
+    return '<div class="bd-row">' +
+      '<div class="bd-top"><span class="bd-title" title="' + esc(b.title || b.code || "") + '">' +
+      esc(b.title || b.code || "") + '</span>' +
+      '<span class="bd-pen ' + esc(b.severity) + '" title="' + esc(SEV_NAMES[b.severity] || b.severity) + " \u2014 this finding removed " + b.penalty + " points from 100\">" +
+      "\u2212" + b.penalty + "</span></div>" +
+      '<div class="bd-code">' + esc(b.code || "") + '</div>' +
+      '<div class="bd-bar"><div class="bd-fill ' + esc(b.severity) + '" style="width:' + pct + '%"></div></div>' +
+      "</div>";
+  }).join("") +
+    (rows.length > TOP ? '<div class="bd-more">+' + (rows.length - TOP) + " more</div>" : "");
+}
+
+function renderSeverityNav(counts) {
+  const el = $("#sb-sevnav");
+  if (!el) return;
+  el.innerHTML = SEV_ORDER.map((sev) => {
+    const n = counts[sev] || 0;
+    if (!n) return "";
+    return '<button class="sb-item ' + sev + (activeFilter === sev ? " active" : "") + '" data-nav-sev="' + sev + '">' +
+      '<span class="sevicon" aria-hidden="true">' + (SEV_ICONS[sev] || "") + '</span>' +
+      '<span class="sb-label">' + SEV_NAMES[sev] + '</span>' +
+      '<span class="sb-count">' + n + "</span></button>";
+  }).join("") || '<div class="bd-clean" style="font-size:11.5px;">Nothing needs attention</div>';
+}
+
+function renderCategoryNav(findings) {
+  const el = $("#sb-catnav");
+  if (!el) return;
+  const tally = new Map();
+  for (const f of findings) {
+    const cat = categoryOf(f);
+    tally.set(cat, (tally.get(cat) || 0) + 1);
+  }
+  el.innerHTML = CATEGORY_ORDER.map((cat) => {
+    const n = tally.get(cat) || 0;
+    if (!n) return "";
+    return '<button class="sb-item" data-nav-cat="' + cat + '">' +
+      '<span class="sb-label">' + esc(CATEGORY_LABELS[cat] || cat) + '</span>' +
+      '<span class="sb-count">' + n + "</span></button>";
+  }).join("");
+}
+
+/* Switch grouping mode and re-render the current report in place.
+   The choice persists across sessions. */
+function setGroupBy(mode) {
+  if (mode !== "severity" && mode !== "category") return;
+  try { localStorage.setItem("ld-groupby", mode); } catch {}
+  if (groupBy === mode) return;
+  groupBy = mode;
+  document.querySelectorAll(".segbtn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.groupby === mode));
+  if (lastData) render(lastData);
+}
+
+function setupSidebar() {
+  // Restore the grouping chosen in a previous session, before the first
+  // render paints the wrong mode and has to flip.
+  try {
+    const saved = localStorage.getItem("ld-groupby");
+    if (saved === "severity" || saved === "category") {
+      groupBy = saved;
+      document.querySelectorAll(".segbtn").forEach((b) =>
+        b.classList.toggle("active", b.dataset.groupby === saved));
+    }
+  } catch {}
+
+  document.addEventListener("click", (e) => {
+    // Segmented control
+    const seg = e.target.closest(".segbtn");
+    if (seg) { setGroupBy(seg.dataset.groupby); return; }
+
+    // Sidebar severity row → severity view + that filter
+    const sevBtn = e.target.closest("[data-nav-sev]");
+    if (sevBtn) {
+      setGroupBy("severity");
+      activeFilter = sevBtn.dataset.navSev;
+      document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
+      syncGroupsOpen();
+      applyFilters();
+      scrollToGroup("sev", activeFilter);
+      return;
+    }
+
+    // Sidebar category row → category view + open that group
+    const catBtn = e.target.closest("[data-nav-cat]");
+    if (catBtn) {
+      setGroupBy("category");
+      requestAnimationFrame(() => scrollToGroup("cat", catBtn.dataset.navCat));
+    }
+  });
+}
+
+function scrollToGroup(type, key) {
+  const g = document.querySelector('#report .group[data-type="' + type + '"][data-key="' + key.replace(/"/g, '\\"') + '"]');
+  if (!g) return;
+  g.setAttribute("open", "");
+  g.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+
+/* ── ui-checks.js ── */
+/* === All-checks matrix ===
+   A diagnostic tool earns trust by showing what it looked AT, not only
+   what it found. This modal lists every registered check with its live
+   outcome on this machine: findings (worst severity first), clean,
+   not-applicable for this profile, atomic skips, or runtime errors.
+   Rows with findings deep-link back to their cards in the report. */
+
+function checksMatrixHtml(data, checks) {
+  const findingsByCheck = new Map();
+  for (const f of data.findings || []) {
+    if (!findingsByCheck.has(f.check)) findingsByCheck.set(f.check, []);
+    findingsByCheck.get(f.check).push(f);
+  }
+  const errors = new Map((data.checkErrors || []).map((e) => [e.check, e.error]));
+  const atomic = new Set((data.skippedChecks || []).map((s) => s.id));
+
+  const SEV_RANK = { high: 0, medium: 1, info: 2 };
+  function statusOf(c) {
+    if (errors.has(c.id)) return { rank: 0, icon: "\u26a0\ufe0f", cls: "err", note: esc(errors.get(c.id) || "failed to run") };
+    const fs = findingsByCheck.get(c.id) || [];
+    if (fs.length) {
+      fs.sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9));
+      return { rank: 1, icon: SEV_ICONS[fs[0].severity] || "\u25cf", cls: fs[0].severity, note: fs.length + " finding" + (fs.length > 1 ? "s" : ""), goto: true };
+    }
+    if (!c.appliesHere) return { rank: 3, icon: "\u2013", cls: "na", note: "runs on: " + (c.appliesTo || []).join(", ") };
+    if (c.skipOnAtomic || atomic.has(c.id)) return { rank: 3, icon: "\u23ed", cls: "na", note: c.atomicReason || "skipped on immutable/atomic systems" };
+    return { rank: 2, icon: "\u2705", cls: "ok", note: "clean" };
+  }
+
+  const cats = new Map();
+  for (const c of checks) {
+    const cat = c.category || "other";
+    if (!cats.has(cat)) cats.set(cat, []);
+    cats.get(cat).push(c);
+  }
+
+  let problemCount = 0, errorCount = 0, cleanCount = 0, naCount = 0;
+  let body = "";
+  for (const cat of CATEGORY_ORDER) {
+    const list = cats.get(cat);
+    if (!list || !list.length) continue;
+    const rows = list.map((c) => ({ c, s: statusOf(c) }))
+      .sort((a, b) => a.s.rank - b.s.rank || a.c.id.localeCompare(b.c.id));
+    body += '<div class="mx-cat">' + esc(CATEGORY_LABELS[cat] || cat) + "</div>";
+    for (const { c, s } of rows) {
+      if (s.rank === 1) problemCount++;
+      else if (s.rank === 0) errorCount++;
+      else if (s.rank === 2) cleanCount++;
+      else naCount++;
+      const gotoAttr = s.goto
+        ? ' data-goto-code="' + esc(((findingsByCheck.get(c.id) || [])[0] || {}).code || "") + '" data-goto-check="' + esc(c.id) + '"'
+        : "";
+      body += '<div class="mx-row' + (s.goto ? " link" : "") + '"' + gotoAttr + ">" +
+        '<span class="mx-st" aria-hidden="true">' + s.icon + '</span>' +
+        '<span class="mx-id">' + esc(c.id) + '</span>' +
+        '<span class="mx-title">' + esc(c.title) + '</span>' +
+        '<span class="mx-note ' + s.cls + '">' + s.note + "</span></div>";
+    }
+  }
+
+  const total = checks.length;
+  return '<div class="mx-head">All checks</div>' +
+    '<div class="mx-sub">' + total + " registered \u00b7 " +
+    problemCount + " with findings \u00b7 " +
+    cleanCount + " clean \u00b7 " +
+    (errorCount ? errorCount + " failed to run \u00b7 " : "") +
+    naCount + " not applicable here" +
+    (STATIC_DATA ? " \u00b7 static report: live check list unavailable" : "") + "</div>" +
+    body;
+}
+
+async function openChecksMatrix() {
+  openModal('<div class="mx-head">All checks</div><div class="mx-sub">Loading\u2026</div>');
+  const checks = STATIC_DATA ? [] : await fetchChecks();
+  openModal(checksMatrixHtml(lastReportData || {}, checks));
+
+  // Deep-link rows: close the modal and reveal the finding card.
+  $("#modal-body").addEventListener("click", (e) => {
+    const row = e.target.closest("[data-goto-check]");
+    if (!row) return;
+    closeModal();
+    activeFilter = "all";
+    document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
+    syncGroupsOpen();
+    applyFilters();
+    const code = row.dataset.gotoCode;
+    const card = (code && document.querySelector('#report details[data-code="' + code.replace(/"/g, '\\"') + '"]'))
+      || document.querySelector('#report details[data-check="' + row.dataset.gotoCheck.replace(/"/g, '\\"') + '"]');
+    if (card) {
+      card.setAttribute("open", "");
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      showToast("Showing " + row.dataset.gotoCheck);
+    }
+  }, { once: true });
+}
+
+function setupChecksMatrix() {
+  $("#checksmatrixbtn")?.addEventListener("click", openChecksMatrix);
+}
+
+
+/* ── export.js ── */
+/* === Markdown export === */
+function reportMarkdown(data) {
+  const { system = {}, findings = [] } = data;
+  const lines = [];
+  lines.push("# Linux Doctor report");
+  lines.push("");
+  lines.push("- **System:** " + [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" \u00b7 "));
+  if (typeof data.score === "number") {
+    lines.push("- **Health:** " + data.score + "/100" +
+      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : ""));
+  }
+  lines.push("- **Checks:** " + (data.checksRun ?? "?") + " ran, " + (data.checksSkipped ?? 0) + " skipped");
+  lines.push("");
+  const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
+  let count = 0;
+  for (const sev of SEV_ORDER) {
+    const group = findings.filter((f) => f.severity === sev);
+    if (!group.length) continue;
+    lines.push("## " + names[sev] + " (" + group.length + ")");
+    lines.push("");
+    for (const f of group) {
+      count++;
+      lines.push((count) + ". **" + (f.title || "") + "**" + (f.code ? " (`" + f.code + "`)" : ""));
+      if (f.detail) lines.push("   - Detail: " + f.detail);
+      if (f.evidence) lines.push("   - Evidence: " + f.evidence);
+      if (f.fix) lines.push("   - Fix: " + f.fix);
+      lines.push("");
+    }
+  }
+  if (!count) lines.push("No findings.");
+  return lines.join("\n");
+}
+
+
+/* ── render-charts.js ── */
+/* === SVG charts: score sparkline + severity bars === */
+function fmtWhen(at) {
+  const d = new Date(at);
+  if (isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return (d.getMonth() + 1) + "/" + d.getDate() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+/* Tiny inline sparkline for the hero meta row — no axes, no dots, no
+   interaction; the full charts live in the History section. */
+function miniSpark(data) {
+  const W = 90, H = 22, pad = 3;
+  const scores = data.map((r) => r.score);
+  if (scores.length < 2) return "";
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const span = Math.max(1, max - min);
+  const X = (i) => pad + (i * (W - 2 * pad)) / (scores.length - 1);
+  const Y = (s) => H - pad - ((s - min) / span) * (H - 2 * pad);
+  const line = scores.map((s, i) => X(i).toFixed(1) + "," + Y(s).toFixed(1)).join(" ");
+  const color = scores[scores.length - 1] >= 80 ? "var(--green)" : scores[scores.length - 1] >= 50 ? "var(--yellow)" : "var(--red)";
+  return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Score trend, last ' + scores.length + ' runs">' +
+    '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
+function scoreChart(data) {
+  const W = 260, H = 50, pad = 6;
+  const scores = data.map((r) => r.score);
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const span = Math.max(1, max - min);
+  const X = (i) => pad + (i * (W - 2 * pad)) / (scores.length - 1);
+  const Y = (s) => H - pad - ((s - min) / span) * (H - 2 * pad);
+  const pts = scores.map((s, i) => [X(i).toFixed(1), Y(s).toFixed(1)]);
+  const last = scores[scores.length - 1];
+  const color = last >= 80 ? "var(--green)" : last >= 50 ? "var(--yellow)" : "var(--red)";
+  const first = scores[0];
+  const dir = last > first ? { txt: "\u25b2 Improving", cls: "delta-up" }
+    : last < first ? { txt: "\u25bc Declining", cls: "delta-down" }
+    : { txt: "\u25c6 Stable", cls: "delta-flat" };
+  const range = min === max ? String(last) : min + " \u2192 " + last;
+  const line = pts.map((p) => p.join(",")).join(" ");
+  const area = "M" + line.replace(/ /g, " L") + " L" + (W - pad) + "," + (H - pad) + " L" + pad + "," + (H - pad) + " Z";
+  const dots = pts.map((p, i) =>
+    '<circle data-idx="' + i + '" cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="transparent" style="cursor:pointer" class="hist-dot">' +
+    '<title>' + scores[i] + "/100 \u00b7 " + fmtWhen(data[i].at) + ' \u2014 click to show diff</title></circle>').join("");
+  const end = pts[pts.length - 1];
+  const thresh = (min < 50 && max > 50)
+    ? '<line x1="' + pad + '" y1="' + Y(50).toFixed(1) + '" x2="' + (W - pad) + '" y2="' + Y(50).toFixed(1) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'
+    : "";
+  return '<div class="trendchart">' +
+    '<div class="trendtitle">Health score \u00b7 last ' + scores.length + ' run(s): <b>' + last + '/100</b>' +
+    ' <span class="' + dir.cls + '">' + dir.txt + '</span> <span class="trendrange">(' + range + ')</span></div>' +
+    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Health score trend">' +
+    thresh + '<path d="' + area + '" fill="' + color + '" opacity="0.18"/>' +
+    '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    dots + '<circle cx="' + end[0] + '" cy="' + end[1] + '" r="3" fill="' + color + '"/></svg></div>';
+}
+
+function severityChart(data) {
+  const W = 300, H = 72, spad = 8, sgap = 4;
+  const counts = data.map((r) => ({
+    high: (r.counts && r.counts.high) || 0,
+    medium: (r.counts && r.counts.medium) || 0,
+    info: (r.counts && r.counts.info) || 0,
+    at: r.at,
+  }));
+  const maxTotal = Math.max(1, ...counts.map((c) => c.high + c.medium + c.info));
+  const n = counts.length;
+  const bw = (W - 2 * spad - (n - 1) * sgap) / n;
+  const totalH = H - 2 * spad;
+  const bars = counts.map((c, i) => {
+    const x = (spad + i * (bw + sgap)).toFixed(1);
+    const iH = totalH * c.info / maxTotal;
+    const mH = totalH * c.medium / maxTotal;
+    const hH = totalH * c.high / maxTotal;
+    const yInfo = (H - spad - iH).toFixed(1);
+    const yMed = (H - spad - iH - mH).toFixed(1);
+    const yHigh = (H - spad - iH - mH - hH).toFixed(1);
+    const tip = "high: " + c.high + " \u00b7 medium: " + c.medium + " \u00b7 info: " + c.info + (fmtWhen(c.at) ? " \u00b7 " + fmtWhen(c.at) : "");
+    return '<g data-idx="' + i + '" style="cursor:pointer" class="hist-bar">' +
+      '<rect x="' + x + '" y="' + yInfo + '" width="' + bw.toFixed(1) + '" height="' + iH.toFixed(1) + '" fill="var(--blue)" opacity="0.85"><title>' + tip + ' \u2014 click to show diff</title></rect>' +
+      '<rect x="' + x + '" y="' + yMed + '" width="' + bw.toFixed(1) + '" height="' + mH.toFixed(1) + '" fill="var(--yellow)" opacity="0.9"><title>' + tip + '</title></rect>' +
+      '<rect x="' + x + '" y="' + yHigh + '" width="' + bw.toFixed(1) + '" height="' + hH.toFixed(1) + '" fill="var(--red)" opacity="0.9"><title>' + tip + '</title></rect></g>';
+  }).join("");
+  return '<div class="trendchart">' +
+    '<div class="trendtitle">Findings by severity \u00b7 last ' + n + ' run(s)</div>' +
+    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Severity counts over time">' + bars + '</svg>' +
+    '<div class="sevlegend"><span class="lg high"></span>high <span class="lg medium"></span>medium <span class="lg info"></span>info</div>' +
+    '</div>';
+}
+
+
+/* ── render-findings.js ── */
+/* === Finding cards and groups === */
+function renderCard(f, sev) {
+  const sevIcon = SEV_ICONS[sev] || "";
+  const badges =
+    (f.isNew ? '<span class="newbadge" title="Appeared since your last check">NEW</span>' : "") +
+    (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
+    (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "");
+
+  const SEV_COST = { high: "costs 15 points (+5 each extra)", medium: "costs 8 points (+1 past the third)", info: "informational — free" };
+  let html = '<details class="card ' + SEV[sev].cls + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +
+    (f.check ? ' data-check="' + esc(f.check) + '"' : "") + ">";
+  html += '<summary><span class="sevicon" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " \u2014 " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">\u25b8</span></summary>';
+  html += '<div class="card-body">';
+
+  if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
+
+  if (f.evidence) {
+    const evId = "ev-" + (f.id || f.code || Math.random().toString(36).slice(2));
+    html += '<details class="ev"><summary>Evidence</summary>' +
+      '<div class="evidence" id="' + evId + '">' + esc(f.evidence) + '</div>' +
+      '<div style="display:flex; gap:6px; margin:6px 12px 10px; flex-wrap:wrap;">' +
+      '<button class="ev-expand" data-ev="' + evId + '" hidden>Show more</button>' +
+      '<button class="ev-copy" data-evcopy="' + evId + '">\u22b1 Copy evidence</button></div></details>';
+  }
+
+  html += '<div class="fix">';
+  if (f.fix) html += '<div class="fixtext">' + esc(f.fix) + '</div>';
+  html += '<button data-copy="' + esc(f.fix || f.detail || f.title) + '">Copy</button>';
+  html += '<button data-ignore="' + esc(f.title) + '" title="Never report this finding again (saved to ~/.config/linux-doctor/config.json)">Ignore</button>';
+  html += '<a class="reportbtn" href="' + wrongUrl(f) + '" target="_blank" rel="noopener" title="This finding looks wrong? Open a GitHub issue pre-filled with the details">Report wrong</a>';
+  html += '</div>';
+
+  html += "</div></details>";
+  return html;
+}
+
+function groupSummaryHtml(icon, label, count) {
+  return '<summary><span class="sevicon" aria-hidden="true">' + icon + '</span> ' + esc(label) + " <b>" + count + '</b><span class="chev" aria-hidden="true">\u25b8</span></summary>';
+}
+
+function wrapGroup(cls, type, key, summaryInner, cardsHtml, open) {
+  return '<details class="group ' + cls + '"' + (open ? " open" : "") +
+    ' data-type="' + type + '" data-key="' + esc(key) + '">' +
+    summaryInner + '<div class="group-body">' + cardsHtml + "</div></details>";
+}
+
+/* Severity mode: one group per severity tier, high first, high pre-opened. */
+function renderReportBySeverity(findings) {
+  let html = "";
+  for (const sev of SEV_ORDER) {
+    const group = findings.filter((f) => f.severity === sev);
+    if (!group.length) continue;
+    const cards = group.map((f) => renderCard(f, sev)).join("");
+    html += wrapGroup(SEV[sev].cls, "sev", sev,
+      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length), cards, sev === "high");
+  }
+  return html;
+}
+
+/* Category mode: one neutral group per check category; severity stays
+   visible on each card's colored edge and icon. Unknown checks → Other. */
+function renderReportByCategory(findings) {
+  const buckets = new Map();
+  for (const f of findings) {
+    const cat = checksCategoryMap.get(f.check) || "other";
+    if (!buckets.has(cat)) buckets.set(cat, []);
+    buckets.get(cat).push(f);
+  }
+  let html = "";
+  for (const cat of CATEGORY_ORDER) {
+    const group = buckets.get(cat);
+    if (!group || !group.length) continue;
+    // Within a category: highest severity first so the top card is the headline.
+    group.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity));
+    const cards = group.map((f) => renderCard(f, f.severity)).join("");
+    html += wrapGroup("", "cat", cat,
+      groupSummaryHtml("\u25a3", CATEGORY_LABELS[cat] || cat, group.length), cards, false);
+  }
+  return html;
+}
+
+function renderReport(findings) {
+  const html = groupBy === "category"
+    ? renderReportByCategory(findings)
+    : renderReportBySeverity(findings);
+  return html || "";
+}
+
+function categoryOf(f) {
+  return checksCategoryMap.get(f.check) || "other";
+}
+
+function wrongUrl(f) {
+  return "https://github.com/zShaD0w7x/linux-doctor/issues/new?" +
+    "title=" + encodeURIComponent("Wrong finding: " + (f.code || f.title)) +
+    "&body=" + encodeURIComponent(
+      "**Finding:** " + (f.title || "") + "\n" +
+      "**Severity:** " + (f.severity || "") + "\n" +
+      "**Check:** " + (f.check || "") + "\n" +
+      "**Code:** " + (f.code || "") + "\n" +
+      "**Version:** " + (typeof lastReportData !== "undefined" && lastReportData ? lastReportData.version || "" : "") + "\n\n" +
+      "This finding looks wrong because:\n\n[describe what you expected]\n\n---\n" +
+      "Full report: `linux-doctor --json`");
+}
+
+
+/* ── render-sections.js ── */
+/* === Sections: next step, fixed, diff, skipped, check errors === */
+function firstSentence(text) {
+  return String(text || "").split(/(?<=\.)\s/)[0].trim();
+}
+
+function renderNextStep(data) {
+  const el = $("#nexthep");
+  if (!el) return;
+  const order = { high: 0, medium: 1, info: 2 };
+  const pick = data.nextAction
+    || [...(data.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9)).find((f) => f.fix);
+  if (!pick || !pick.fix) { el.hidden = true; return; }
+  const hint = firstSentence(pick.fix);
+  el.hidden = false;
+  el.innerHTML =
+    '<span class="nh-icon">\u25b6 START HERE</span>' +
+    '<div class="nh-body"><div class="nh-title">' + esc(pick.title) + '</div>' +
+    '<div class="nh-hint">' + esc(hint.length > 160 ? hint.slice(0, 159) + "\u2026" : hint) + '</div></div>' +
+    '<button data-nhcopy="' + esc(pick.fix) + '">\u22b1 Copy fix</button>' +
+    '<button data-nhjump="' + esc(pick.code || "") + '">\u2198 Show</button>';
+}
+
+function renderCheckErrors(data) {
+  const el = $("#checkerrors");
+  if (!el) return;
+  const errors = data.checkErrors || [];
+  el.hidden = !errors.length;
+  if (!errors.length) return;
+  $("#checkerrors-count").textContent = errors.length;
+  $("#checkerrors-body").innerHTML = errors.map((e) =>
+    '<div class="card medium"><summary><span class="badge medium">failed</span>' +
+    '<h3>' + esc(e.check) + '</h3><span class="chev">\u25b8</span></summary>' +
+    '<div class="card-body"><div class="detail">' + esc(e.error || "unknown error") + '</div></div></div>'
+  ).join("");
+}
+
+function renderFixed(data) {
+  const el = $("#fixed");
+  const fixed = (data.diffSinceLast && data.diffSinceLast.fixed) || [];
+  el.hidden = !fixed.length;
+  if (!fixed.length) return;
+  $("#fixed-count").textContent = fixed.length;
+  $("#fixed-body").innerHTML = fixed.map((f) =>
+    '<div class="card ' + (f.severity || "") + '"><summary><span class="badge fixedbadge">fixed</span>' +
+    '<h3>' + esc(f.title) + '</h3>' +
+    (f.code ? '<span class="checkid">' + esc(f.code) + "</span>" : "") +
+    '<span class="chev">\u25b8</span></summary>' +
+    '<div class="card-body"><div class="detail">This no longer shows up in the report.</div></div></div>'
+  ).join("");
+}
+
+function renderDiff(data) {
+  const el = $("#diff");
+  if (!el) return;
+  const added = (data.diffSinceLast && data.diffSinceLast.added) || [];
+  const fixed = (data.diffSinceLast && data.diffSinceLast.fixed) || [];
+  const total = added.length + fixed.length;
+  el.hidden = total === 0;
+  if (!total) return;
+  $("#diff-count").textContent = total + " (" + added.length + " new \u00b7 " + fixed.length + " fixed)";
+  const row = (f, cls, badge) => '<div class="card ' + (f.severity || "") + '"><summary><span class="badge ' + cls + '">' + badge + '</span>' +
+    '<h3>' + esc(f.title) + '</h3>' + (f.code ? '<span class="checkid">' + esc(f.code) + '</span>' : "") + '<span class="chev">\u25b8</span></summary>' +
+    '<div class="card-body"><div class="detail">' + esc(f.detail || (cls === "high" ? "New since last run" : "Fixed since last run")) + '</div></div></div>';
+  let html = "";
+  if (added.length) html += '<div style="grid-column:1/-1; font-size:12px; font-weight:700; color:var(--red); margin-bottom:2px;">\u25cf New (' + added.length + ')</div>' + added.map(f => row(f, f.severity || "high", "NEW")).join("");
+  if (fixed.length) html += '<div style="grid-column:1/-1; font-size:12px; font-weight:700; color:var(--green); margin: 8px 0 2px;">\u25cf Fixed (' + fixed.length + ')</div>' + fixed.map(f => row(f, f.severity || "info", "FIXED")).join("");
+  $("#diff-body").innerHTML = html;
+}
+
 async function renderSkipped() {
-  if (STATIC_DATA) return; // a static file has no checks endpoint
+  if (STATIC_DATA) return;
   const box = $("#skipped");
-  let checks = [];
-  if (isDesktop()) {
-    try {
-      const res = await fetch("http://127.0.0.1:17321/checks", { cache: "no-store" });
-      if (res.ok) checks = (await res.json()).checks || [];
-    } catch { /* loopback server not up yet */ }
-  }
-  if (!checks.length) {
-    try {
-      const res = await fetch("/api/checks", { cache: "no-store" });
-      if (res.ok) checks = (await res.json()).checks || [];
-    } catch { /* no checks endpoint */ }
-  }
+  const checks = await fetchChecks();
   const byId = new Map();
-  // appliesTo skips: the check is not relevant to this machine kind.
   for (const c of checks.filter((c) => !c.appliesHere)) {
     byId.set(c.id, { id: c.id, title: c.title, reason: "Only runs on: " + c.appliesTo.join(", ") + "." });
   }
-  // Immutable/atomic skips: reported with an explicit reason by the CLI.
-  const atomic = (typeof lastData !== "undefined" && lastData && lastData.skippedChecks) || [];
+  const atomic = (typeof lastReportData !== "undefined" && lastReportData && lastReportData.skippedChecks) || [];
   for (const s of atomic) {
     if (!byId.has(s.id)) byId.set(s.id, { id: s.id, title: s.title, reason: s.reason || "Not applicable on this immutable/atomic system." });
   }
@@ -975,101 +1887,20 @@ async function renderSkipped() {
   $("#skipped-body").innerHTML = skipped.map((c) =>
     '<div class="card info"><summary><span class="badge info">skipped</span>' +
     '<h3>' + esc(c.title) + '</h3><span class="checkid">' + esc(c.id) + '</span>' +
-    '<span class="chev">▸</span></summary>' +
+    '<span class="chev">\u25b8</span></summary>' +
     '<div class="card-body"><div class="detail">' + esc(c.reason) + '</div></div></div>'
   ).join("");
 }
 
-// Export: copy the whole report as Markdown. Plain text in the clipboard, so
-// it pastes into issues, Slack, notes — wherever.
-function reportMarkdown(data) {
-  const { system = {}, findings = [] } = data;
-  const lines = [];
-  lines.push("# Linux Doctor report");
-  lines.push("");
-  lines.push("- **System:** " + [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · "));
-  if (typeof data.score === "number") {
-    lines.push("- **Health:** " + data.score + "/100" +
-      (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : ""));
-  }
-  lines.push("- **Checks:** " + (data.checksRun ?? "?") + " ran, " + (data.checksSkipped ?? 0) + " skipped");
-  lines.push("");
-  const order = ["high", "medium", "info"];
-  const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
-  let count = 0;
-  for (const sev of order) {
-    const group = findings.filter((f) => f.severity === sev);
-    if (!group.length) continue;
-    lines.push("## " + names[sev] + " (" + group.length + ")");
-    lines.push("");
-    for (const f of group) {
-      count++;
-      lines.push((count) + ". **" + (f.title || "") + "**" + (f.code ? " (`" + f.code + "`)" : ""));
-      if (f.detail) lines.push("   - Detail: " + f.detail);
-      if (f.evidence) lines.push("   - Evidence: " + f.evidence);
-      // Fix text itself may contain backticks, so no inline code fence here.
-      if (f.fix) lines.push("   - Fix: " + f.fix);
-      lines.push("");
-    }
-  }
-  if (!count) lines.push("No findings.");
-  return lines.join("\n");
-}
 
-function render(data) {
-  lastData = data;
-  const { findings = [], system = {} } = data;
-  const ver = (data.version || "").replace(/^v/, "");
-  $(".sysinfo").innerHTML =
-    [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · ") +
-    (ver ? ' · <span class="ver">v' + ver + "</span>" : "");
-  const count = (s) => findings.filter((f) => f.severity === s).length;
-  const high = count("high"), med = count("medium"), inf = count("info");
+/* ── render-status.js ── */
+/* === Status zone: gauge, score, status message === */
+const SCORE_RING_R = 25;
+const SCORE_RING_C = 2 * Math.PI * SCORE_RING_R;
 
-  // "Report wrong" opens a pre-filled GitHub issue — the feedback loop for
-  // false positives. Every field is URL-encoded, so odd titles/evidence are
-  // safe in the query string.
-  const wrongUrl = (f) =>
-    "https://github.com/zShaD0w7x/linux-doctor/issues/new?" +
-    "title=" + encodeURIComponent("Wrong finding: " + (f.code || f.title)) +
-    "&body=" + encodeURIComponent(
-      "**Finding:** " + (f.title || "") + "\n" +
-      "**Severity:** " + (f.severity || "") + "\n" +
-      "**Check:** " + (f.check || "") + "\n" +
-      "**Code:** " + (f.code || "") + "\n" +
-      "**Version:** " + (data.version || "") + "\n\n" +
-      "This finding looks wrong because:\n\n[describe what you expected]\n\n---\n" +
-      "Full report: `linux-doctor --json`");
-
-  const status = $("#status");
-  let msgCls, msgTxt;
-  if (high + med === 0) {
-    msgCls = "ok";
-    msgTxt = findings.length === 0
-      ? (data.cleanStreak >= 2 ? "All clear — " + data.cleanStreak + " clean run" + (data.cleanStreak === 1 ? "" : "s") + " in a row." : "Nothing needs your attention.")
-      : "No high or medium issues — informational notes below.";
-  } else {
-    const parts = [];
-    if (high) parts.push(high + " high-severity " + (high === 1 ? "issue" : "issues"));
-    if (med) parts.push(med + " medium-severity " + (med === 1 ? "issue" : "issues"));
-    msgCls = "warn";
-    msgTxt = parts.join(" and ") + " need attention — see below.";
-  }
-
-  const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
-  const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
-  const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "▲ +" + scoreDelta : scoreDelta < 0 ? "▼ " + scoreDelta : "unchanged";
-  const score = typeof data.score === "number" ? data.score : 0;
+function renderGauge(score) {
   const scoreColor = score >= 80 ? "var(--green)" : score >= 50 ? "var(--yellow)" : "var(--red)";
-  const chips =
-    (data.newCount > 0 ? '<span class="newbadge">NEW ' + data.newCount + "</span>" : "") +
-    (data.fixedCount > 0 ? '<span class="fixedbadge">FIXED ' + data.fixedCount + "</span>" : "");
-  // Healthy machines get the quiet card: no heavy shadow, just the green
-  // hairline. Problems keep the full-weight treatment — clear when it counts.
-  status.className = "status" + (high + med === 0 ? " calm" : "");
-  status.innerHTML =
-    '<div class="status-main">' +
-    '<div class="gauge">' +
+  return '<div class="gauge">' +
     '<svg viewBox="0 0 62 62" role="img" aria-label="Health score ' + score + ' of 100">' +
     '<circle class="track" cx="31" cy="31" r="' + SCORE_RING_R + '"></circle>' +
     '<circle class="ring" id="scorering" cx="31" cy="31" r="' + SCORE_RING_R + '" ' +
@@ -1077,16 +1908,118 @@ function render(data) {
     'stroke-dasharray="' + SCORE_RING_C + '" stroke-dashoffset="' + SCORE_RING_C + '"></circle>' +
     '</svg>' +
     '<div class="gauge-center"><div class="scorenum" id="scorenum">0</div><div class="scoreout">/ 100</div></div>' +
-    '</div>' +
+    '</div>';
+}
+
+function animateScore(target) {
+  const num = $("#scorenum");
+  const ring = $("#scorering");
+  if (!num) return;
+  let reduce = false;
+  try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch {}
+  if (reduce) {
+    num.textContent = target;
+    if (ring) ring.style.strokeDashoffset = SCORE_RING_C * (1 - target / 100);
+    return;
+  }
+  const t0 = performance.now();
+  const dur = 900;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur);
+    const v = target * (1 - Math.pow(1 - p, 3));
+    num.textContent = Math.round(v);
+    if (ring) ring.style.strokeDashoffset = SCORE_RING_C * (1 - v / 100);
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function renderStatusMessage(findings) {
+  const high = findings.filter((f) => f.severity === "high").length;
+  const med = findings.filter((f) => f.severity === "medium").length;
+  let msgCls, msgTxt;
+  if (high + med === 0) {
+    msgCls = "ok";
+    msgTxt = findings.length === 0
+      ? "Nothing needs your attention."
+      : "No high or medium issues \u2014 informational notes below.";
+  } else {
+    const parts = [];
+    if (high) parts.push(high + " high-severity " + (high === 1 ? "issue" : "issues"));
+    if (med) parts.push(med + " medium-severity " + (med === 1 ? "issue" : "issues"));
+    msgCls = "warn";
+    msgTxt = parts.join(" and ") + " need attention \u2014 see below.";
+  }
+  return { msgCls, msgTxt };
+}
+
+function renderStatus(data) {
+  const { findings = [], system = {} } = data;
+  const ver = (data.version || "").replace(/^v/, "");
+  $(".sysinfo").innerHTML =
+    [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" \u00b7 ") +
+    (ver ? ' \u00b7 <span class="ver">v' + ver + "</span>" : "");
+
+  const high = findings.filter((f) => f.severity === "high").length;
+  const med = findings.filter((f) => f.severity === "medium").length;
+  const inf = findings.filter((f) => f.severity === "info").length;
+
+  const { msgCls, msgTxt } = renderStatusMessage(findings);
+
+  const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
+  const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
+  const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "\u25b2 +" + scoreDelta : scoreDelta < 0 ? "\u25bc " + scoreDelta : "unchanged";
+  const score = typeof data.score === "number" ? data.score : 0;
+
+  const chips =
+    (data.newCount > 0 ? '<span class="newbadge">NEW ' + data.newCount + "</span>" : "") +
+    (data.fixedCount > 0 ? '<span class="fixedbadge">FIXED ' + data.fixedCount + "</span>" : "");
+
+  const status = $("#status");
+  status.className = "status" + (high + med === 0 ? " calm" : "");
+  status.innerHTML =
+    '<div class="status-main">' +
+    renderGauge(score) +
     '<div class="hero-main"><div class="k">Health</div>' +
     '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
     '</div>' +
     '<div class="status-body">' +
     '<div class="statusmsg ' + msgCls + '">' + msgTxt + "</div>" +
-    '<div class="status-meta"><span class="dot" id="statusdot"></span><span id="statuspill-txt"></span>' + chips + "</div>" +
+    '<div class="status-meta"><span class="dot" id="statusdot"></span><span id="statuspill-txt"></span>' + chips +
+    '<span id="hero-spark" class="chip-trend" hidden></span>' +
+    '<span id="checkschip" class="lowbadge" hidden></span>' +
+    "</div>" +
     "</div>";
+
   animateScore(score);
-  renderFilters({ high, medium: med, info: inf });
+  return { high, medium: med, info: inf, score };
+}
+
+
+/* ── render.js ── */
+/* === Main render orchestrator === */
+
+function render(data) {
+  lastReportData = data;
+  lastData = data;
+  const { findings = [] } = data;
+
+  const counts = renderStatus(data);
+  renderFilters(counts);
+  renderSidebar(data, counts);
+
+  // "35 checks · 2 skipped" chip — same vocabulary as the CLI's Checks line.
+  const chip = $("#checkschip");
+  if (chip) {
+    if (data.checksRun != null) {
+      chip.textContent = data.checksRun + " checks" + (data.checksSkipped ? " \u00b7 " + data.checksSkipped + " skipped" : "");
+      chip.hidden = false;
+      chip.title = "Open the all-checks matrix";
+      chip.style.cursor = "pointer";
+    } else {
+      chip.hidden = true;
+    }
+  }
 
   if (data.generatedAt) {
     setStatus(data.generatedAt);
@@ -1094,102 +2027,142 @@ function render(data) {
     statusTimer = setInterval(() => setStatus(data.generatedAt), 30000);
   }
 
-  const order = ["high", "medium", "info"];
-  const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
-  let html = "";
-  let cardIdx = 0;
-  for (const sev of order) {
-    const group = findings.filter((f) => f.severity === sev);
-    if (!group.length) continue;
-    const open = sev === "high" ? " open" : "";
-    const compact = false; // informational now same as medium/high (card bento)
-    html += '<details class="group ' + SEV[sev].cls + '"' + open + ">";
-    html += '<summary><span class="sevicon">' + (SEV_ICONS[sev]||"") + '</span> ' + names[sev] + " <b>" + group.length + '</b><span class="chev">▸</span></summary>';
-    html += '<div class="group-body">';
-    for (const f of group) {
-      const badges =
-        (f.isNew ? '<span class="newbadge" title="Appeared since your last check">NEW</span>' : "") +
-        (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
-        (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "");
-      const sevIcon = SEV_ICONS[sev] || "";
-      if (compact) {
-        html += '<details class="crow" tabindex="0" style="--i:' + (cardIdx++) + '" data-code="' + esc(f.code || "") + '">';
-        html += '<summary><span class="sevicon">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
-      } else {
-        html += '<details class="card ' + SEV[sev].cls + '" tabindex="0" style="--i:' + (cardIdx++) + '" data-code="' + esc(f.code || "") + '">';
-        html += '<summary><span class="sevicon">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev">▸</span></summary>';
-      }
-      html += '<div class="card-body">';
-      if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
-      if (f.evidence) {
-        const evId = "ev-" + (f.id || f.code || Math.random().toString(36).slice(2));
-        html += '<details class="ev"><summary>Evidence</summary><div class="evidence" id="' + evId + '">' + esc(f.evidence) + '</div><div style="display:flex; gap:6px; margin:6px 12px 10px; flex-wrap:wrap;"><button class="ev-expand" data-ev="' + evId + '" hidden>Show more</button><button class="ev-copy" data-evcopy="' + evId + '">⧉ Copy evidence</button></div></details>';
-      }
-      html += '<div class="fix">';
-      if (f.fix) html += '<div class="fixtext">' + esc(f.fix) + '</div>';
-      html += '<button data-copy="' + esc(f.fix || f.detail || f.title) + '">Copy</button>';
-      html += '<button data-ignore="' + esc(f.title) + '" title="Never report this finding again (saved to ~/.config/linux-doctor/config.json)">Ignore</button>';
-      html += '<a class="reportbtn" href="' + wrongUrl(f) + '" target="_blank" rel="noopener" title="This finding looks wrong? Open a GitHub issue pre-filled with the details">Report wrong</a>';
-      html += '</div>';
-      html += "</div></details>";
-    }
-    html += "</div></details>";
+  const reportHtml = renderReport(findings);
+  if (reportHtml) {
+    $("#report").innerHTML = reportHtml;
+  } else if (high + med === 0) {
+    // Celebratory all-clean state — earned, so show it properly.
+    $("#report").innerHTML =
+      '<div class="cleanhero"><div class="ch-icon" aria-hidden="true">\u2713</div><div>' +
+      '<div class="ch-title">Everything is clean</div>' +
+      '<div class="ch-sub">' + (data.cleanStreak >= 2
+        ? esc(String(data.cleanStreak)) + " clean runs in a row. Keep it up."
+        : "No issues found on this machine.") + "</div></div></div>";
+  } else {
+    $("#report").innerHTML = '<div class="empty">Nothing to show.</div>';
   }
-  $("#report").innerHTML = html || '<div class="empty">' + (data.cleanStreak >= 2 ? "All clear — " + esc(String(data.cleanStreak)) + " clean runs in a row." : "Nothing to show.") + "</div>";
-  // Evidence: show expand when content is long (scrollHeight not reliable while <details> closed, so use length fallback)
+
   document.querySelectorAll(".evidence").forEach(ev => {
     const btn = ev.parentElement.querySelector(".ev-expand");
     if (!btn) return;
     if (ev.textContent.length > 500 || ev.scrollHeight > 228) btn.hidden = false;
   });
-   applyFilters();
-   renderNextStep(data);
-   renderCheckErrors(data);
-   renderFixed(data);
-   renderDiff(data);
-   maybeNotify(data);
-   renderTrend(score);
-   renderSkipped();
+
+  applyFilters();
+  renderNextStep(data);
+  renderCheckErrors(data);
+  renderFixed(data);
+  renderDiff(data);
+  maybeNotify(data);
+  renderTrend(counts.score);
+  renderSkipped();
 }
 
-// "Start here" banner: mirrors the CLI's ▶ START HERE — the highest-severity
-// finding that comes with a fix. Pure client-side, works in --web, the static
-// HTML export and the desktop app.
-function firstSentence(text) {
-  return String(text || "").split(/(?<=\.)\s/)[0].trim();
+
+/* ── init.js ── */
+/* === Entry point: load, bind, start === */
+
+// Theme
+applyTheme();
+$("#theme").addEventListener("click", cycleTheme);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+
+// Sticky header/toolbar
+const hdr = document.querySelector("header");
+const tbar = document.querySelector(".toolbar");
+window.addEventListener("scroll", () => {
+  const sc = window.scrollY > 8;
+  if (hdr) hdr.classList.toggle("scrolled", sc);
+  if (tbar) tbar.classList.toggle("scrolled", sc);
+}, { passive: true });
+
+// Filters
+$("#filters").addEventListener("click", (e) => {
+  const btn = e.target.closest(".fpill");
+  if (!btn) return;
+  activeFilter = activeFilter === btn.dataset.sev ? null : btn.dataset.sev;
+  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
+  syncGroupsOpen();
+  applyFilters();
+});
+$("#search").addEventListener("input", applyFilters);
+$("#clearbtn").addEventListener("click", () => {
+  activeFilter = "all";
+  $("#search").value = "";
+  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === activeFilter));
+  syncGroupsOpen();
+  applyFilters();
+});
+
+// Expand all
+$("#expandall").addEventListener("click", () => {
+  const anyClosed = [...document.querySelectorAll("#report .group, #report .card, #report .crow")].some((el) => !el.open);
+  setAllOpen(anyClosed);
+  syncAutoPausedUI();
+});
+
+// Re-run
+async function load() {
+  const status = $("#status");
+  const report = $("#report");
+  const rerun = $("#rerun");
+  status.className = "status running";
+  status.innerHTML = '<span class="spinner" aria-hidden="true"></span>Reading your system\u2026';
+  $("#expandall").textContent = "\u229e Expand all";
+  report.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+  rerun.disabled = true;
+  rerun.textContent = "\u221b Running\u2026";
+  try {
+    // Category grouping needs the check→category map; fetch it once before
+    // the first render. Never fatal — grouping falls back to "Other".
+    await loadCategoryMap();
+    render(await fetchReport());
+  } catch (err) {
+    status.className = "status warn";
+    status.innerHTML = "";
+    status.textContent = "\u26a0\ufe0f Could not run checks: " + (err && err.message ? err.message : err);
+    report.innerHTML = '<div class="empty">Run failed \u2014 see the message above. Make sure Node.js \u2265 20 is installed and on PATH.</div>';
+  } finally {
+    rerun.disabled = false;
+    rerun.textContent = "\u221b Re-run checks";
+  }
 }
-function renderNextStep(data) {
-  const el = $("#nexthep");
-  if (!el) return;
-  // Prefer the server-computed pick (--json's nextAction) so the banner can
-  // never disagree with the CLI report; fall back to a client-side pick for
-  // payloads generated before the field existed.
-  const order = { high: 0, medium: 1, info: 2 };
-  const pick = data.nextAction
-    || [...(data.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9)).find((f) => f.fix);
-  if (!pick || !pick.fix) { el.hidden = true; return; }
-  const hint = firstSentence(pick.fix);
-  el.hidden = false;
-  el.innerHTML =
-    '<span class="nh-icon">▶ START HERE</span>' +
-    '<div class="nh-body"><div class="nh-title">' + esc(pick.title) + '</div>' +
-    '<div class="nh-hint">' + esc(hint.length > 160 ? hint.slice(0, 159) + "…" : hint) + '</div></div>' +
-    '<button data-nhcopy="' + esc(pick.fix) + '">⧉ Copy fix</button>' +
-    '<button data-nhjump="' + esc(pick.code || "") + '">↘ Show</button>';
+$("#rerun").addEventListener("click", load);
+
+// PDF export
+const pdfBtn = $("#pdfbtn");
+if (pdfBtn) {
+  pdfBtn.addEventListener("click", () => {
+    document.querySelectorAll(".group, .card, .crow, details.ev").forEach(el => el.setAttribute("open", ""));
+    setTimeout(() => window.print(), 120);
+    showToast("\u{1f5a8}\ufe0f Print dialog opened \u2014 save as PDF");
+  });
 }
 
-// Banner buttons: copy the fix text, or scroll to and open the finding card.
+// Markdown export
+$("#export").addEventListener("click", async () => {
+  if (!lastData) return;
+  await copyText(reportMarkdown(lastData));
+  const btn = $("#export");
+  const old = btn.textContent;
+  btn.textContent = "\u2713 Copied";
+  showToast("\u2713 Report copied as Markdown");
+  setTimeout(() => (btn.textContent = old), 1200);
+});
+
+// Banner buttons: copy fix / jump to finding
 document.addEventListener("click", async (e) => {
+  // NH copy
   const copyBtn = e.target.closest("[data-nhcopy]");
   if (copyBtn) {
     await copyText(copyBtn.dataset.nhcopy);
-    showToast("✓ Fix copied to clipboard");
+    showToast("\u2713 Fix copied to clipboard");
     return;
   }
+  // NH jump
   const jumpBtn = e.target.closest("[data-nhjump]");
   if (jumpBtn) {
     const code = jumpBtn.dataset.nhjump;
-    // Reset any drill-down so the card is actually visible.
     activeFilter = "all";
     document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
     syncGroupsOpen();
@@ -1203,104 +2176,56 @@ document.addEventListener("click", async (e) => {
       if (nh) nh.classList.add("flash");
       setTimeout(() => nh && nh.classList.remove("flash"), 1700);
     }
+    return;
+  }
+  // Evidence copy
+  if (e.target.classList.contains("ev-copy")) {
+    const id = e.target.dataset.evcopy;
+    const ev = document.getElementById(id);
+    if (ev) {
+      await copyText(ev.textContent);
+      const old = e.target.textContent;
+      e.target.textContent = "\u2713 Copied";
+      showToast("\u2713 Evidence copied");
+      setTimeout(() => e.target.textContent = old, 1200);
+    }
+    return;
+  }
+  // Evidence expand
+  if (e.target.classList.contains("ev-expand")) {
+    const id = e.target.dataset.ev;
+    const ev = document.getElementById(id);
+    if (ev) {
+      const expanded = ev.classList.toggle("expanded");
+      e.target.textContent = expanded ? "Show less" : "Show more";
+    }
+    return;
+  }
+  // Generic copy
+  if (e.target.dataset.copy !== undefined) {
+    await copyText(e.target.dataset.copy);
+    const old = e.target.textContent;
+    e.target.textContent = "\u2713 Copied";
+    showToast("\u2713 Copied to clipboard");
+    setTimeout(() => (e.target.textContent = old), 1200);
+  }
+  // Ignore
+  if (e.target.dataset.ignore !== undefined) {
+    await ignoreFinding(e.target.dataset.ignore, e.target);
+  }
+  // Undo
+  if (e.target.dataset.undo !== undefined) {
+    if (lastUndo && lastData) {
+      lastData.findings = [...lastUndo.findings];
+      render(lastData);
+      showToast("\u21a9 Restored");
+      lastUndo = null;
+    }
   }
 });
 
-// "Failed checks": a check that threw must be visible with the same wording
-// as the CLI ("check(s) failed to run") — a partially-broken run is never
-// silently rendered as a clean one. Parity with the CLI's checkErrors line.
-function renderCheckErrors(data) {
-  const el = $("#checkerrors");
-  if (!el) return;
-  const errors = data.checkErrors || [];
-  el.hidden = !errors.length;
-  if (!errors.length) return;
-  $("#checkerrors-count").textContent = errors.length;
-  $("#checkerrors-body").innerHTML = errors.map((e) =>
-    '<div class="card medium"><summary><span class="badge medium">failed</span>' +
-    '<h3>' + esc(e.check) + '</h3><span class="chev">▸</span></summary>' +
-    '<div class="card-body"><div class="detail">' + esc(e.error || "unknown error") + '</div></div></div>'
-  ).join("");
-}
-
-// "Fixed since last check": the diffSinceLast.fixed entries are findings that
-// disappeared between runs (resolved). Green, celebratory, self-reinforcing.
-function renderFixed(data) {
-  const el = $("#fixed");
-  const fixed = (data.diffSinceLast && data.diffSinceLast.fixed) || [];
-  el.hidden = !fixed.length;
-  if (!fixed.length) return;
-  $("#fixed-count").textContent = fixed.length;
-  $("#fixed-body").innerHTML = fixed.map((f) =>
-    '<div class="card ' + (f.severity || "") + '"><summary><span class="badge fixedbadge">fixed</span>' +
-    '<h3>' + esc(f.title) + '</h3>' +
-    (f.code ? '<span class="checkid">' + esc(f.code) + "</span>" : "") +
-    '<span class="chev">▸</span></summary>' +
-    '<div class="card-body"><div class="detail">This no longer shows up in the report.</div></div></div>'
-  ).join("");
-}
-
-function renderDiff(data) {
-  const el = $("#diff");
-  if (!el) return;
-  const added = (data.diffSinceLast && data.diffSinceLast.added) || [];
-  const fixed = (data.diffSinceLast && data.diffSinceLast.fixed) || [];
-  const total = added.length + fixed.length;
-  el.hidden = total === 0;
-  if (!total) return;
-  $("#diff-count").textContent = total + " (" + added.length + " new · " + fixed.length + " fixed)";
-  const row = (f, cls, badge) => '<div class="card ' + (f.severity || "") + '"><summary><span class="badge ' + cls + '">' + badge + '</span>' +
-    '<h3>' + esc(f.title) + '</h3>' + (f.code ? '<span class="checkid">' + esc(f.code) + '</span>' : "") + '<span class="chev">▸</span></summary>' +
-    '<div class="card-body"><div class="detail">' + esc(f.detail || (cls==="high"?"New since last run":"Fixed since last run")) + '</div></div></div>';
-  let html = "";
-  if (added.length) html += '<div style="grid-column:1/-1; font-size:12px; font-weight:700; color:var(--red); margin-bottom:2px;">● New (' + added.length + ')</div>' + added.map(f=>row(f, f.severity||"high", "NEW")).join("");
-  if (fixed.length) html += '<div style="grid-column:1/-1; font-size:12px; font-weight:700; color:var(--green); margin: 8px 0 2px;">● Fixed (' + fixed.length + ')</div>' + fixed.map(f=>row(f, f.severity||"info", "FIXED")).join("");
-  $("#diff-body").innerHTML = html;
-}
-
-// Desktop notifications when health degrades
-function maybeNotify(data) {
-  try {
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    const hasHigh = (data.findings||[]).some(f=>f.severity==="high");
-    const newHigh = ((data.diffSinceLast&&data.diffSinceLast.added)||[]).some(f=>f.severity==="high"||f.severity==="medium");
-    const degraded = (typeof data.scoreDelta==="number" && data.scoreDelta < 0 && data.score < 80) || (hasHigh && newHigh);
-    if (!degraded) return;
-    // throttle: once per 10min per score
-    const key = "ld-notify-" + data.score + "-" + (data.generatedAt||"");
-    const last = localStorage.getItem(key);
-    if (last) return;
-    localStorage.setItem(key, "1");
-    setTimeout(()=>localStorage.removeItem(key), 10*60*1000);
-    const title = hasHigh ? "Linux Doctor: health degraded (" + data.score + "/100)" : "Linux Doctor: new findings";
-    const body = (data.changeMessage || (data.newCount? data.newCount+" new · "+data.fixedCount+" fixed":"")) + " — open dashboard for details";
-    new Notification(title, { body, icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>" });
-  } catch {}
-}
-
-
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // WebKitGTK has no async clipboard API without a secure context — fall back.
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    let ok = false;
-    try { ok = document.execCommand("copy"); } catch { ok = false; }
-    ta.remove();
-    return ok;
-  }
-}
-
-// POST an ignore pattern. Tries the desktop app's loopback server first, then
-// the web dashboard server. Both write to the same config file.
+// Ignore finding
+let lastUndo = null;
 async function ignoreFinding(title, btn) {
   const payload = JSON.stringify({ pattern: title });
   const tryPost = async (url) => {
@@ -1311,207 +2236,68 @@ async function ignoreFinding(title, btn) {
   try { ok = await tryPost("http://127.0.0.1:17321/api/ignore"); } catch { ok = false; }
   if (!ok) { try { ok = await tryPost("/api/ignore"); } catch { ok = false; } }
   btn.disabled = true;
-  btn.textContent = ok ? "✓ Ignored" : "✗ Could not save";
+  btn.textContent = ok ? "\u2713 Ignored" : "\u2717 Could not save";
   if (ok && lastData) {
     lastUndo = { findings: [...lastData.findings], title };
     lastData.findings = lastData.findings.filter((f) => f.title !== title);
     render(lastData);
-    showToast('Ignored "' + esc(title).slice(0,40) + (title.length>40?"…":"") + '" <button data-undo>Undo</button>', 4000);
+    showToast('Ignored "' + esc(title).slice(0, 40) + (title.length > 40 ? "\u2026" : "") + '" <button data-undo>Undo</button>', 4000);
     setTimeout(() => { if (lastUndo && lastUndo.title === title) lastUndo = null; }, 4200);
   } else if (!ok) {
-    showToast("✗ Could not save — check permissions");
+    showToast("\u2717 Could not save \u2014 check permissions");
   }
 }
 
-document.addEventListener("click", async (e) => {
-  if (e.target.classList.contains("ev-copy")) {
-    const id = e.target.dataset.evcopy;
-    const ev = document.getElementById(id);
-    if (ev) {
-      await copyText(ev.textContent);
-      const old = e.target.textContent;
-      e.target.textContent = "✓ Copied";
-      showToast("✓ Evidence copied");
-      setTimeout(()=>e.target.textContent=old, 1200);
-    }
-    return;
-  }
-  if (e.target.classList.contains("ev-expand")) {
-    const id = e.target.dataset.ev;
-    const ev = document.getElementById(id);
-    if (ev) {
-      const expanded = ev.classList.toggle("expanded");
-      e.target.textContent = expanded ? "Show less" : "Show more";
-    }
-    return;
-  }
-  if (e.target.dataset.copy !== undefined) {
-    await copyText(e.target.dataset.copy);
-    const old = e.target.textContent;
-    e.target.textContent = "✓ Copied";
-    showToast("✓ Copied to clipboard");
-    setTimeout(() => (e.target.textContent = old), 1200);
-  }
-  if (e.target.dataset.ignore !== undefined) {
-    await ignoreFinding(e.target.dataset.ignore, e.target);
-  }
-  if (e.target.dataset.undo !== undefined) {
-    if (lastUndo && lastData) {
-      lastData.findings = [...lastUndo.findings];
-      render(lastData);
-      showToast("↩ Restored");
-      lastUndo = null;
-    }
-  }
-});
+// Setup modules
+setupKeyboard();
+setupPolling();
+setupThresholds();
+setupNotifyButton();
+setupSidebar();
+setupModal();
+setupChecksMatrix();
 
-// Keyboard navigation: ↑/↓ move between finding cards, Enter/Space toggles the
-// focused card. Cards are focusable <details> elements (tabindex="0").
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-    const cards = [...document.querySelectorAll("#report .card, #report .crow")];
-    if (!cards.length) return;
-    let idx = cards.indexOf(document.activeElement);
-    if (e.key === "ArrowDown") idx = idx < 0 ? 0 : Math.min(cards.length - 1, idx + 1);
-    else idx = idx < 0 ? 0 : Math.max(0, idx - 1);
-    e.preventDefault();
-    cards[idx].focus({ preventScroll: true });
-    cards[idx].scrollIntoView({ block: "nearest" });
-  } else if ((e.key === "Enter" || e.key === " ") && document.activeElement && (document.activeElement.classList.contains("card") || document.activeElement.classList.contains("crow"))) {
-    const el = document.activeElement;
-    if (el.open) el.removeAttribute("open");
-    else el.setAttribute("open", "");
-    e.preventDefault();
-  }
-});
-
-// Expand/collapse every finding card at once. Clicking opens all when any is
-// closed, and collapses all when everything is already open.
-function setAllOpen(open) {
-  document.querySelectorAll("#report .group, #report .card, #report .crow").forEach((el) => {
-    if (open) el.setAttribute("open", "");
-    else el.removeAttribute("open");
-  });
-  expandBtn.textContent = open ? "⊟ Collapse all" : "⊞ Expand all";
-}
-expandBtn.addEventListener("click", () => {
-  const anyClosed = [...document.querySelectorAll("#report .group, #report .card, #report .crow")].some((el) => !el.open);
-  setAllOpen(anyClosed);
-  syncAutoPausedUI();
-});
-
-$("#rerun").addEventListener("click", load);
-
-const pdfBtn = $("#pdfbtn");
-if (pdfBtn) {
-  pdfBtn.addEventListener("click", () => {
-    // Ensure all groups/cards are open for printing
-    document.querySelectorAll(".group, .card, .crow, details.ev").forEach(el=>el.setAttribute("open",""));
-    setTimeout(()=>window.print(), 120);
-    showToast("🖨️ Print dialog opened — save as PDF");
-  });
-}
-// Thresholds live editor
-const threshBtn = $("#threshbtn");
-const threshPanel = $("#threshpanel");
-const threshBody = $("#threshbody");
-const threshMsg = $("#threshmsg");
-let threshData = null;
-async function loadThresh() {
-  try {
-    const r = await fetch("/api/thresholds", {cache:"no-store"});
-    if (!r.ok) throw new Error(""+r.status);
-    const j = await r.json();
-    threshData = j.thresholds || j.defaults || {};
-    const defs = j.defaults || {};
-    const fields = [
-      ["diskFullPct","Disk full %","90"],["diskWarnPct","Disk warn %","80"],
-      ["memLowRatio","Mem low ratio","0.15"],["memWarnRatio","Mem warn ratio","0.25"],
-      ["loadWarnRatio","Load warn","0.7"],["loadHighRatio","Load high","1.0"],["loadCriticalRatio","Load crit","1.5"],
-      ["tempWarnC","Temp warn °C","85"],["tempHotC","Temp hot °C","95"],
-      ["procWarnRatio","Proc warn","0.2"],["procHighRatio","Proc high","0.4"],
-      ["journalWarnBytes","Journal bytes","2147483648"],["containerWarnGB","Cont. warn GB","20"],["containerHighGB","Cont. high GB","50"],
-    ];
-    threshBody.innerHTML = fields.map(([k,label,def])=>{
-      const v = threshData[k] ?? defs[k] ?? def;
-      return '<div class="thresh-field"><label for="th-'+k+'">'+label+' <span style="font-weight:400; text-transform:none; letter-spacing:0;">('+k+')</span></label><input id="th-'+k+'" data-k="'+k+'" type="number" step="any" value="'+esc(v)+'"></div>';
-    }).join("");
-    // also try desktop endpoint
-    if (!threshData || Object.keys(threshData).length===0) {
-      try {
-        const r2 = await fetch("http://127.0.0.1:17321/thresholds",{cache:"no-store"});
-        if (r2.ok) { const j2=await r2.json(); if(j2.thresholds) threshData=j2.thresholds; }
-      } catch {}
-    }
-  } catch(e){ threshBody.innerHTML='<div style="color:var(--muted);font-size:12px;">Could not load thresholds: '+esc(e.message)+'</div>'; }
-}
-if (threshBtn && threshPanel) {
-  threshBtn.addEventListener("click", async ()=>{
-    const hidden = threshPanel.hidden;
-    threshPanel.hidden = !hidden;
-    if (!hidden) return;
-    await loadThresh();
-  });
-  $("#threshclose")?.addEventListener("click", ()=>threshPanel.hidden=true);
-  $("#threshcopy")?.addEventListener("click", async ()=>{
-    const data = {};
-    threshBody.querySelectorAll("input[data-k]").forEach(inp=>{ const k=inp.dataset.k; const v=Number(inp.value); if(Number.isFinite(v)) data[k]=v; });
-    await copyText(JSON.stringify({thresholds:data},null,2));
-    threshMsg.textContent="✓ Copied JSON";
-    showToast("✓ Thresholds JSON copied — paste into ~/.config/linux-doctor/config.json");
-    setTimeout(()=>threshMsg.textContent="",1500);
-  });
-  $("#threshsave")?.addEventListener("click", async ()=>{
-    const data = {};
-    threshBody.querySelectorAll("input[data-k]").forEach(inp=>{ const k=inp.dataset.k; const v=Number(inp.value); if(Number.isFinite(v)) data[k]=v; });
-    threshMsg.textContent="Saving…";
-    let ok=false;
-    try { const r=await fetch("/api/thresholds",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({thresholds:data})}); ok=r.ok; } catch {}
-    if (!ok) { try { const r2=await fetch("http://127.0.0.1:17321/thresholds",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({thresholds:data})}); ok=r2.ok; } catch {} }
-    threshMsg.textContent = ok ? "✓ Saved — re-run checks to apply" : "✗ Save failed";
-    showToast(ok ? "✓ Thresholds saved" : "✗ Could not save thresholds");
-    if (ok) setTimeout(()=>threshPanel.hidden=true, 900);
-  });
-}
-// Notifications button
-const notifyBtn = $("#notifybtn");
-if (notifyBtn) {
-  const syncNotifyBtn = () => {
-    if (!("Notification" in window)) { notifyBtn.style.display="none"; return; }
-    notifyBtn.textContent = Notification.permission==="granted" ? "🔔✓" : "🔔";
-    notifyBtn.title = Notification.permission==="granted" ? "Notifications enabled" : "Enable desktop notifications when health degrades";
-    notifyBtn.classList.toggle("on", Notification.permission==="granted");
-  };
-  syncNotifyBtn();
-  notifyBtn.addEventListener("click", async () => {
-    if (!("Notification" in window)) { showToast("Notifications not supported in this browser"); return; }
-    if (Notification.permission==="granted") { showToast("🔔 Notifications already enabled"); return; }
-    const perm = await Notification.requestPermission();
-    syncNotifyBtn();
-    showToast(perm==="granted" ? "🔔 Notifications enabled" : "Notifications not granted");
-    if (perm==="granted" && lastData) maybeNotify(lastData);
-  });
-}
-// Export: copy the report as Markdown.
-const exportBtn = $("#export");
-exportBtn.addEventListener("click", async () => {
+// JSON export — the same versioned envelope /api/report serves.
+$("#copyjson")?.addEventListener("click", async () => {
   if (!lastData) return;
-  await copyText(reportMarkdown(lastData));
-  const old = exportBtn.textContent;
-  exportBtn.textContent = "✓ Copied";
-  showToast("✓ Report copied as Markdown");
-  setTimeout(() => (exportBtn.textContent = old), 1200);
+  await copyText(JSON.stringify(lastData, null, 2));
+  showToast("\u2713 JSON report copied");
 });
 
-load();
+// Keyboard shortcuts help (?)
+$("#helpbtn")?.addEventListener("click", openHelp);
+
+// The hero "N checks" chip opens the matrix too.
+$("#checkschip")?.addEventListener("click", openChecksMatrix);
+
+// Density toggle: compact card spacing, remembered across sessions.
+const densityBtn = $("#densitybtn");
+if (densityBtn) {
+  try { if (localStorage.getItem("ld-density") === "compact") document.body.classList.add("compact"); } catch {}
+  const syncDensityBtn = () => {
+    const compact = document.body.classList.contains("compact");
+    densityBtn.setAttribute("aria-pressed", String(compact));
+    densityBtn.title = compact ? "Density: compact — click for comfortable" : "Density: comfortable — click for compact";
+  };
+  syncDensityBtn();
+  densityBtn.addEventListener("click", () => {
+    const compact = document.body.classList.toggle("compact");
+    try { localStorage.setItem("ld-density", compact ? "compact" : "comfortable"); } catch {}
+    syncDensityBtn();
+    showToast(compact ? "\u2261 Compact density" : "\u2637 Comfortable density");
+  });
+}
+
+// Initial load
 if (STATIC_DATA) {
-  // Static HTML report: nothing to poll, and re-running cannot produce a
-  // fresher report than the one embedded at generation time.
+  render(STATIC_DATA);
   const rerun = $("#rerun");
-  if (rerun) { rerun.disabled = true; rerun.title = "Static report — regenerate with linux-doctor --html <path>"; }
+  if (rerun) { rerun.disabled = true; rerun.title = "Static report \u2014 regenerate with linux-doctor --html <path>"; }
 } else {
+  load();
   startPolling();
 }
+
 </script>
 </body>
 </html>

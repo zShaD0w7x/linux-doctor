@@ -12,7 +12,7 @@ the CLI output and `src-gui/index.html`):
 |---|---|---|---|---|
 | Since last run | `SINCE LAST RUN  N new · N fixed · N unchanged` | `# since:` / `# new:` / `# fixed:` | `newCount` / `fixedCount` / `unchanged` / `diffSinceLast` | chips NEW/FIXED + "Changes since last run" |
 | Next action | `▶ START HERE   #n Title` | (not shown; use `--todo`) | `nextAction {code,severity,title,fix}` | ▶ START HERE banner (renders `nextAction` as-is) |
-| Score breakdown | `SCORE  77/100 = 100 −15 disk/full …` (top-3 penalized, `+N more`) | `# score-breakdown:` (full list) | `scoreBreakdown[]` | (deferred — see single-channel notes below) |
+| Score breakdown | `SCORE  77/100 = 100 −15 disk/full …` (top-3 penalized, `+N more`) | `# score-breakdown:` (full list) | `scoreBreakdown[]` | sidebar "Why this score" bars (top-3 + `+N more`, same server data) |
 | Score trend | `TREND ▄▅▆▇ …` | `# trend:` | (client draws from `/api/history`) | history charts |
 | Clean streak | `✅ Everything is clean — N clean run(s) in a row` | first line | `cleanStreak` | ok-message + empty state |
 | Skipped checks | `skipped as not applicable on this immutable system (…)` | `# skipped:` | `skippedChecks[]` | "Skipped checks" section |
@@ -63,9 +63,10 @@ which runs the real binary and compares emitted keys against
 - **`--html`** embeds the exact `--json` payload (`window.__DATA__`), so it
   inherits JSON parity by construction — whatever `--json` says, the static
   report says.
-- **Dashboard score-breakdown display** is deferred: the payload already
-  carries `scoreBreakdown`; rendering it in the status zone lands with the
-  next UI pass. Documented here per rule 2.
+- **Dashboard score-breakdown display** lives in the sidebar's "Why this
+  score" block: top-3 penalized findings as proportional bars (+`+N more`),
+  rendered from the payload's `scoreBreakdown` — same rule as `nextAction`,
+  the client displays server data instead of recomputing penalties.
 
 Rules that keep the matrix green when adding features:
 
