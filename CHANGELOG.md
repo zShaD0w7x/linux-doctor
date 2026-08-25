@@ -24,7 +24,7 @@ All notable changes to Linux Doctor are documented here. The format follows
   body. The shell now strips `LD_LIBRARY_PATH`/`LD_PRELOAD` from every Node
   child process.
 
-## [Unreleased]
+## [0.3.3] — 2026-08-26
 
 ### Fixed
 
