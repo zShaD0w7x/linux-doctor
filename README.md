@@ -32,11 +32,14 @@ AppImage runs on most distributions (glibc-based); on immutable systems
 requirement: **Node.js ≥ 20 installed** (`node --version`) — the app runs
 the checks through it; everything else is bundled.
 
-**Troubleshooting the AppImage on very new Mesa (Fedora/Bazzite, AMD):**
+**Troubleshooting the AppImage on very new Mesa (Fedora/Bazzite):**
 the bundle's WebKitGTK comes from an older LTS base and its accelerated
 paths can abort against bleeding-edge Mesa (`Could not create default EGL
-display`). Verified workaround — force software rendering (a diagnostics
-dashboard does not need GPU anyway):
+display`). This is about the host's Mesa driver stack, not the GPU brand:
+**AMD and Intel** graphics (and nouveau) all run on Mesa and are equally
+exposed; NVIDIA's proprietary driver ships its own stack and is unlikely
+to hit it. Verified workaround — force software rendering (a diagnostics
+dashboard does not need GPU anyway), works on every vendor:
 
 ```bash
 LIBGL_ALWAYS_SOFTWARE=1 ./Linux.Doctor_*_amd64.AppImage
