@@ -32,6 +32,9 @@ _linux_doctor() {
     '--self-test[explain the environment]' \
     '--init-config[create a starter config file]' \
     '--check-list[list checks as JSON]' \
+    '--history-json[print run history as JSON]' \
+    '--thresholds-json[print thresholds as JSON]' \
+    "--thresholds-set=[merge thresholds from a JSON payload]:json:" \
     '--schema[print the JSON Schema]' \
     '--profile[show check durations]' \
     '--license[show Pro license status]' \

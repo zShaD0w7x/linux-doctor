@@ -13,6 +13,10 @@
 //! enabling `withGlobalTauri` breaks the page's own scripts entirely. Serving
 //! the report over `127.0.0.1` is a small, dependency-free workaround — the
 //! dashboard already fetches its data over HTTP in browser mode (`--web`).
+//!
+//! Every Node child process strips LD_LIBRARY_PATH/LD_PRELOAD: inside the
+//! AppImage those point at the bundled libraries, and the host's `node`
+//! would otherwise load them and abort (symbol/version mismatch).
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -84,6 +88,8 @@ fn collect_report(root: &PathBuf, node: &PathBuf) -> Result<Vec<u8>, String> {
     let out = Command::new(node)
         .args(["bin/doctor.js", "--json"])
         .current_dir(root)
+        .env_remove("LD_LIBRARY_PATH")
+        .env_remove("LD_PRELOAD")
         .output()
         .map_err(|e| {
             format!(
@@ -101,9 +107,58 @@ fn collect_report(root: &PathBuf, node: &PathBuf) -> Result<Vec<u8>, String> {
     Ok(out.stdout)
 }
 
-/// Serves `GET /report` (and CORS preflight) on loopback. Runs in a background
-/// thread; each connection is handled on its own thread so "Re-run checks" can
-/// overlap safely (all checks are read-only).
+/// Runs the CLI's check catalog (`--check-list`) and wraps it as
+/// `{"checks": [...]}` — the shape the dashboard expects from `/checks`.
+/// Used for check→category grouping and the checks matrix. Static metadata,
+/// no system scanning, so this is cheap.
+fn collect_checks(root: &PathBuf, node: &PathBuf) -> Result<Vec<u8>, String> {
+    let out = Command::new(node)
+        .args(["bin/doctor.js", "--check-list"])
+        .current_dir(root)
+        .env_remove("LD_LIBRARY_PATH")
+        .env_remove("LD_PRELOAD")
+        .output()
+        .map_err(|e| {
+            format!(
+                "Could not run Node.js ({e}). Linux Doctor needs Node.js >= 20 with `node` on your PATH — or set LINUX_DOCTOR_NODE to a Node binary."
+            )
+        })?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(format!(
+            "linux-doctor --check-list exited with code {}.\n{stderr}",
+            out.status.code().unwrap_or(-1)
+        ));
+    }
+    let list: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .map_err(|e| format!("Could not parse the check list: {e}"))?;
+    serde_json::to_vec(&serde_json::json!({ "checks": list }))
+        .map_err(|e| format!("Could not serialize the check list: {e}"))
+}
+
+/// Runs the Node CLI with the given arguments and returns (exit_code, stdout, stderr).
+/// A spawn failure (no Node) is reported as exit code 127 with the OS error text.
+fn run_cli(root: &PathBuf, node: &PathBuf, args: &[&str]) -> (i32, String, String) {
+    match Command::new(node).args(args).current_dir(root).env_remove("LD_LIBRARY_PATH").env_remove("LD_PRELOAD").output() {
+        Ok(out) => (
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout).trim().to_string(),
+            String::from_utf8_lossy(&out.stderr).trim().to_string(),
+        ),
+        Err(e) => (
+            127,
+            String::new(),
+            format!(
+                "Could not run Node.js ({e}). Linux Doctor needs Node.js >= 20 with `node` on your PATH — or set LINUX_DOCTOR_NODE to a Node binary."
+            ),
+        ),
+    }
+}
+
+/// Serves the dashboard API (and CORS preflight) on loopback. Runs in a
+/// background thread; each connection is handled on its own thread so
+/// "Re-run checks" can overlap safely (all checks are read-only; the POST
+/// endpoints only write the app's own config/history files).
 fn serve_report(root: PathBuf, node: PathBuf) {
     thread::spawn(move || {
         let listener = match TcpListener::bind(("127.0.0.1", REPORT_PORT)) {
@@ -122,19 +177,72 @@ fn serve_report(root: PathBuf, node: PathBuf) {
     });
 }
 
+/// Extracts Content-Length from raw request head bytes (0 when absent/invalid).
+fn content_length(head: &[u8]) -> usize {
+    let head = String::from_utf8_lossy(head);
+    for line in head.lines() {
+        let mut parts = line.splitn(2, ':');
+        let name = parts.next().unwrap_or("").trim().to_ascii_lowercase();
+        if name == "content-length" {
+            return parts.next().unwrap_or("").trim().parse().unwrap_or(0);
+        }
+    }
+    0
+}
+
 fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
-    // Read the request head — we only care about the method and path.
-    let mut buf = [0u8; 2048];
-    let n = stream.read(&mut buf).unwrap_or(0);
-    let head = String::from_utf8_lossy(&buf[..n]);
-    let request_line = head.lines().next().unwrap_or("");
-    let mut parts = request_line.split_whitespace();
-    let method = parts.next().unwrap_or("").to_string();
-    let path = parts.next().unwrap_or("").to_string();
+    // Read the full request head, then any POST body (the config-writing
+    // endpoints carry small JSON payloads). Capped well below any sane size.
+    let mut data: Vec<u8> = Vec::with_capacity(4096);
+    let mut buf = [0u8; 4096];
+    let head_end = loop {
+        if let Some(pos) = data.windows(4).position(|w| w == b"\r\n\r\n") {
+            let need = pos + 4 + content_length(&data[..pos]);
+            if data.len() >= need {
+                break Some(pos);
+            }
+        }
+        if data.len() > 256 * 1024 {
+            break None;
+        }
+        let n = stream.read(&mut buf).unwrap_or(0);
+        if n == 0 {
+            break None;
+        }
+        data.extend_from_slice(&buf[..n]);
+    };
+
+    let (method, path, body) = match head_end {
+        Some(pos) => {
+            let head = String::from_utf8_lossy(&data[..pos]).to_string();
+            let mut parts = head.lines().next().unwrap_or("").split_whitespace();
+            let method = parts.next().unwrap_or("").to_string();
+            let path = parts.next().unwrap_or("").to_string();
+            let cl = content_length(&data[..pos]).min(256 * 1024);
+            let end = (pos + 4 + cl).min(data.len());
+            let body = String::from_utf8_lossy(&data[pos + 4..end]).to_string();
+            (method, path, body)
+        }
+        None => (String::new(), String::new(), String::new()),
+    };
 
     const CORS: &str = "Access-Control-Allow-Origin: *\r\n\
-                        Access-Control-Allow-Methods: GET, OPTIONS\r\n\
+                        Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
                         Access-Control-Allow-Headers: Content-Type";
+
+    // Shells out to the CLI; exit 0 → 200 with stdout, exit 1 → 400 with
+    // stdout (the CLI prints {ok:false,...}), anything else → 500.
+    let cli_json = |args: &[&str]| -> (&'static str, Vec<u8>) {
+        let (code, stdout, stderr) = run_cli(root, node, args);
+        match code {
+            0 => ("200 OK", stdout.into_bytes()),
+            1 => ("400 Bad Request", stdout.into_bytes()),
+            _ => (
+                "500 Internal Server Error",
+                serde_json::to_vec(&serde_json::json!({ "error": stderr })).unwrap_or_default(),
+            ),
+        }
+    };
 
     let (status, body) = match (method.as_str(), path.as_str()) {
         ("OPTIONS", _) => ("204 No Content", Vec::new()),
@@ -145,6 +253,40 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
                 serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
             ),
         },
+        ("GET", "/checks") | ("GET", "/checks/") => match collect_checks(root, node) {
+            Ok(bytes) => ("200 OK", bytes),
+            Err(msg) => (
+                "500 Internal Server Error",
+                serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
+            ),
+        },
+        ("GET", "/history") | ("GET", "/history/") => cli_json(&["bin/doctor.js", "--history-json"]),
+        ("GET", "/thresholds") | ("GET", "/thresholds/") => cli_json(&["bin/doctor.js", "--thresholds-json"]),
+        ("POST", "/thresholds") | ("POST", "/thresholds/") => {
+            cli_json(&["bin/doctor.js", "--thresholds-set", &body])
+        }
+        ("POST", "/api/ignore") | ("POST", "/api/ignore/") => {
+            let pattern = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v.get("pattern").and_then(|p| p.as_str()).map(String::from));
+            match pattern {
+                Some(p) if !p.is_empty() => {
+                    let (status, bytes) = cli_json(&["bin/doctor.js", "--ignore-add", &p]);
+                    if status == "200 OK" {
+                        (
+                            "200 OK",
+                            serde_json::to_vec(&serde_json::json!({ "ok": true })).unwrap_or_default(),
+                        )
+                    } else {
+                        (status, bytes)
+                    }
+                }
+                _ => (
+                    "400 Bad Request",
+                    serde_json::to_vec(&serde_json::json!({ "ok": false })).unwrap_or_default(),
+                ),
+            }
+        }
         _ => (
             "404 Not Found",
             serde_json::to_vec(&serde_json::json!({ "error": "Not found" })).unwrap_or_default(),

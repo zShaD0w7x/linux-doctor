@@ -3,8 +3,8 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--alert", "--interval"]);
-export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify"]);
+export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--alert", "--interval", "--thresholds-set"]);
+export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -43,6 +43,9 @@ export function parseArgs(argv) {
     notify: false,
     ignoreAdd: null,
     ignoreRemove: null,
+    historyJson: false,
+    thresholdsJson: false,
+    thresholdsSet: null,
     error: null,
   };
 
@@ -55,6 +58,7 @@ export function parseArgs(argv) {
     else if (flag === "--ignore") out.ignore.push(val);
     else if (flag === "--ignore-add") out.ignoreAdd = val;
     else if (flag === "--ignore-remove") out.ignoreRemove = val;
+    else if (flag === "--thresholds-set") out.thresholdsSet = val;
     else if (flag === "--ignore-code") out.ignoreCodes.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
     else if (flag === "--severity") out.severity = val.toLowerCase();
     else if (flag === "--push") out.pushUrl = val;
@@ -73,6 +77,7 @@ export function parseArgs(argv) {
       : flag === "--interval" ? "3600"
       : flag === "--ignore-add" ? "services/failed"
       : flag === "--ignore-remove" ? "fw-fanctrl"
+      : flag === "--thresholds-set" ? '\'{"memory.warn":90}\''
       : "fw-fanctrl";
 
   for (let i = 0; i < args.length; i += 1) {

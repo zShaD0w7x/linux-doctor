@@ -331,6 +331,9 @@ OPTIONS
   --check <id>   run only the given check(s), comma-separated or repeated
   --list         list the checks without running them
   --check-list   list checks as JSON (id, title, category, appliesTo)
+  --history-json print run history as JSON (used by the desktop app)
+  --thresholds-json  print current thresholds + defaults as JSON
+  --thresholds-set <j> merge known thresholds from a JSON payload into the config
   --json         print findings as JSON (machine-readable)
   --plain        print plain, tab-separated text (no colors/emoji; grep-friendly)
   --summary      one-liner: score + severity counts (for cron/scripts)
@@ -553,6 +556,40 @@ function printIgnoreLists(titles, codes) {
     }));
     console.log(JSON.stringify(list, null, 2));
     return 0;
+  }
+
+  // Machine-facing endpoints for the desktop shell (src-tauri serves them on
+  // loopback). Hidden from --help: users reach these through the app UI.
+  if (args.historyJson) {
+    console.log(JSON.stringify({ runs: loadHistory() }));
+    return 0;
+  }
+
+  if (args.thresholdsJson) {
+    console.log(JSON.stringify({ thresholds: loadThresholds(loadConfig()), defaults: DEFAULT_THRESHOLDS }));
+    return 0;
+  }
+
+  if (args.thresholdsSet != null) {
+    try {
+      const parsed = JSON.parse(args.thresholdsSet || "{}");
+      const incoming = parsed.thresholds || parsed;
+      const cfg = loadConfig();
+      // Merge over the saved values, then keep only known keys (same policy
+      // as the web dashboard's POST /api/thresholds).
+      const merged = { ...(cfg.thresholds || {}), ...incoming };
+      const clean = {};
+      for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in merged) clean[k] = Number(merged[k]);
+      const next = { ...cfg, thresholds: clean };
+      const file = configFile();
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
+      console.log(JSON.stringify({ ok: true, thresholds: clean }));
+      return 0;
+    } catch (err) {
+      console.log(JSON.stringify({ ok: false, error: err.message }));
+      return 1;
+    }
   }
 
   if (args.list) {
