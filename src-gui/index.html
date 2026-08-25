@@ -121,7 +121,7 @@ button:disabled { opacity: .5; cursor: default; transform: none; }
 .status-meta { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
 .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.newbadge, .fixedbadge { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 7px; flex-shrink: 0; }
+.newbadge, .fixedbadge { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 7px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .newbadge { color: #1a0f2e; background: var(--purple); }
 .fixedbadge { color: #06231a; background: var(--green); }
 .lowbadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; flex-shrink: 0; }
@@ -131,13 +131,13 @@ button:disabled { opacity: .5; cursor: default; transform: none; }
 .gauge { position: relative; width: 68px; height: 68px; flex-shrink: 0; }
 .gauge svg { width: 100%; height: 100%; }
 .gauge .track { fill: none; stroke: var(--border); stroke-width: 7; }
-.gauge .ring { fill: none; stroke-width: 7; stroke-linecap: round; }
+.gauge .ring { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke .4s ease; }
 .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .scorenum { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .scoreout { font-size: 9px; color: var(--muted); margin-top: 2px; font-weight: 600; letter-spacing: .04em; }
 .hero-main { min-width: 0; }
 .hero-main .k { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 750; }
-.scoredelta { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+.scoredelta { font-size: 12.5px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted); }
 
 /* === Toolbar === */
@@ -443,10 +443,16 @@ body.compact #report { gap: 16px; }
 .history .hist-summary .chev { margin-left: auto; transition: transform .18s ease; color: var(--muted); }
 .history .hist-details[open] .chev { transform: rotate(90deg); }
 .history #trend { margin: 0; border: none; box-shadow: none; background: transparent; padding: 4px 15px 16px; max-width: none; }
+.hist-empty {
+  padding: 18px 15px 20px;
+  font-size: 13px; line-height: 1.6; color: var(--muted);
+}
+.hist-empty b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* === Trend Charts === */
 #trend { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow-sm); max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
 .trendtitle { font-size: 12px; color: var(--muted); }
+.trendtitle b, .trendrange { font-variant-numeric: tabular-nums; }
 .trendtitle b { color: var(--text); }
 .trendtitle .delta-up, .trendtitle .delta-down, .trendtitle .delta-flat { font-weight: 700; margin-left: 2px; }
 .trendrange { color: var(--muted); font-size: 11px; }
@@ -744,6 +750,11 @@ body.compact #report { gap: 16px; }
 /* === DOM helpers === */
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+/* JS smooth-scrolls bypass the CSS reduced-motion guard, so gate the behavior here. */
+function prefersReducedMotion() {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+}
+const scrollBehavior = () => (prefersReducedMotion() ? "auto" : "smooth");
 let lastReportData = null;
 let lastData = null;
 
@@ -1372,8 +1383,23 @@ async function renderTrend(currentScore) {
   const trend = $("#trend");
   const runs = await fetchHistory();
   const data = runs.filter((r) => typeof r.score === "number").slice(-12);
-  $("#history").hidden = data.length < 2;
-  if ($("#history").hidden) return;
+  const histEl = $("#history");
+  if (data.length < 2) {
+    /* First recorded run: a bare hidden section reads as "broken". Explain
+       what will grow here instead, using the score we already have. */
+    if (data.length === 1 && !STATIC_DATA) {
+      histEl.hidden = false;
+      const det = histEl.querySelector(".hist-details");
+      if (det) det.open = true;
+      trend.innerHTML =
+        '<div class="hist-empty">Only one run on record so far \u2014 it scored <b>' + data[0].score + "/100</b>." +
+        "Run another check and your health-score trend appears here.</div>";
+    } else {
+      histEl.hidden = true;
+    }
+    return;
+  }
+  histEl.hidden = false;
 
   // Hero mini-sparkline: the score's recent direction, visible at a glance.
   const spark = $("#hero-spark");
@@ -1399,7 +1425,7 @@ async function renderTrend(currentScore) {
       if (prev) msg += " (prev " + prev.score + ")";
       showToast(msg + " \u2014 opening Changes");
       const diffEl = $("#diff");
-      if (diffEl) { diffEl.hidden = false; diffEl.open = true; diffEl.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      if (diffEl) { diffEl.hidden = false; diffEl.open = true; diffEl.scrollIntoView({ behavior: scrollBehavior(), block: "start" }); }
       const det = document.querySelector(".hist-details");
       if (det) det.open = true;
     };
@@ -1538,7 +1564,7 @@ function scrollToGroup(type, key) {
   const g = document.querySelector('#report .group[data-type="' + type + '"][data-key="' + key.replace(/"/g, '\\"') + '"]');
   if (!g) return;
   g.setAttribute("open", "");
-  g.scrollIntoView({ behavior: "smooth", block: "start" });
+  g.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 }
 
 
@@ -1640,7 +1666,7 @@ async function openChecksMatrix() {
       || document.querySelector('#report details[data-check="' + row.dataset.gotoCheck.replace(/"/g, '\\"') + '"]');
     if (card) {
       card.setAttribute("open", "");
-      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      card.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       showToast("Showing " + row.dataset.gotoCheck);
     }
   }, { once: true });
@@ -2058,7 +2084,7 @@ function renderStatus(data) {
 
   const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
   const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
-  const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "\u25b2 +" + scoreDelta : scoreDelta < 0 ? "\u25bc " + scoreDelta : "unchanged";
+  const deltaTxt = scoreDelta === null ? "no baseline yet" : scoreDelta > 0 ? "\u25b2 +" + scoreDelta : scoreDelta < 0 ? "\u25bc " + scoreDelta : "unchanged";
   const score = typeof data.score === "number" ? data.score : 0;
 
   const chips =
@@ -2283,7 +2309,7 @@ document.addEventListener("click", async (e) => {
     const card = code ? document.querySelector('#report details[data-code="' + code.replace(/"/g, '\\"') + '"]') : null;
     if (card) {
       card.setAttribute("open", "");
-      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      card.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       setTimeout(() => { card.classList.remove("flash"); }, 50);
       const nh = $("#nexthep");
       if (nh) nh.classList.add("flash");

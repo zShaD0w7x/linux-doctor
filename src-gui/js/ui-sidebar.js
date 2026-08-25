@@ -125,5 +125,5 @@ function scrollToGroup(type, key) {
   const g = document.querySelector('#report .group[data-type="' + type + '"][data-key="' + key.replace(/"/g, '\\"') + '"]');
   if (!g) return;
   g.setAttribute("open", "");
-  g.scrollIntoView({ behavior: "smooth", block: "start" });
+  g.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 }

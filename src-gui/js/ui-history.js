@@ -22,8 +22,23 @@ async function renderTrend(currentScore) {
   const trend = $("#trend");
   const runs = await fetchHistory();
   const data = runs.filter((r) => typeof r.score === "number").slice(-12);
-  $("#history").hidden = data.length < 2;
-  if ($("#history").hidden) return;
+  const histEl = $("#history");
+  if (data.length < 2) {
+    /* First recorded run: a bare hidden section reads as "broken". Explain
+       what will grow here instead, using the score we already have. */
+    if (data.length === 1 && !STATIC_DATA) {
+      histEl.hidden = false;
+      const det = histEl.querySelector(".hist-details");
+      if (det) det.open = true;
+      trend.innerHTML =
+        '<div class="hist-empty">Only one run on record so far \u2014 it scored <b>' + data[0].score + "/100</b>." +
+        "Run another check and your health-score trend appears here.</div>";
+    } else {
+      histEl.hidden = true;
+    }
+    return;
+  }
+  histEl.hidden = false;
 
   // Hero mini-sparkline: the score's recent direction, visible at a glance.
   const spark = $("#hero-spark");
@@ -49,7 +64,7 @@ async function renderTrend(currentScore) {
       if (prev) msg += " (prev " + prev.score + ")";
       showToast(msg + " \u2014 opening Changes");
       const diffEl = $("#diff");
-      if (diffEl) { diffEl.hidden = false; diffEl.open = true; diffEl.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      if (diffEl) { diffEl.hidden = false; diffEl.open = true; diffEl.scrollIntoView({ behavior: scrollBehavior(), block: "start" }); }
       const det = document.querySelector(".hist-details");
       if (det) det.open = true;
     };

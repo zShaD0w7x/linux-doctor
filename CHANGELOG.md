@@ -28,6 +28,17 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **Dashboard: first-run history explainer**: with fewer than two recorded
+  runs, the History section no longer vanishes silently — it shows what the
+  one run on record scored and what will appear there after the next check
+  (static `--html` exports keep the section hidden, as before).
+- **Dashboard: motion and number polish**: JS smooth-scrolls (sidebar jump,
+  checks-matrix jump, START HERE jump, history diff) now honor
+  `prefers-reduced-motion`; live numbers (NEW/FIXED badges, score delta,
+  trend title) use tabular figures so they stop jittering as counts change;
+  the gauge ring eases between severity colors instead of snapping; the hero
+  delta on a first run reads "no baseline yet" instead of "no history to
+  compare".
 - **Dashboard: the subtraction pass**: removed the ornamental CSS layer
   (decorative gradients, noise texture, glassmorphism, glowing gauge, stagger
   card animations, hover lift) and consolidated everything into one calm
