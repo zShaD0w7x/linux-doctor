@@ -5,7 +5,7 @@
 **Linux diagnostics that explain the problem — and remember what changed.**
 
 Linux Doctor runs safe, read-only checks and surfaces only the issues that
-actually matter. Each finding comes with a plain-English explanation and a
+actually matter. Each finding comes with a clear explanation and a
 copy-paste fix. It remembers your last run, so every report tells you what's
 new, what got fixed, and what stayed the same.
 

@@ -1,7 +1,7 @@
 [package]
 name = "linux-doctor"
 version = "0.3.0"
-description = "Linux Doctor desktop app — plain-English health checks for your Linux system"
+description = "Linux Doctor desktop app — read-only health checks for your Linux system"
 edition = "2021"
 
 # The Rust side is intentionally a thin shell: all check logic lives in the

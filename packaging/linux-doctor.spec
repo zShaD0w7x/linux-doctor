@@ -5,7 +5,7 @@
 Name:           linux-doctor
 Version:        0.2.0
 Release:        1%{?dist}
-Summary:        Plain-English health checks for your Linux system
+Summary:        Read-only health checks for your Linux system
 License:        GPL-3.0-or-later
 URL:            https://github.com/zShaD0w7x/linux-doctor
 Source0:        %{name}-%{version}.tar.gz
@@ -13,8 +13,8 @@ BuildArch:      noarch
 Requires:       nodejs >= 20
 
 %description
-Linux Doctor runs read-only health checks on your system, explains problems
-in plain English, and tells you exactly how to fix them. Checks cover memory,
+Linux Doctor runs read-only health checks on your system, explains what went
+wrong, and tells you exactly how to fix them. Checks cover memory,
 disk, services, security, updates, GPU, network, backups and more — with a
 health score, history, and a web dashboard.
 
