@@ -14,7 +14,8 @@
     "LICENSE",
     "COMMERCIAL-LICENSE.md",
     "CONTRIBUTING.md",
-    "packaging/README.md"
+    "docs",
+    "packaging"
   ],
   "scripts": {
     "test": "node --test",
