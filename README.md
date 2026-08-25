@@ -32,22 +32,21 @@ AppImage runs on most distributions (glibc-based); on immutable systems
 requirement: **Node.js ≥ 20 installed** (`node --version`) — the app runs
 the checks through it; everything else is bundled.
 
-**Troubleshooting the AppImage on very new Mesa (Fedora/Bazzite):**
-the bundle's WebKitGTK comes from an older LTS base and its accelerated
-paths can abort against bleeding-edge Mesa (`Could not create default EGL
-display`). This is about the host's Mesa driver stack, not the GPU brand:
-**AMD and Intel** graphics (and nouveau) all run on Mesa and are equally
-exposed; NVIDIA's proprietary driver ships its own stack and is unlikely
-to hit it. Verified workaround — force software rendering (a diagnostics
-dashboard does not need GPU anyway), works on every vendor:
+**AppImage on very new Mesa (Fedora/Bazzite):** the bundle's WebKitGTK
+comes from an older LTS base and its accelerated paths can abort against
+bleeding-edge host Mesa (`Could not create default EGL display`). This is
+about the host's Mesa driver stack, not the GPU brand: **AMD and Intel**
+graphics (and nouveau) all run on Mesa and are equally exposed; NVIDIA's
+proprietary driver ships its own stack and is unlikely to hit it.
+
+**Current builds handle this automatically** — the AppImage defaults to
+software GL on launch (a diagnostics dashboard does not need GPU anyway).
+Set `LINUX_DOCTOR_HARDWARE_GL=1` to force hardware rendering. On v0.3.2
+or older, launch with:
 
 ```bash
 LIBGL_ALWAYS_SOFTWARE=1 ./Linux.Doctor_*_amd64.AppImage
 ```
-
-Compositing/dmabuf env flags alone are not sufficient on these hosts
-(tested on Bazzite 44). Long-term fix tracked: build desktop
-bundles on a newer LTS base so bundled WebKitGTK matches modern Mesa.
 
 > The desktop app shells out to Node.js ≥ 20 for the checks themselves
 > (bundled-runtime builds are planned). Everything else — window, dashboard,

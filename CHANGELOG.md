@@ -26,6 +26,19 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Desktop (AppImage): EGL launch aborts on bleeding-edge Mesa**: the shell
+  now defaults to software GL (`LIBGL_ALWAYS_SOFTWARE=1`) when running from
+  an AppImage, set before any GTK/WebKit initialization. The bundled
+  WebKitGTK's accelerated paths could abort at window creation against very
+  new host Mesa — on AMD and Intel alike, since both run on Mesa (NVIDIA's
+  proprietary driver ships its own stack). A diagnostics dashboard does not
+  need GPU acceleration; opt out with `LINUX_DOCTOR_HARDWARE_GL=1`. The
+  `.deb` and CLI are unaffected — they use the host's matching WebKitGTK.
+  This retires the manual `LIBGL_ALWAYS_SOFTWARE=1` workaround documented
+  for v0.3.2.
+
 ### Changed
 
 - **Dashboard: first-run history explainer**: with fewer than two recorded

@@ -303,6 +303,7 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    software_gl_fallback();
     tauri::Builder::default()
         .setup(|app| {
             let root = repo_root(app.handle());
@@ -312,4 +313,27 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Linux Doctor");
+}
+
+/// Inside the AppImage, the bundled WebKitGTK comes from an older LTS base
+/// and its accelerated paths can abort against a bleeding-edge host Mesa
+/// ("Could not create default EGL display") — on AMD and Intel alike, since
+/// both run on Mesa (NVIDIA's proprietary driver ships its own stack). A
+/// diagnostics dashboard does not need GPU acceleration, so when running
+/// from an AppImage we default to software GL before any GTK/WebKit code
+/// initializes. Opt out with LINUX_DOCTOR_HARDWARE_GL=1. The .deb and CLI
+/// are untouched: they use the host's matching WebKitGTK.
+fn software_gl_fallback() {
+    let appimage = std::env::var_os("APPIMAGE").is_some();
+    let already_set = std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_some();
+    let hardware_requested = std::env::var("LINUX_DOCTOR_HARDWARE_GL")
+        .map(|v| v == "1")
+        .unwrap_or(false);
+    if appimage && !already_set && !hardware_requested {
+        std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        eprintln!(
+            "linux-doctor: running from an AppImage — defaulting to software GL \
+             (set LINUX_DOCTOR_HARDWARE_GL=1 to use hardware rendering)"
+        );
+    }
 }
