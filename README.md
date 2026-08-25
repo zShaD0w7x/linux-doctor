@@ -11,6 +11,10 @@ new, what got fixed, and what stayed the same.
 
 It never changes your system. Fixes are suggestions you run yourself.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/dashboard-light.png" alt="Linux Doctor dashboard (light): health score, START HERE action, findings grouped by severity" width="49%"><img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/dashboard-dark.png" alt="Linux Doctor dashboard (dark): health score, START HERE action, findings grouped by severity" width="49%">
+</p>
+
 ## Download the app (recommended)
 
 Desktop app — no install, no package manager:
