@@ -4,6 +4,26 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
+## [0.3.2] — 2026-08-25
+
+### Added
+
+- **Desktop: complete loopback API**: the shell's report server now answers
+  `/checks` (check → category map: category grouping and the checks matrix
+  work in the installed app), `/history` (score trend section), and
+  `GET/POST /thresholds` plus `POST /api/ignore` (thresholds panel and the
+  per-finding Ignore button persist). Backed by three new hidden CLI flags
+  (`--history-json`, `--thresholds-json`, `--thresholds-set`) so the Rust
+  shell keeps delegating all logic to Node.
+
+### Fixed
+
+- **Desktop (AppImage): empty report**: the AppRun environment pointed
+  `LD_LIBRARY_PATH` at the bundled libraries, which made the host's `node`
+  abort with a symbol/version error — `/report` came back with an empty
+  body. The shell now strips `LD_LIBRARY_PATH`/`LD_PRELOAD` from every Node
+  child process.
+
 ## [Unreleased]
 
 ### Changed

@@ -24,7 +24,9 @@ chmod +x Linux.Doctor_*_amd64.AppImage
 
 Also attached to each release: `.deb` (Debian/Ubuntu) and the CLI tarball.
 AppImage runs on most distributions (glibc-based); on immutable systems
-(Fedora Silverblue, Bazzite) it works out of the box.
+(Fedora Silverblue, Bazzite) it works out of the box. The only runtime
+requirement: **Node.js ≥ 20 installed** (`node --version`) — the app runs
+the checks through it; everything else is bundled.
 
 **Troubleshooting the AppImage on very new Mesa (Fedora/Bazzite, AMD):**
 the bundle's WebKitGTK comes from an older LTS base and its accelerated

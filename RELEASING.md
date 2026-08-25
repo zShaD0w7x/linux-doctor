@@ -21,3 +21,12 @@ they must be bumped by hand and committed **before** tagging.
 
 > The man page version is the one people most often forget: the release
 > workflow cannot detect it, so a stale `linux-doctor.1` ships silently.
+
+## Desktop bundles (AppImage / deb)
+
+The same tag also triggers the `gui` job in `.github/workflows/release.yml`,
+which builds `Linux.Doctor_<ver>_amd64.AppImage` (priority download) and
+`Linux.Doctor_<ver>_amd64.deb` on ubuntu-22.04 and attaches them to the same
+GitHub Release — no extra steps. Full details, including how to build the
+GUI bundles locally (toolbox container for immutable systems), live in
+[docs/RELEASING.md](docs/RELEASING.md).
