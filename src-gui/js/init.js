@@ -131,7 +131,7 @@ document.addEventListener("click", async (e) => {
     const card = code ? document.querySelector('#report details[data-code="' + code.replace(/"/g, '\\"') + '"]') : null;
     if (card) {
       card.setAttribute("open", "");
-      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      card.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       setTimeout(() => { card.classList.remove("flash"); }, 50);
       const nh = $("#nexthep");
       if (nh) nh.classList.add("flash");

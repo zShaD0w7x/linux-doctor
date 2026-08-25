@@ -72,7 +72,7 @@ function renderStatus(data) {
 
   const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
   const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
-  const deltaTxt = scoreDelta === null ? "no history to compare" : scoreDelta > 0 ? "\u25b2 +" + scoreDelta : scoreDelta < 0 ? "\u25bc " + scoreDelta : "unchanged";
+  const deltaTxt = scoreDelta === null ? "no baseline yet" : scoreDelta > 0 ? "\u25b2 +" + scoreDelta : scoreDelta < 0 ? "\u25bc " + scoreDelta : "unchanged";
   const score = typeof data.score === "number" ? data.score : 0;
 
   const chips =

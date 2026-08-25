@@ -95,7 +95,7 @@ async function openChecksMatrix() {
       || document.querySelector('#report details[data-check="' + row.dataset.gotoCheck.replace(/"/g, '\\"') + '"]');
     if (card) {
       card.setAttribute("open", "");
-      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      card.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       showToast("Showing " + row.dataset.gotoCheck);
     }
   }, { once: true });

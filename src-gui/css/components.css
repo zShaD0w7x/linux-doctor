@@ -29,10 +29,16 @@
 .history .hist-summary .chev { margin-left: auto; transition: transform .18s ease; color: var(--muted); }
 .history .hist-details[open] .chev { transform: rotate(90deg); }
 .history #trend { margin: 0; border: none; box-shadow: none; background: transparent; padding: 4px 15px 16px; max-width: none; }
+.hist-empty {
+  padding: 18px 15px 20px;
+  font-size: 13px; line-height: 1.6; color: var(--muted);
+}
+.hist-empty b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* === Trend Charts === */
 #trend { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow-sm); max-width: 1040px; margin-left: auto; margin-right: auto; width: 100%; }
 .trendtitle { font-size: 12px; color: var(--muted); }
+.trendtitle b, .trendrange { font-variant-numeric: tabular-nums; }
 .trendtitle b { color: var(--text); }
 .trendtitle .delta-up, .trendtitle .delta-down, .trendtitle .delta-flat { font-weight: 700; margin-left: 2px; }
 .trendrange { color: var(--muted); font-size: 11px; }
