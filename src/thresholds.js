@@ -28,6 +28,8 @@ export const DEFAULT_THRESHOLDS = {
   // containerdisk.js — container image storage in GB
   containerWarnGB: 20,
   containerHighGB: 50,
+  // network.js — DNS resolution time in ms before it is flagged as slow
+  dnsSlowMs: 500,
 };
 
 /** Merge the user's thresholds (config.thresholds) over the defaults. */

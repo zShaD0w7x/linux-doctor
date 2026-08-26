@@ -20,7 +20,13 @@ function renderFilters(counts) {
   syncClear();
 }
 
+let filterTimer = null;
 function applyFilters() {
+  // Debounce: typing "network" shouldn't re-layout 40 cards 7 times
+  if (filterTimer) clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => applyFiltersNow(), 60);
+}
+function applyFiltersNow() {
   const report = $("#report");
   const hint = $("#drillhint");
   report.hidden = !activeFilter;
@@ -34,18 +40,26 @@ function applyFilters() {
   }
   const qRaw = $("#search").value.trim();
   const q = qRaw.toLowerCase();
+  // code: prefix → filter by stable code only (e.g. "code:network/" or "code:disk/full")
+  const codeFilter = q.startsWith("code:") ? q.slice(5).trim() : null;
   let visible = 0;
   document.querySelectorAll("#report .group").forEach((g) => {
-    // Severity gate at card level so it also works inside category groups
-    // (a category bucket mixes severities; the group itself has none).
     let any = false;
     g.querySelectorAll(".card, .crow").forEach((c) => {
       const sevOk = activeFilter === "all" || c.classList.contains(activeFilter);
-      const match = sevOk && (!q || c.textContent.toLowerCase().includes(q));
+      let match = sevOk;
+      if (match && q) {
+        if (codeFilter !== null) {
+          const code = (c.dataset.code || "").toLowerCase();
+          match = code.includes(codeFilter);
+        } else {
+          match = c.textContent.toLowerCase().includes(q);
+        }
+      }
       c.style.display = match ? "" : "none";
       if (match) {
         any = true;
-        highlightMatches(c, qRaw);
+        highlightMatches(c, codeFilter !== null ? "" : qRaw);
       } else {
         highlightMatches(c, "");
       }

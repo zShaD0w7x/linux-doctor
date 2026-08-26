@@ -33,6 +33,7 @@ _linux_doctor() {
     '--init-config[create a starter config file]' \
     '--check-list[list checks as JSON]' \
     '--history-json[print run history as JSON]' \
+    '--history-clear[clear stored run history]' \
     '--thresholds-json[print thresholds as JSON]' \
     "--thresholds-set=[merge thresholds from a JSON payload]:json:" \
     '--schema[print the JSON Schema]' \

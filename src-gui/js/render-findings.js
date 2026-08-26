@@ -1,10 +1,25 @@
 /* === Finding cards and groups === */
+function durFor(check) {
+  try {
+    if (!check || typeof lastReportData === 'undefined' || !lastReportData) return null;
+    const d = lastReportData.durations || lastReportData.checkDurations || lastReportData.durationsMap;
+    if (!d) return null;
+    if (Array.isArray(d)) { const hit = d.find(x => x.check === check); return hit ? hit.ms : null; }
+    if (typeof d === 'object') return d[check] ?? null;
+  } catch {}
+  return null;
+}
 function renderCard(f, sev) {
   const sevIcon = SEV_ICONS[sev] || "";
+  const dur = durFor(f.check);
+  const durBadge = dur != null ? '<span class="durpill" title="Check wall time">' + dur + 'ms</span>' : "";
+  const codeBadge = f.code ? '<button class="codepill" data-copy="' + esc(f.code) + '" title="Click to copy code — filter with code:' + esc(f.code) + '">' + esc(f.code) + '</button>' : "";
   const badges =
+    codeBadge +
+    durBadge +
     (f.isNew ? '<span class="newbadge" title="Appeared since your last check">NEW</span>' : "") +
     (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
-    (f.check ? '<span class="checkid">' + esc(f.check) + "</span>" : "");
+    (f.check ? '<span class="checkid" title="Check id — runs with --check ' + esc(f.check) + '">' + esc(f.check) + "</span>" : "");
 
   const SEV_COST = { high: "costs 15 points (+5 each extra)", medium: "costs 8 points (+1 past the third)", info: "informational — free" };
   let html = '<details class="card ' + SEV[sev].cls + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +

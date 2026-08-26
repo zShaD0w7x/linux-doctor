@@ -127,6 +127,17 @@ export function saveRun(run, file = historyFile()) {
   }
 }
 
+/** Remove the history file entirely. Never throws; returns true on success. */
+export function clearHistory(file = historyFile()) {
+  try {
+    rmSync(file, { force: true });
+    // Also try to remove empty parent dir (best-effort)
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Score of the most recent previous run, or null when there is no history. */
 export function previousScore(runs) {
   const prev = runs[runs.length - 1];

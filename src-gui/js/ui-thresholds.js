@@ -15,6 +15,7 @@ async function loadThresh() {
       ["tempWarnC", "Temp warn \u00b0C", "85"], ["tempHotC", "Temp hot \u00b0C", "95"],
       ["procWarnRatio", "Proc warn", "0.2"], ["procHighRatio", "Proc high", "0.4"],
       ["journalWarnBytes", "Journal bytes", "2147483648"], ["containerWarnGB", "Cont. warn GB", "20"], ["containerHighGB", "Cont. high GB", "50"],
+      ["dnsSlowMs", "DNS slow ms", "500"],
     ];
     $("#threshbody").innerHTML = fields.map(([k, label, def]) => {
       const v = threshData[k] ?? defs[k] ?? def;

@@ -54,20 +54,20 @@
 /* === Start Here Banner === */
 #nexthep {
   max-width: 1040px; margin: 0; width: 100%;
-  border: 1px solid color-mix(in srgb, var(--green) 30%, var(--border));
-  border-left: 3px solid var(--green);
-  background: var(--card);
-  border-radius: var(--radius); padding: 13px 18px;
-  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
-  box-shadow: none;
+  border: 1px solid color-mix(in srgb, var(--green) 28%, var(--border));
+  border-left: 4px solid var(--green);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--green) 6%, var(--card)), var(--card));
+  border-radius: var(--radius); padding: 16px 20px;
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
 }
-#nexthep .nh-icon { font-size: 15px; color: var(--green); font-weight: 800; letter-spacing: .06em; flex-shrink: 0; }
+#nexthep .nh-icon { font-size: 12px; color: #fff; font-weight: 800; letter-spacing: .08em; flex-shrink: 0; background: var(--green); padding: 4px 10px; border-radius: 6px; }
 #nexthep .nh-body { flex: 1; min-width: 220px; }
-#nexthep .nh-title { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
-#nexthep .nh-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
-#nexthep .nh-hint code { font-family: var(--mono); font-size: 11px; }
+#nexthep .nh-title { font-size: 14px; font-weight: 750; letter-spacing: -0.015em; color: var(--text); }
+#nexthep .nh-hint { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+#nexthep .nh-hint code { font-family: var(--mono); font-size: 11px; background: var(--bg2); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
 #nexthep.flash { animation: nhflash 1.6s ease 1; }
-@keyframes nhflash { 0%,60% { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); } 100% {} }
+@keyframes nhflash { 0%,60% { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); } 100% {} }
 
 /* === Score breakdown bars (sidebar "Why this score") === */
 .bd-row { margin: 0 0 12px; }
@@ -85,11 +85,23 @@
 
 /* === Skeleton loading === */
 .skel {
-  height: 64px; border-radius: 14px; margin-bottom: 14px;
+  height: 64px; border-radius: 16px; margin-bottom: 12px;
   background: linear-gradient(90deg, var(--card2) 25%, var(--hover) 50%, var(--card2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
   border: 1px solid var(--border);
+}
+.skel-hero {
+  height: 120px; border-radius: var(--radius-lg); margin-bottom: 24px;
+  background: linear-gradient(90deg, var(--card) 25%, var(--card2) 50%, var(--card) 75%);
+  background-size: 200% 100%; animation: shimmer 1.2s linear infinite;
+  border: 1px solid var(--border);
+}
+.skel-card {
+  height: 72px; border-radius: 16px; margin-bottom: 10px;
+  background: linear-gradient(90deg, var(--card2) 25%, var(--hover) 50%, var(--card2) 75%);
+  background-size: 200% 100%; animation: shimmer 1.2s linear infinite;
+  border: 1px solid var(--border); border-left: 4px solid var(--border);
 }
 @keyframes shimmer { to { background-position: -200% 0; } }
 

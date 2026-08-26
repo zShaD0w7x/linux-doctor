@@ -1,5 +1,5 @@
 .\" Linux Doctor man page
-.TH LINUX-DOCTOR 1 "2026-08-25" "linux-doctor 0.3.2" "User Commands"
+.TH LINUX-DOCTOR 1 "2026-08-26" "linux-doctor 0.3.3" "User Commands"
 .SH NAME
 linux-doctor \- read-only health checks for your Linux system
 .SH SYNOPSIS
@@ -36,12 +36,24 @@ previous run (for cron/scripts).
 .BR \-\-todo
 Print a numbered, copy-pasteable list of the fix steps, in priority order.
 .TP
+.BR \-\-fix
+Dry run: show safe-fix commands for the findings found (from built-in catalog).
+.TP
+.BR \-\-fix " " \-\-yes
+Execute the [apply] safe-fix commands ([manual] never runs).
+.TP
+.BR \-\-interactive
+Browse findings in an interactive terminal UI (needs a TTY).
+.TP
+.BR \-\-notify
+Desktop notification via notify-send when new issues appear.
+.TP
 .BR \-\-self\-test
 Explain the environment: distro, profile, tools present, and which checks
 will run (and why others will not).
 .TP
 .BR \-\-web
-Open the visual dashboard in your browser.
+Open the visual dashboard in your browser at 127.0.0.1:43901.
 .TP
 .BR \-\-ai
 Add an AI summary in plain English (requires LLM_API_KEY).
@@ -64,14 +76,35 @@ Hide findings whose title contains the given text.
 .BR \-\-ignore\-code " " \fIcode\fR
 Hide findings by stable code (e.g. services/failed).
 .TP
+.BR \-\-ignore\-add " " \fIvalue\fR
+Persistently ignore a code or title fragment (saved to config).
+.TP
+.BR \-\-ignore\-remove " " \fIvalue\fR
+Remove a previously ignored code or title fragment.
+.TP
 .BR \-\-ignore\-list
 Show configured ignore patterns and exit.
+.TP
+.BR \-\-history\-clear
+Clear stored run history.
 .TP
 .BR \-\-init\-config
 Create a starter config file at ~/.config/linux-doctor/config.json.
 .TP
+.BR \-\-support
+Write a privacy-scrubbed support bundle (JSON) for bug reports.
+.TP
 .BR \-\-profile
 Show per-check durations in the output.
+.TP
+.BR \-\-no\-history
+Do not read or write run history for this run.
+.TP
+.BR \-\-thresholds\-json
+Print current thresholds + defaults as JSON (for desktop app).
+.TP
+.BR \-\-license
+Show Pro add-on status and exit.
 .TP
 .BR \-\-schema
 Print the JSON Schema for \-\-json output and exit.

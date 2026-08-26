@@ -69,7 +69,10 @@ in the same config file:
     "tempHotC": 95,         // hottest CPU zone → high
     "procWarnRatio": 0.2,   // single app share of RAM above → medium
     "procHighRatio": 0.4,   // single app share of RAM above → high
-    "journalWarnBytes": 2147483648 // journal size above → medium (2 GB)
+    "journalWarnBytes": 2147483648, // journal size above → medium (2 GB)
+    "containerWarnGB": 20,  // container storage above → medium
+    "containerHighGB": 50,  // container storage above → high
+    "dnsSlowMs": 500        // DNS resolution above → medium (ms)
   }
 }
 ```

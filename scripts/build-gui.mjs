@@ -92,11 +92,16 @@ ${css}
     <div class="actions">
       <button id="notifybtn" title="Enable desktop notifications when health degrades"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 16h15L18 12.5V9a6 6 0 0 0-6-6Zm-2 15a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="fb">🔔</span></span></button>
       <button id="theme" title="Toggle theme"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="fb">🌓</span></span></button>
-      <button id="export" title="Copy the report as Markdown">MD</button>
-      <button id="copyjson" title="Copy the raw JSON report">JSON</button>
-      <button id="pdfbtn" title="Export as PDF (print)">PDF</button>
+      <div class="dropdown" id="export-dropdown">
+        <button id="export-trigger" class="toolbtn" aria-haspopup="true" aria-expanded="false" title="Export report">Export ▾</button>
+        <div class="dropdown-menu" role="menu">
+          <button class="dropdown-item" id="export" role="menuitem" title="Copy the report as Markdown">📝 Copy as Markdown</button>
+          <button class="dropdown-item" id="copyjson" role="menuitem" title="Copy the raw JSON report">{ } Copy JSON</button>
+          <button class="dropdown-item" id="pdfbtn" role="menuitem" title="Export as PDF (print)">🖨 Save as PDF</button>
+        </div>
+      </div>
       <button id="helpbtn" title="Keyboard shortcuts (press ?)"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">?</text></svg><span class="fb">❓</span></span></button>
-      <button id="rerun" class="primary">Re-run checks</button>
+      <button id="rerun" class="primary">↻ Re-run checks</button>
     </div>
   </header>
   <div id="status" class="status running" aria-live="polite" role="status">
@@ -124,7 +129,7 @@ ${css}
           <button class="segbtn" data-groupby="category">Category</button>
         </div>
         <div class="filters" id="filters" role="group" aria-label="Severity filter"></div>
-        <input id="search" type="search" placeholder="Filter findings…" autocomplete="off" spellcheck="false" aria-label="Filter findings">
+        <input id="search" type="search" placeholder="Filter findings…  (code:disk/full)" autocomplete="off" spellcheck="false" aria-label="Filter findings — prefix with code: to filter by stable code">
     <button id="autorefresh" class="toolbtn on" title="Auto-refresh every 20s">Auto</button>
     <button id="expandall" class="toolbtn">Expand all</button>
     <button id="densitybtn" class="toolbtn" title="Toggle compact density" aria-pressed="false">Density</button>

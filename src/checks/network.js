@@ -76,7 +76,7 @@ export const network = defineCheck({
       return findings;
     }
 
-    if (dnsMs > 500) {
+    if (dnsMs > (ctx.thresholds.dnsSlowMs ?? 500)) {
       findings.push(finding({
         severity: "medium",
         code: "network/dns-slow",

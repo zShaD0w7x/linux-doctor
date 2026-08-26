@@ -4,7 +4,7 @@
  * typo like `--jsonn` must never quietly run a full report.
  */
 export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--alert", "--interval", "--thresholds-set"]);
-export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify"]);
+export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -44,6 +44,7 @@ export function parseArgs(argv) {
     ignoreAdd: null,
     ignoreRemove: null,
     historyJson: false,
+    historyClear: false,
     thresholdsJson: false,
     thresholdsSet: null,
     error: null,

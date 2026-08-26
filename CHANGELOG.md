@@ -4,6 +4,45 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+## [0.3.4] — 2026-08-26
+
+### Security
+
+- **Desktop: harden the loopback report API against cross-origin access**: the
+  shell's report server answered every request with
+  `Access-Control-Allow-Origin: *`, so while the app was running any website
+  open in the user's browser could read the full system report from
+  `http://127.0.0.1:17321/` and POST to the config-writing endpoints
+  (`/thresholds`, `/api/ignore`). It now applies the same rules as the CLI
+  dashboard server (`src/web.js`): loopback `Host` headers only (anti
+  DNS-rebinding), writes accepted only without an `Origin` header or from our
+  own origins (`tauri://localhost`, loopback), and the CORS wildcard replaced
+  by a strict origin echo — public sites can no longer read the report.
+  Covered by new unit tests on the guard helpers.
+- **Tauri CSP**: `tauri.conf.json` `csp: null` → strict `default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'unsafe-inline'; ...` — no wildcard.
+
+### Added
+
+- **Release: all distros** — `release.yml` now builds `AppImage + deb + rpm + tgz` (was `appimage,deb` only) so one tag covers Debian/Ubuntu (deb), Fedora/RHEL/Bazzite (rpm), and every glibc distro (AppImage) plus `npm` (tgz).
+- **Docs: dashboard screenshots** — `docs/screenshots/dashboard-light.png` + `dark.png` regenerated for the fast compact UI (`codepill` + `durpill`, `Export ▾` dropdown, `186K/191K`) via Playwright on the live `0.3.4` dashboard.
+- **Expanded safe-fix catalog (22 codes)**: `containerdisk/high|warn` (prune), `security/no-firewall` (family-aware), `firmware/pending`, `locales/broken`, `disk/full`, `suspend/failed`, plus `network/no-route|dns|dns-slow`, `ssh/root-login|root-password`, `bluetooth/failed|stopped`, `ntp/pending|unsynced`, `thermal/*`, `hardware/mce|ecc`, `security/autologin`, `backup/none`. All pinned by `fix-catalog.test.js`.
+- **`--history-clear`**: clear stored run history (`src/history.js` `clearHistory()`), with completions and `--help` entry.
+- **Dashboard: fast compact UI for technical users** — compact density by default, `codepill` on every card (click to copy, `code:` filter in search with 60ms debounce), `durpill` per check (from `durations` now always in `/api/report`), `Export ▾` dropdown, `skel-hero` skeletons, header blur, gauge 84px, card tint. `432 tests` still pass.
+- **Man page 0.3.4**: `packaging/linux-doctor.1` now documents every flag (`--fix`, `--interactive`, `--notify`, `--support`, `--no-history`, `--history-clear`, etc.).
+- **CI: Rust tests**: `ci.yml` now runs `cargo test` in `src-tauri` with webkit deps.
+
+### Changed
+
+- **Thresholds**: `dnsSlowMs` (500ms) now configurable via `config.json` and documented in `docs/configuration.md`; `containerWarnGB/HighGB` documented.
+- **Tauri Node fallback**: `src-tauri/src/lib.rs` `node_bin()` now tries `LINUX_DOCTOR_NODE`, `runtime/node|nodejs`, `node` then `nodejs` on PATH, with `which()` helper and detailed error (suggests `LINUX_DOCTOR_NODE=nodejs` on Debian).
+
+### Fixed
+
+- **Completions drift**: `completions/*.bash|zsh|fish` now include `--history-clear` (caught by `completions.test.js`).
+- **Web test**: `web.test.js` still matches `Re-run checks` after header refresh.
+
 ## [0.3.2] — 2026-08-25
 
 ### Added

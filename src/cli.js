@@ -359,6 +359,7 @@ OPTIONS
   --profile      append per-check durations to the report
   --support      write a privacy-safe support bundle (JSON) for issues/forums
   --no-history   do not read or write run history (no new/fixed tracking)
+  --history-clear clear stored run history
   --license      show the Linux Doctor Pro add-on status and exit
   --alert <url>  POST an alert webhook when the machine degrades [Pro]
   --daemon       run continuously, re-checking every --interval seconds [Pro]
@@ -562,6 +563,13 @@ function printIgnoreLists(titles, codes) {
   // loopback). Hidden from --help: users reach these through the app UI.
   if (args.historyJson) {
     console.log(JSON.stringify({ runs: loadHistory() }));
+    return 0;
+  }
+
+  if (args.historyClear) {
+    const { clearHistory } = await import("./history.js");
+    const ok = clearHistory();
+    console.log(ok ? "History cleared." : "No history to clear.");
     return 0;
   }
 
@@ -792,7 +800,11 @@ function printIgnoreLists(titles, codes) {
       },
       // The dashboard endpoint serves the same versioned payload as --json,
       // so scripts that read /api/report get schemaVersion/tool/version too.
-      render: (data) => renderJson(data.findings, data.system, jsonOptions(data)),
+      // Include durations for the technical dashboard (compact + per-card ms).
+      render: (data) => renderJson(data.findings, data.system, jsonOptions(data, {
+        durations: Object.fromEntries((data.checkDurations || []).map(d => [d.check, d.ms])),
+        checkDurations: data.checkDurations,
+      })),
     });
     await new Promise((resolve) => {
       const stop = () => { server.close(); resolve(0); };

@@ -62,6 +62,34 @@ $("#expandall").addEventListener("click", () => {
   syncAutoPausedUI();
 });
 
+// Export dropdown
+(function setupExportDropdown() {
+  const dd = $("#export-dropdown");
+  const trigger = $("#export-trigger");
+  if (!dd || !trigger) return;
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = dd.classList.toggle("open");
+    trigger.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", () => {
+    dd.classList.remove("open");
+    trigger.setAttribute("aria-expanded", "false");
+  });
+  dd.querySelectorAll(".dropdown-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+      dd.classList.remove("open");
+      trigger.setAttribute("aria-expanded", "false");
+    });
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dd.classList.contains("open")) {
+      dd.classList.remove("open");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+  });
+})();
+
 // Re-run
 async function load() {
   const status = $("#status");
@@ -70,9 +98,9 @@ async function load() {
   status.className = "status running";
   status.innerHTML = '<span class="spinner" aria-hidden="true"></span>Reading your system\u2026';
   $("#expandall").textContent = "\u229e Expand all";
-  report.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+  report.innerHTML = '<div class="skel-hero"></div><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div>';
   rerun.disabled = true;
-  rerun.textContent = "\u221b Running\u2026";
+  rerun.textContent = "↻ Running…";
   try {
     // Category grouping needs the check→category map; fetch it once before
     // the first render. Never fatal — grouping falls back to "Other".
@@ -85,7 +113,7 @@ async function load() {
     report.innerHTML = '<div class="empty">Run failed \u2014 see the message above. Make sure Node.js \u2265 20 is installed and on PATH.</div>';
   } finally {
     rerun.disabled = false;
-    rerun.textContent = "\u221b Re-run checks";
+    rerun.textContent = "↻ Re-run checks";
   }
 }
 $("#rerun").addEventListener("click", load);
@@ -232,9 +260,13 @@ $("#helpbtn")?.addEventListener("click", openHelp);
 $("#checkschip")?.addEventListener("click", openChecksMatrix);
 
 // Density toggle: compact card spacing, remembered across sessions.
+// Technical users get compact by default (more findings per viewport, less scroll).
 const densityBtn = $("#densitybtn");
 if (densityBtn) {
-  try { if (localStorage.getItem("ld-density") === "compact") document.body.classList.add("compact"); } catch {}
+  try {
+    const pref = localStorage.getItem("ld-density");
+    if (pref === "compact" || pref === null) document.body.classList.add("compact");
+  } catch { document.body.classList.add("compact"); }
   const syncDensityBtn = () => {
     const compact = document.body.classList.contains("compact");
     densityBtn.setAttribute("aria-pressed", String(compact));

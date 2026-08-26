@@ -1,12 +1,13 @@
 /* === Finding Cards === */
 .card {
-  background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--muted);
-  border-radius: 14px; margin-bottom: 0; overflow: hidden;
-  transition: border-color .15s ease;
+  background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--muted);
+  border-radius: 16px; margin-bottom: 0; overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
 }
-.card:hover { border-color: color-mix(in srgb, var(--border) 40%, var(--text) 60%); }
-.card.high { border-left-color: var(--red); }
-.card.medium { border-left-color: var(--yellow); }
+.card:hover { border-color: color-mix(in srgb, var(--border) 50%, var(--text) 30%); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.card.high { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 2.5%, var(--card)); }
+.card.medium { border-left-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 2.5%, var(--card)); }
 .card.info { border-left-color: var(--blue); }
 .card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
 .card summary h3 { font-size: 14.5px; font-weight: 650; flex: 1; letter-spacing: -0.01em; }
@@ -14,6 +15,18 @@
 .card[open] summary .chev { transform: rotate(90deg); }
 .card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 7px; flex-shrink: 0; }
+.codepill {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--muted); background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 7px; flex-shrink: 0; cursor: pointer;
+  transition: all .12s ease;
+}
+.codepill:hover { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.durpill {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted);
+  background: transparent; border: 1px dashed var(--border); border-radius: 6px;
+  padding: 2px 6px; flex-shrink: 0;
+}
 .badge.high { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
 .badge.medium { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
 .badge.info { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
@@ -105,14 +118,14 @@ details.ev summary::-webkit-details-marker { display: none; }
 .fix .reportbtn::before { content: "↗"; font-size: 11px; }
 
 /* === Compact rows (info) === */
-.crow { border-left: 3px solid transparent; border-radius: 6px; margin-bottom: 3px; background: transparent; transition: background .15s ease; }
-.crow:hover { background: var(--card); }
-.crow summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px 9px; cursor: pointer; user-select: none; }
+.crow { border: 1px solid transparent; border-left: 3px solid transparent; border-radius: 10px; margin-bottom: 4px; background: color-mix(in srgb, var(--card) 60%, transparent); transition: all .15s ease; }
+.crow:hover { background: var(--card); border-color: var(--border); border-left-color: var(--blue); }
+.crow summary { list-style: none; display: flex; align-items: center; gap: 9px; padding: 8px 12px; cursor: pointer; user-select: none; }
 .crow summary::-webkit-details-marker { display: none; }
-.crow summary h3 { font-size: 12.5px; font-weight: 550; flex: 1; letter-spacing: -0.01em; color: var(--text); }
+.crow summary h3 { font-size: 13px; font-weight: 600; flex: 1; letter-spacing: -0.01em; color: var(--text); }
 .crow summary .chev { color: var(--muted); font-size: 11px; transition: transform .18s ease; }
 .crow[open] summary .chev { transform: rotate(90deg); }
-.crow[open] { background: var(--card); }
+.crow[open] { background: var(--card); border-color: var(--border); border-left-color: var(--blue); box-shadow: var(--shadow-sm); }
 .crow .card-body { gap: 10px; padding: 10px 12px 12px; }
 .crow .detail { font-size: 13.2px; padding: 10px 12px; }
 .crow .fix .fixtext { font-size: 12px; }

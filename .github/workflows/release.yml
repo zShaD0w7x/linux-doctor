@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 # The release steps publish artifacts via GITHUB_TOKEN — without this the
 # default token is read-only and softprops/action-gh-release gets a 403.
@@ -63,8 +64,8 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - name: Build Tauri bundles (appimage, deb)
-        run: npx tauri build --bundles appimage,deb
+      - name: Build Tauri bundles (appimage, deb, rpm)
+        run: npx tauri build --bundles appimage,deb,rpm
         env:
           # Run linuxdeploy without FUSE — removes runner-to-runner variance.
           APPIMAGE_EXTRACT_AND_RUN: "1"
@@ -72,7 +73,7 @@ jobs:
         run: |
           mkdir -p dist
           find src-tauri/target/release/bundle -type f \( \
-            -name "*.AppImage" -o -name "*.deb" \) -exec cp {} dist/ \;
+            -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} dist/ \;
           # Tauri already names outputs with the version; only normalize
           # spaces ("Linux Doctor_x.y.z_amd64") so upload keeps them sane.
           cd dist

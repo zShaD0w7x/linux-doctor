@@ -100,6 +100,76 @@ const CATALOG = {
   /** Oversized journal: cap it at 200M (old entries are dropped, config intact). */
   "journald/large": () => [{ cmd: "sudo journalctl --vacuum-size=200M", tier: "apply" }],
 
+  /** Container image storage bloated: prune unused images (safe, only dangling/unused). */
+  "containerdisk/high": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "apply" }],
+  "containerdisk/warn": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "apply" }],
+
+  /** No firewall: enable firewalld (Fedora/RHEL) or ufw (Debian) based on family. */
+  "security/no-firewall": (_f, { family } = {}) => {
+    if (family === "debian") return [{ cmd: "sudo ufw enable", tier: "apply" }];
+    return [{ cmd: "sudo systemctl enable --now firewalld", tier: "apply" }];
+  },
+
+  /** Pending firmware: fwupd refresh. */
+  "firmware/pending": () => [{ cmd: "sudo fwupdmgr refresh && sudo fwupdmgr update", tier: "manual" }],
+
+  /** Broken locales: regenerate. */
+  "locales/broken": (_f, { family } = {}) => {
+    if (family === "debian") return [{ cmd: "sudo locale-gen && sudo update-locale", tier: "apply" }];
+    if (family === "arch") return [{ cmd: "sudo locale-gen", tier: "apply" }];
+    return [{ cmd: "sudo localectl set-locale LANG=en_US.UTF-8", tier: "apply" }];
+  },
+
+  /** Disk nearly full: offer safe cleanups per family. */
+  "disk/full": (_f, { family } = {}) => {
+    const cmds = [{ cmd: "sudo journalctl --vacuum-size=500M", tier: "apply" }];
+    if (family === "debian") cmds.push({ cmd: "sudo apt clean", tier: "apply" });
+    else if (family === "arch") cmds.push({ cmd: "sudo pacman -Sc --noconfirm", tier: "apply" });
+    else if (family === "fedora" || family === "rhel") cmds.push({ cmd: "sudo dnf clean all", tier: "apply" });
+    else if (family === "suse") cmds.push({ cmd: "sudo zypper clean", tier: "apply" });
+    return cmds;
+  },
+
+  /** Failed suspend/resume hooks */
+  "suspend/failed": () => [{ cmd: "sudo systemctl restart systemd-suspend.service 2>/dev/null; sudo journalctl --vacuum-size=200M", tier: "apply" }],
+
+  /** Network: re-apply connection or restart NetworkManager */
+  "network/no-route": () => [{ cmd: "nmcli networking off && nmcli networking on 2>/dev/null || sudo systemctl restart NetworkManager", tier: "apply" }],
+  "network/dns": () => [{ cmd: "sudo systemctl restart systemd-resolved 2>/dev/null; sudo resolvconf --enable-updates 2>/dev/null; echo 'Check /etc/resolv.conf'", tier: "manual" }],
+  "network/dns-slow": () => [{ cmd: "sudo systemctl restart systemd-resolved 2>/dev/null", tier: "apply" }],
+
+  /** SSH hardening: manual — editing sshd_config needs review */
+  "ssh/root-login": () => [{ cmd: "sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && sudo systemctl restart sshd", tier: "manual" }],
+  "ssh/root-password": () => [{ cmd: "sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config && sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sudo systemctl restart sshd", tier: "manual" }],
+
+  /** Bluetooth: restart service */
+  "bluetooth/stopped": () => [{ cmd: "sudo systemctl enable --now bluetooth.service", tier: "apply" }],
+  "bluetooth/failed": () => [{ cmd: "sudo systemctl restart bluetooth.service", tier: "apply" }],
+
+  /** NTP: enable timesync */
+  "ntp/unsynced": () => [{ cmd: "sudo timedatectl set-ntp true 2>/dev/null || sudo systemctl enable --now systemd-timesyncd", tier: "apply" }],
+  "ntp/pending": () => [{ cmd: "sudo timedatectl set-ntp true", tier: "apply" }],
+
+  /** Thermal: no safe auto-fix — just guidance, manual */
+  "thermal/warm": () => [{ cmd: "sensors 2>/dev/null | head -20; echo 'Clean fans, check airflow'", tier: "manual" }],
+  "thermal/hot": () => [{ cmd: "sensors 2>/dev/null | head -20; echo 'URGENT: check cooling'", tier: "manual" }],
+  "thermal/throttle": () => [{ cmd: "journalctl -k --since '1 hour ago' | grep -i throttle | tail -5", tier: "manual" }],
+
+  /** Hardware: MCE/ECC — manual, needs hw check */
+  "hardware/mce": () => [{ cmd: "sudo journalctl -k --since '1 day ago' | grep -i mce | tail -10", tier: "manual" }],
+  "hardware/ecc": () => [{ cmd: "sudo journalctl -k --since '1 day ago' | grep -i ecc | tail -10", tier: "manual" }],
+
+  /** Autologin: manual — needs display-manager edit */
+  "security/autologin": () => [{ cmd: "sudo sed -i 's/^AutomaticLoginEnable=.*/AutomaticLoginEnable=false/' /etc/gdm/custom.conf 2>/dev/null; echo 'Disable autologin in /etc/gdm/custom.conf or /etc/sddm.conf'", tier: "manual" }],
+
+  /** Backup none: manual — install suggestion per family */
+  "backup/none": (_f, { family } = {}) => {
+    if (family === "debian") return [{ cmd: "sudo apt install timeshift borgbackup", tier: "manual" }];
+    if (family === "arch") return [{ cmd: "sudo pacman -S timeshift borg", tier: "manual" }];
+    if (family === "suse") return [{ cmd: "sudo zypper install snapper borgbackup", tier: "manual" }];
+    return [{ cmd: "sudo dnf install timeshift borgbackup 2>/dev/null || sudo dnf install snapper", tier: "manual" }];
+  },
+
   /** A pending reboot is the user's call — never schedule one from a tool. */
   "reboot/required": () => [{ cmd: "systemctl reboot", tier: "manual" }],
 };
