@@ -232,15 +232,13 @@ fn content_length(head: &[u8]) -> usize {
 /// line). First match wins.
 fn request_header(head: &str, name: &str) -> Option<String> {
     let wanted = name.trim().to_ascii_lowercase();
-    head.lines()
-        .skip(1)
-        .find_map(|line| {
-            let mut parts = line.splitn(2, ':');
-            let field = parts.next().unwrap_or("").trim().to_ascii_lowercase();
-            (field == wanted)
-                .then(|| parts.next().unwrap_or("").trim().to_string())
-                .filter(|v| !v.is_empty())
-        })
+    head.lines().skip(1).find_map(|line| {
+        let mut parts = line.splitn(2, ':');
+        let field = parts.next().unwrap_or("").trim().to_ascii_lowercase();
+        (field == wanted)
+            .then(|| parts.next().unwrap_or("").trim().to_string())
+            .filter(|v| !v.is_empty())
+    })
 }
 
 /// Hostnames a Host header or Origin authority must carry to be trusted.
@@ -270,7 +268,9 @@ fn host_name(header_value: &str) -> Option<String> {
     if LOOPBACK_HOSTS.contains(&h.as_str()) {
         return Some(h);
     }
-    h.rsplit_once(':').map(|(name, _)| name.to_string()).or(Some(h))
+    h.rsplit_once(':')
+        .map(|(name, _)| name.to_string())
+        .or(Some(h))
 }
 
 fn is_loopback_host(header_value: &str) -> bool {
@@ -289,7 +289,7 @@ fn origin_allowed(origin: &str) -> bool {
     if !matches!(scheme, "http" | "https" | "tauri") {
         return false;
     }
-    let authority_end = rest.find(|c| c == '/' || c == '?' || c == '#').unwrap_or(rest.len());
+    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     host_name(&rest[..authority_end]).is_some_and(|n| ALLOWED_ORIGIN_HOSTS.contains(&n.as_str()))
 }
 
@@ -337,12 +337,23 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
     // header means a non-browser client — allowed.
     let origin = request_header(&head, "origin");
     let origin_allowed = origin.as_deref().map(origin_allowed).unwrap_or(false);
-    if !request_header(&head, "host").map(|h| is_loopback_host(&h)).unwrap_or(false) {
-        respond_text(&mut stream, "403 Forbidden", "Forbidden — the report API answers to loopback Host headers only");
+    if !request_header(&head, "host")
+        .map(|h| is_loopback_host(&h))
+        .unwrap_or(false)
+    {
+        respond_text(
+            &mut stream,
+            "403 Forbidden",
+            "Forbidden — the report API answers to loopback Host headers only",
+        );
         return;
     }
     if method != "GET" && method != "HEAD" && origin.is_some() && !origin_allowed {
-        respond_text(&mut stream, "403 Forbidden", "Forbidden — cross-origin requests are not accepted");
+        respond_text(
+            &mut stream,
+            "403 Forbidden",
+            "Forbidden — cross-origin requests are not accepted",
+        );
         return;
     }
 
@@ -384,8 +395,12 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
                 serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
             ),
         },
-        ("GET", "/history") | ("GET", "/history/") => cli_json(&["bin/doctor.js", "--history-json"]),
-        ("GET", "/thresholds") | ("GET", "/thresholds/") => cli_json(&["bin/doctor.js", "--thresholds-json"]),
+        ("GET", "/history") | ("GET", "/history/") => {
+            cli_json(&["bin/doctor.js", "--history-json"])
+        }
+        ("GET", "/thresholds") | ("GET", "/thresholds/") => {
+            cli_json(&["bin/doctor.js", "--thresholds-json"])
+        }
         ("POST", "/thresholds") | ("POST", "/thresholds/") => {
             cli_json(&["bin/doctor.js", "--thresholds-set", &body])
         }
@@ -399,7 +414,8 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
                     if status == "200 OK" {
                         (
                             "200 OK",
-                            serde_json::to_vec(&serde_json::json!({ "ok": true })).unwrap_or_default(),
+                            serde_json::to_vec(&serde_json::json!({ "ok": true }))
+                                .unwrap_or_default(),
                         )
                     } else {
                         (status, bytes)
@@ -523,9 +539,18 @@ mod tests {
     #[test]
     fn request_header_is_case_insensitive_and_skips_the_request_line() {
         let head = "POST /thresholds HTTP/1.1\r\nHost: 127.0.0.1:17321\r\ncontent-type: application/json\r\nOrigin: https://evil.example\r\n\r\n";
-        assert_eq!(request_header(head, "host").as_deref(), Some("127.0.0.1:17321"));
-        assert_eq!(request_header(head, "HOST").as_deref(), Some("127.0.0.1:17321"));
-        assert_eq!(request_header(head, "origin").as_deref(), Some("https://evil.example"));
+        assert_eq!(
+            request_header(head, "host").as_deref(),
+            Some("127.0.0.1:17321")
+        );
+        assert_eq!(
+            request_header(head, "HOST").as_deref(),
+            Some("127.0.0.1:17321")
+        );
+        assert_eq!(
+            request_header(head, "origin").as_deref(),
+            Some("https://evil.example")
+        );
         assert_eq!(request_header(head, "accept"), None);
         // The request line must never be mistaken for a header.
         assert_eq!(request_header(head, "post /thresholds http/1.1"), None);
