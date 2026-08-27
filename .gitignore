@@ -6,3 +6,5 @@ node_modules/
 # Tauri (desktop app)
 src-tauri/target/
 src-tauri/gen/
+PRO_BOARD_PRIVATE.md
+pro/
