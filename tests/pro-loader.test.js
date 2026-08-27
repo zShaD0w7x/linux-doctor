@@ -33,9 +33,9 @@ test("pro-loader: with Pro module, premium check appears via init()", async () =
     assert.equal(state.checks[0].id, "pro-demo");
     assert.equal(state.checks[0].premium, true);
 
-    const produced = await state.checks[0].run({ run: async () => ({ ok: true, stdout: "", stderr: "" }) });
+    const produced = await state.checks[0].run({ thresholds: { demoWarn: 0 }, run: async () => ({ ok: true, stdout: "", stderr: "" }) });
     assert.equal(produced[0].code, "pro/demo");
-    assert.equal(produced[0].title, "Demo premium check ran");
+    assert.equal(produced[0].severity, "high");
   } finally {
     delete process.env.LINUX_DOCTOR_PRO_MODULE;
     resetProState();

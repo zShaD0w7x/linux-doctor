@@ -33,6 +33,8 @@ export const DEFAULT_THRESHOLDS = {
   containerHighGB: 50,
   // network.js — DNS resolution time in ms before it is flagged as slow
   dnsSlowMs: 500,
+  // pro/demo.js — demo premium check (private, not in docs)
+  demoWarn: 0.9,
 };
 
 /** Merge the user's thresholds (config.thresholds) over the defaults. */
