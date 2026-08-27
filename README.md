@@ -101,6 +101,7 @@ change silently.
 | `memory` | RAM pressure, swap usage |
 | `load` | CPU load vs core count |
 | `disk` | Real partitions near full (ignores virtual/immutable roots) |
+| `inodes` | Inode usage — “No space left” with free space showing in `df -h` |
 | `zram` | Swap/zram health — compressed swap near full, swappiness |
 | `locales` | System locale — missing/broken locale generation |
 | `services` | Failed systemd services (system + user) |
@@ -117,10 +118,11 @@ change silently.
 | `secureboot` | UEFI boot mode, Secure Boot state, TPM presence |
 | `network` | Default route and DNS resolution |
 | `ntp` | Clock synchronization (time sync daemon state) |
+| `wifi` | WiFi — rfkill blocked, NetworkManager disabled, adapter presence |
 | `updates` | Pending package updates (dnf/apt/pacman) |
 | `snap` | Pending snap refreshes and the snapd auto-refresh timer |
 | `firmware` | Pending firmware (BIOS/UEFI) updates via fwupd |
-| `flatpak` | Pending Flatpak app updates |
+| `flatpak` | Pending Flatpak app updates + unused runtimes (`flatpak uninstall --unused`) |
 | `reboot` | Newer kernel installed but not booted, pending restart |
 | `processes` | Top memory consumers, with friendly names |
 | `thermal` | CPU temperatures and thermal-throttling events |
@@ -134,6 +136,10 @@ change silently.
 | `hardware` | Machine check exceptions and corrected ECC memory errors |
 | `smart` | Disk SMART health (needs root or smartmontools) |
 | `luks` | Full-disk encryption (LUKS) presence |
+| `boot` | Boot partition space and bootloader config (`/boot` full, missing `grub.cfg`) |
+| `cache` | User cache and trash bloat (`~/.cache`, `~/.local/share/Trash`) |
+| `packages` | Package manager health — broken/locked apt/dnf/pacman database |
+| `orphans` | Orphaned packages (`pacman -Qtd`, `apt autoremove`, `dnf autoremove`) |
 
 Checks that don't apply to your machine — `battery` on a desktop, `reboot`
 on immutable systems — are skipped automatically and reported honestly in a

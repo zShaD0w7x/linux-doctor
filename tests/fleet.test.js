@@ -65,6 +65,27 @@ test("validatePushUrl: clear errors for typos, null for usable URLs", () => {
   assert.equal(validatePushUrl("http://127.0.0.1:8080/push"), null);
 });
 
+test("validatePushUrl: refuses plaintext HTTP to non-loopback hosts when an apiKey is set", () => {
+  const key = { apiKey: "secret" };
+  // HTTPS and loopback stay legal with auth.
+  assert.equal(validatePushUrl("https://fleet.example.com/reports", key), null);
+  assert.equal(validatePushUrl("http://127.0.0.1:8080/push", key), null);
+  assert.equal(validatePushUrl("http://localhost:8080/push", key), null);
+  assert.equal(validatePushUrl("http://[::1]:8080/push", key), null);
+  // A Bearer token over plaintext HTTP to a real host would be readable in transit.
+  assert.match(validatePushUrl("http://fleet.example.com/reports", key), /insecure endpoint/);
+  assert.match(validatePushUrl("http://192.168.1.10:8080/push", key), /insecure endpoint/);
+  // Without a key, http:// to a real host stays allowed (legacy dev setups).
+  assert.equal(validatePushUrl("http://fleet.example.com/reports"), null);
+});
+
 test("pushReport: rejects an invalid URL instead of a generic fetch error", async () => {
   await assert.rejects(() => pushReport("notaurl", {}), /invalid URL/);
+});
+
+test("pushReport: refuses an insecure HTTP endpoint when auth is configured", async () => {
+  await assert.rejects(
+    () => pushReport("http://fleet.example.com/reports", { findings: [] }, { apiKey: "secret" }),
+    /insecure endpoint/
+  );
 });

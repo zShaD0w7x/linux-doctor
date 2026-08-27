@@ -79,3 +79,26 @@ test("sendAlert: throws on a non-2xx response", async () => {
     await new Promise((r) => server.close(r));
   }
 });
+
+test("sendAlert: refuses plaintext HTTP to a non-loopback host when auth is set", async () => {
+  await assert.rejects(
+    () => sendAlert("http://example.com/hook", { event: "x" }, { apiKey: "secret" }),
+    /insecure endpoint/
+  );
+  // Loopback stays fine with auth (matches the fleet guard).
+  const server = createServer((req, res) => {
+    let b = "";
+    req.on("data", (c) => (b += c));
+    req.on("end", () => {
+      res.statusCode = 200;
+      res.end("ok");
+    });
+  });
+  await new Promise((r) => server.listen(0, r));
+  const loop = `http://127.0.0.1:${server.address().port}/hook`;
+  try {
+    await sendAlert(loop, { event: "x" }, { apiKey: "secret" });
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});

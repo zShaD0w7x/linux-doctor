@@ -7,7 +7,7 @@
  */
 import os from "node:os";
 
-import { machineId } from "./fleet.js";
+import { machineId, validatePushUrl } from "./fleet.js";
 
 /** True when the report has something worth waking a human about. */
 export function shouldAlert(report) {
@@ -35,6 +35,10 @@ export function buildAlert(report) {
 
 /** POST the alert. Throws on network or HTTP errors. */
 export async function sendAlert(url, payload, { apiKey } = {}) {
+  // Same guard as --push: a Bearer token must never travel over plaintext
+  // HTTP to a non-loopback host.
+  const err = validatePushUrl(url, { apiKey });
+  if (err) throw new Error(err.replace(/^--push /, ""));
   const headers = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   const res = await fetch(url, {

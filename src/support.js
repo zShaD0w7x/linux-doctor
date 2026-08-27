@@ -29,7 +29,12 @@ export function scrub(text) {
   if (!text) return text;
   return String(text)
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?\b/g, "<ip-redacted>")
-    .replace(/\b(?:[0-9A-Fa-f]{0,4}:){4,}[0-9A-Fa-f]{0,4}\b/g, "<ip-redacted>")
+    // Generic IPv6: 2+ colon groups. Guard against time strings like
+    // 12:34:56 (all digits, no ::, no hex) — those are not IPs. A real
+    // IPv6 has either :: or a hex letter a-f.
+    .replace(/(?:[0-9A-Fa-f]{0,4}:){2,}[0-9A-Fa-f]{0,4}\b/g, (m) => /::|[A-Fa-f]/.test(m) ? "<ip-redacted>" : m)
+    .replace(/\bfe80::[0-9A-Fa-f:]*\b/gi, "<ip-redacted>")
+    .replace(/::1\b/g, "<ip-redacted>")
     // Home directories leak the account username ("/home/alice/.config/...").
     // Redact the user segment but keep the rest of the path so the context
     // (a dotfile, a log) stays useful for whoever reads the bundle.

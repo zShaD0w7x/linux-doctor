@@ -3,9 +3,16 @@
  * is set. If anything fails, the tool silently falls back to the plain
  * report — the AI is a nice extra, never a dependency.
  *
+ * Finding text is redacted with the same scrub() as the support bundle
+ * BEFORE anything leaves the machine: the prompt travels to a third-party
+ * endpoint, and finding detail/evidence routinely contains IP addresses and
+ * /home/<user> paths. Support-bundle privacy and LLM privacy are one rule.
+ *
  * `premium` (Pro) uses a deeper prompt: prioritized action plan, per-finding
  * fixes pulled from the findings' own fix field, and a confidence note.
  */
+import { scrub } from "./support.js";
+
 export async function aiSummary(findings, { premium = false } = {}) {
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) return null;
@@ -14,7 +21,7 @@ export async function aiSummary(findings, { premium = false } = {}) {
   const model = process.env.LLM_MODEL || "gpt-4o-mini";
 
   const list = findings
-    .map((f, i) => `${i + 1}. [${f.severity}] ${f.title}: ${f.detail || ""}`)
+    .map((f, i) => `${i + 1}. [${f.severity}] ${scrub(f.title) || f.title}: ${scrub(f.detail) || ""}`)
     .join("\n");
 
   const prompt = premium

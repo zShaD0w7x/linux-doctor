@@ -127,9 +127,12 @@ export async function startWeb({ collect, history = () => [], checkList = async 
         const incoming = JSON.parse(body || "{}").thresholds || JSON.parse(body || "{}");
         const cfg = loadConfig();
         const next = { ...cfg, thresholds: { ...(cfg.thresholds || {}), ...incoming } };
-        // only allow known keys
+        // only allow known keys; drop non-numeric values (e.g. "90%")
         const clean = {};
-        for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in next.thresholds) clean[k] = Number(next.thresholds[k]);
+        for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in next.thresholds) {
+          const v = Number(next.thresholds[k]);
+          if (Number.isFinite(v)) clean[k] = v;
+        }
         next.thresholds = clean;
         const file = configFile();
         mkdirSync(dirname(file), { recursive: true });

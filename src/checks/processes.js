@@ -29,7 +29,13 @@ export const processes = defineCheck({
     ]);
     if (!psRes.ok) return findings;
 
-    const rows = lines(psRes.stdout).slice(0, 3).map((l) => {
+    // `ps -o rss` leaves a "RSS" header line even when args= suppresses its
+    // own header — without filtering the first parsed row was
+    // { name: "RSS", rss: 0 } and the real top process was shifted out.
+    // rss= would suppress it but breaks the existing test stubs, so filter.
+    const rows = lines(psRes.stdout)
+      .filter((l) => !/^\s*RSS\b/i.test(l))
+      .slice(0, 3).map((l) => {
       const parts = l.trim().split(/\s+/);
       // `ps -o rss` reports KiB; convert to bytes so the ratio vs `free -b`
       // (bytes) is correct and fmtBytes displays real units.

@@ -59,6 +59,26 @@ test("planFixes: manual-tier commands are never applyable (reboot)", () => {
   assert.equal(plan[0].commands[0].tier, "manual");
 });
 
+test("planFixes: network/no-route is manual — cycling the link can cut the very session running --fix", () => {
+  const plan = planFixes([{ id: 1, code: "network/no-route", severity: "medium", title: "t" }]);
+  assert.equal(plan[0].commands[0].tier, "manual");
+  assert.match(plan[0].commands[0].cmd, /nmcli networking off/);
+});
+
+test("planFixes: debian firewall permits SSH before enabling ufw, using --force", () => {
+  const plan = planFixes([{ id: 1, code: "security/no-firewall", severity: "info", title: "t" }], { system: { family: "debian" } });
+  assert.deepEqual(
+    plan[0].commands.map((c) => c.cmd),
+    ["sudo ufw allow OpenSSH", "sudo ufw --force enable"]
+  );
+  assert.ok(plan[0].commands.every((c) => c.tier === "apply"));
+});
+
+test("planFixes: non-debian firewall enables firewalld", () => {
+  const plan = planFixes([{ id: 1, code: "security/no-firewall", severity: "info", title: "t" }], { system: { family: "fedora" } });
+  assert.deepEqual(plan[0].commands.map((c) => c.cmd), ["sudo systemctl enable --now firewalld"]);
+});
+
 test("planFixes: unknown codes and findings without a catalog entry are skipped", () => {
   assert.deepEqual(planFixes([{ id: 1, code: "audio/no-output", severity: "medium", title: "t" }]), []);
   assert.deepEqual(planFixes([]), []);

@@ -104,9 +104,21 @@ const CATALOG = {
   "containerdisk/high": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "apply" }],
   "containerdisk/warn": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "apply" }],
 
-  /** No firewall: enable firewalld (Fedora/RHEL) or ufw (Debian) based on family. */
+  /**
+   * No firewall: enable firewalld (Fedora/RHEL) or ufw (Debian) based on
+   * family. ufw's default policy denies new incoming connections, so SSH
+   * MUST be allowed before enabling — otherwise a headless machine refuses
+   * its next login. `--force` skips ufw's interactive y/n prompt (this tool
+   * runs commands non-interactively; an unattended prompt would hang until
+   * the timeout). Existing established sessions survive via conntrack.
+   */
   "security/no-firewall": (_f, { family } = {}) => {
-    if (family === "debian") return [{ cmd: "sudo ufw enable", tier: "apply" }];
+    if (family === "debian") {
+      return [
+        { cmd: "sudo ufw allow OpenSSH", tier: "apply" },
+        { cmd: "sudo ufw --force enable", tier: "apply" },
+      ];
+    }
     return [{ cmd: "sudo systemctl enable --now firewalld", tier: "apply" }];
   },
 
@@ -133,8 +145,14 @@ const CATALOG = {
   /** Failed suspend/resume hooks */
   "suspend/failed": () => [{ cmd: "sudo systemctl restart systemd-suspend.service 2>/dev/null; sudo journalctl --vacuum-size=200M", tier: "apply" }],
 
-  /** Network: re-apply connection or restart NetworkManager */
-  "network/no-route": () => [{ cmd: "nmcli networking off && nmcli networking on 2>/dev/null || sudo systemctl restart NetworkManager", tier: "apply" }],
+  /**
+   * Network: reconnecting cycles the interface down/up, which severs any
+   * session routed through it — including an SSH run of `--fix --yes` itself
+   * (the follow-up command would never execute and networking could stay
+   * down). That is exactly the "can cut a remote session" case this catalog
+   * reserves for the manual tier.
+   */
+  "network/no-route": () => [{ cmd: "nmcli networking off && nmcli networking on 2>/dev/null || sudo systemctl restart NetworkManager", tier: "manual" }],
   "network/dns": () => [{ cmd: "sudo systemctl restart systemd-resolved 2>/dev/null; sudo resolvconf --enable-updates 2>/dev/null; echo 'Check /etc/resolv.conf'", tier: "manual" }],
   "network/dns-slow": () => [{ cmd: "sudo systemctl restart systemd-resolved 2>/dev/null", tier: "apply" }],
 
@@ -169,6 +187,41 @@ const CATALOG = {
     if (family === "suse") return [{ cmd: "sudo zypper install snapper borgbackup", tier: "manual" }];
     return [{ cmd: "sudo dnf install timeshift borgbackup 2>/dev/null || sudo dnf install snapper", tier: "manual" }];
   },
+
+  /** Inodes nearly full: same cleanup as disk, plus hunt for tiny-file spam. */
+  "inodes/full": () => [{ cmd: "sudo journalctl --vacuum-size=500M; echo 'Hunt tiny files: sudo find / -xdev -type f | cut -d/ -f3 | sort | uniq -c | sort -rn | head -20'", tier: "manual" }],
+
+  /** Orphaned packages: family-aware autoremove */
+  "orphans/many": (_f, { family } = {}) => {
+    if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "apply" }];
+    if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "apply" }];
+    if (family === "suse") return [{ cmd: "sudo zypper packages --unneeded | grep '^i' && sudo zypper remove --clean-deps $(zypper packages --unneeded | awk '/^i/ {print $5}')", tier: "manual" }];
+    return [{ cmd: "sudo dnf autoremove", tier: "apply" }];
+  },
+  "orphans/some": (_f, { family } = {}) => {
+    if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "apply" }];
+    if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "apply" }];
+    return [{ cmd: "sudo dnf autoremove", tier: "apply" }];
+  },
+
+  /** Unused Flatpak runtimes */
+  "flatpak/unused-runtimes": () => [{ cmd: "flatpak uninstall --unused", tier: "apply" }],
+
+  /** Boot partition nearly full / missing grub.cfg */
+  "boot/full": () => [{ cmd: "sudo dnf remove --oldinstallonly --setopt installonly_limit=2 kernel 2>/dev/null || sudo apt autoremove --purge 2>/dev/null; sudo grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || sudo grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null", tier: "manual" }],
+  "boot/no-config": () => [{ cmd: "sudo grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || sudo grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || sudo bootctl install", tier: "manual" }],
+
+  /** Cache and trash bloat */
+  "cache/large": () => [{ cmd: "du -sh ~/.cache/* 2>/dev/null | sort -rh | head -20; echo '---'; rm -rf ~/.cache/thumbnails/* 2>/dev/null; echo 'Cleared thumbnails'", tier: "manual" }],
+  "cache/trash": () => [{ cmd: "gio trash --empty 2>/dev/null || rm -rf ~/.local/share/Trash/*", tier: "apply" }],
+
+  /** WiFi blocked/disabled */
+  "wifi/blocked": () => [{ cmd: "rfkill unblock wifi && nmcli radio wifi on", tier: "apply" }],
+  "wifi/disabled": () => [{ cmd: "nmcli radio wifi on", tier: "apply" }],
+
+  /** Broken package manager */
+  "packages/broken": () => [{ cmd: "sudo dpkg --configure -a 2>/dev/null; sudo apt --fix-broken install 2>/dev/null || sudo dnf check 2>/dev/null; sudo pacman -Dk 2>/dev/null", tier: "manual" }],
+  "packages/locked": () => [{ cmd: "ps aux | grep -E 'apt|dpkg' | grep -v grep", tier: "manual" }],
 
   /** A pending reboot is the user's call — never schedule one from a tool. */
   "reboot/required": () => [{ cmd: "systemctl reboot", tier: "manual" }],

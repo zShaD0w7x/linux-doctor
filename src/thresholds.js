@@ -10,6 +10,9 @@ export const DEFAULT_THRESHOLDS = {
   // disk.js — percent used at which a partition is flagged
   diskFullPct: 90,
   diskWarnPct: 80,
+  // inodes.js — percent of inodes used at which a filesystem is flagged
+  inodeFullPct: 90,
+  inodeWarnPct: 80,
   // memory.js — available/total ratio below which memory pressure is flagged
   memLowRatio: 0.15,
   memWarnRatio: 0.25,
@@ -36,5 +39,12 @@ export const DEFAULT_THRESHOLDS = {
 export function loadThresholds(config) {
   const t = (config && config.thresholds) || {};
   if (typeof t !== "object" || Array.isArray(t)) return DEFAULT_THRESHOLDS;
-  return { ...DEFAULT_THRESHOLDS, ...t };
+  const out = { ...DEFAULT_THRESHOLDS };
+  for (const k of Object.keys(DEFAULT_THRESHOLDS)) {
+    if (!(k in t)) continue;
+    const v = Number(t[k]);
+    if (!Number.isFinite(v)) continue;
+    out[k] = v;
+  }
+  return out;
 }

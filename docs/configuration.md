@@ -60,6 +60,8 @@ in the same config file:
   "thresholds": {
     "diskFullPct": 90,      // partition % full → high
     "diskWarnPct": 80,      // partition % full → medium
+    "inodeFullPct": 90,     // inode % full → high
+    "inodeWarnPct": 80,     // inode % full → medium
     "memLowRatio": 0.15,    // available/total below → high
     "memWarnRatio": 0.25,   // available/total below → medium
     "loadWarnRatio": 0.7,   // load per core above → info

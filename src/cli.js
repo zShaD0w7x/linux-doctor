@@ -446,10 +446,14 @@ export async function main(argv) {
   }
   // A mistyped fleet URL should fail fast with a clear message, not with a
   // generic fetch error after a full check run (or mid-daemon-cycle).
+  // The apiKey is passed so the guard can refuse plaintext HTTP to a
+  // non-loopback host — a Bearer token must never leave the machine in the
+  // clear. pushReport/sendAlert re-check the same rule at send time.
   if ((args.pushUrl || args.alertUrl)) {
+    const apiKey = process.env.FLEET_API_KEY;
     for (const [flag, url] of [["--push", args.pushUrl], ["--alert", args.alertUrl]]) {
       if (!url) continue;
-      const err = validatePushUrl(url);
+      const err = validatePushUrl(url, { apiKey });
       if (err) {
         console.error(`linux-doctor: ${flag}: ${err.replace(/^--push /, "")}`);
         return 2;
@@ -587,7 +591,10 @@ function printIgnoreLists(titles, codes) {
       // as the web dashboard's POST /api/thresholds).
       const merged = { ...(cfg.thresholds || {}), ...incoming };
       const clean = {};
-      for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in merged) clean[k] = Number(merged[k]);
+      for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in merged) {
+        const v = Number(merged[k]);
+        if (Number.isFinite(v)) clean[k] = v;
+      }
       const next = { ...cfg, thresholds: clean };
       const file = configFile();
       mkdirSync(dirname(file), { recursive: true });

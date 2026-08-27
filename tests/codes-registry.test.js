@@ -72,18 +72,27 @@ export const REGISTRY = {
   "crash/panic": { sev: ["high"], cat: "stability" },
   "crash/reboots": { sev: ["info", "medium", "high"], cat: "stability" },
   "crash/skipped": { sev: ["info"], cat: "stability" },
-  // disk / fs
+  // boot / cache
+  "boot/full": { sev: ["high", "medium"], cat: "system" },
+  "boot/no-config": { sev: ["medium"], cat: "system" },
+  "boot/ok": { sev: ["info"], cat: "system" },
+  "cache/large": { sev: ["info", "medium"], cat: "system" },
+  "cache/ok": { sev: ["info"], cat: "system" },
+  "cache/trash": { sev: ["info", "medium"], cat: "system" },
+  // disk / fs / inodes
   "disk/full": { sev: ["high", "medium"], cat: "storage" },
   "fs/btrfs-errors": { sev: ["high"], cat: "storage" },
   "fs/io-errors": { sev: ["high"], cat: "storage" },
   "fs/ok": { sev: ["info"], cat: "storage" },
   "fs/readonly-remount": { sev: ["high"], cat: "storage" },
+  "inodes/full": { sev: ["high", "medium"], cat: "storage" },
   // firmware / flatpak / fstrim
   "firmware/none": { sev: ["info"], cat: "system" },
   "firmware/not-checked": { sev: ["info"], cat: "system" },
   "firmware/pending": { sev: ["medium"], cat: "system" },
   "flatpak/none": { sev: ["info"], cat: "packages" },
   "flatpak/pending": { sev: ["info", "medium"], cat: "packages" },
+  "flatpak/unused-runtimes": { sev: ["info", "medium"], cat: "packages" },
   "fstrim/disabled": { sev: ["medium"], cat: "storage" },
   "fstrim/ok": { sev: ["info"], cat: "storage" },
   "fstrim/ok-discard": { sev: ["info"], cat: "storage" },
@@ -129,12 +138,19 @@ export const REGISTRY = {
   "ntp/pending": { sev: ["medium"], cat: "system" },
   "ntp/skipped": { sev: ["info"], cat: "system" },
   "ntp/unsynced": { sev: ["medium"], cat: "system" },
-  // oom / processes
+  // oom / orphans / processes
   "oom/kills": { sev: ["medium", "high"], cat: "stability" },
   "oom/ok": { sev: ["info"], cat: "stability" },
+  "orphans/many": { sev: ["medium"], cat: "system" },
+  "orphans/none": { sev: ["info"], cat: "system" },
+  "orphans/some": { sev: ["info"], cat: "system" },
   "processes/high": { sev: ["medium"], cat: "performance" }, // degradation, not data risk — docs/severity.md rule 3
   "processes/ok": { sev: ["info"], cat: "performance" },
   "processes/warn": { sev: ["medium"], cat: "performance" },
+  // packages
+  "packages/broken": { sev: ["high"], cat: "system" },
+  "packages/locked": { sev: ["medium"], cat: "system" },
+  "packages/ok": { sev: ["info"], cat: "system" },
   // reboot
   "reboot/ok": { sev: ["info"], cat: "system" },
   "reboot/required": { sev: ["medium"], cat: "system" },
@@ -170,6 +186,11 @@ export const REGISTRY = {
   "updates/pending": { sev: ["info", "medium"], cat: "packages" },
   "updates/skipped": { sev: ["info"], cat: "packages" },
   "wayland/healthy": { sev: ["info"], cat: "desktop" },
+  // wifi
+  "wifi/blocked": { sev: ["medium"], cat: "network" },
+  "wifi/disabled": { sev: ["medium"], cat: "network" },
+  "wifi/no-adapter": { sev: ["info"], cat: "network" },
+  "wifi/ok": { sev: ["info"], cat: "network" },
   "wayland/loginctl-missing": { sev: ["info"], cat: "desktop" },
   "wayland/no-compositor": { sev: ["medium"], cat: "desktop" },
   "wayland/no-session": { sev: ["info"], cat: "desktop" },

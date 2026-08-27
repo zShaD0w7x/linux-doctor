@@ -1,5 +1,5 @@
 .\" Linux Doctor man page
-.TH LINUX-DOCTOR 1 "2026-08-26" "linux-doctor 0.3.3" "User Commands"
+.TH LINUX-DOCTOR 1 "2026-08-26" "linux-doctor 0.3.4" "User Commands"
 .SH NAME
 linux-doctor \- read-only health checks for your Linux system
 .SH SYNOPSIS
@@ -103,8 +103,23 @@ Do not read or write run history for this run.
 .BR \-\-thresholds\-json
 Print current thresholds + defaults as JSON (for desktop app).
 .TP
+.BR \-\-thresholds\-set " " \fIjson\fR
+Merge known thresholds from a JSON payload into the config.
+.TP
+.BR \-\-history\-json
+Print run history as JSON (used by the desktop app).
+.TP
 .BR \-\-license
 Show Pro add-on status and exit.
+.TP
+.BR \-\-alert " " \fIurl\fR
+POST an alert webhook when the machine degrades [Pro].
+.TP
+.BR \-\-daemon
+Run continuously, re-checking every \-\-interval seconds [Pro].
+.TP
+.BR \-\-interval " " \fIseconds\fR
+Seconds between \-\-daemon runs (default 3600) [Pro].
 .TP
 .BR \-\-schema
 Print the JSON Schema for \-\-json output and exit.

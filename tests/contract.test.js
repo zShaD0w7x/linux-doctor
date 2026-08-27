@@ -107,7 +107,7 @@ test("dedupeKey usage is limited to the documented roots", async () => {
     for (const key of keys) {
       const literal = key.replace(/^["'`]|["'`]$/g, "");
       assert.ok(
-        allowed.has(literal) || literal.startsWith("disk:"),
+        allowed.has(literal) || literal.startsWith("disk:") || literal.startsWith("inodes:"),
         `${c.id}: dedupeKey ${key} is not a documented dedupe root`
       );
     }

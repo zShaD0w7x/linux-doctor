@@ -6,6 +6,73 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`--push` / `--alert` refuse plaintext HTTP when auth is configured**: the
+  `FLEET_API_KEY` Bearer token now only travels over `https://` (loopback
+  `http://127.0.0.1`/`localhost`/`[::1]` stays exempt for local dev servers).
+  `validatePushUrl(url, { apiKey })` enforces it at CLI validation time and
+  again in `pushReport`/`sendAlert`; a `--push http://host --alert http://host`
+  run with `FLEET_API_KEY` set now fails fast (exit 2) instead of putting the
+  token on the wire in the clear. Covered by new tests in `fleet.test.js` /
+  `alert.test.js`.
+- **`--ai` redacts finding text before it leaves the machine**: the LLM prompt
+  now runs the same `scrub()` as the support bundle, so IPv4/IPv6 literals and
+  `/home/<user>` paths in finding titles/detail never reach a third-party
+  endpoint. Pinned by a new test in `llm.test.js` (the support bundle already
+  scrubbed; the AI channel did not).
+
+### Changed
+
+- **Safe-fix catalog: two fixes that could sever the user's own session are
+  no longer `apply`-tier.** `network/no-route` (which cycles the interface
+  down/up and could drop an SSH session running `--fix --yes`) is now
+  `manual`; the Debian `security/no-firewall` fix now runs
+  `sudo ufw allow OpenSSH` **before** `sudo ufw --force enable`, so enabling
+  the firewall can never lock the next SSH login out (`--force` also stops the
+  interactive y/n prompt hanging a non-interactive run; established sessions
+  survive via conntrack). Both pinned by new tests in `fix.test.js`.
+
+### Added
+
+- **Check: `inodes`** — inode exhaustion (`df -i`), the classic “No space
+  left on device but `df -h` shows free space”. Thresholds
+  `inodeFullPct`/`inodeWarnPct` (90/80, tunable like `diskFullPct`).
+- **Check: `orphans`** — orphaned/unneeded packages (`pacman -Qtdq`, `apt
+  autoremove --dry-run`, `dnf repoquery --unneeded` / `zypper packages
+  --unneeded`). The #1 `r/archlinux` answer for “how to free space”.
+- **Flatpak: `flatpak/unused-runtimes`** — `flatpak uninstall --unused
+  --dry-run` (old SDKs wasting disk silently).
+- **Check: `boot`** — boot partition space (`df -P /boot`, `/boot/efi`) and
+  missing `grub.cfg` / `systemd-boot` entry (the “linux not booting” class).
+- **Check: `cache`** — user cache and trash bloat (`~/.cache`, `~/.local/share/Trash`, 5/10 GB thresholds, desktop/laptop only).
+- **Docs: `docs/checks.md`** — auto-generated catalogue of all 44 checks and
+  their 142+ codes from the registry (`scripts/generate-check-docs.mjs`).
+- **Check: `wifi`** — rfkill soft/hard block, NetworkManager `radio wifi` disabled, adapter presence (`wifi/blocked`, `wifi/disabled`, `wifi/no-adapter`, `wifi/ok`, desktop/laptop only).
+- **Check: `packages`** — broken/locked package manager (`dpkg --audit`, `apt-get check`, `dnf check`, `pacman -Dk`, `packages/broken`, `packages/locked`, `packages/ok`).
+- **Man page: `packaging/linux-doctor.1`** — now documents every flag
+  (`--history-json`, `--thresholds-set`, `--alert`, `--daemon`, `--interval`).
+- **Thresholds: `inodeFullPct` / `inodeWarnPct`** in `docs/configuration.md`
+  and `DEFAULT_THRESHOLDS` `src/thresholds.js:10`.
+
+### Changed
+
+- **Threshold validation**: `loadThresholds` `src/thresholds.js:36` and the
+  two `POST /api/thresholds` handlers `src/web.js:131` / `src/cli.js:592`
+  now drop non-numeric values (`"90%"` → ignored, keeps default) instead of
+  storing `NaN` and breaking comparisons.
+- **Support bundle / LLM scrub**: `scrub()` `src/support.js:28` now also
+  redacts `::1` and `fe80::` compressed IPv6 (previously slipped past the
+  4-group generic pattern) with a `::`/`[A-Fa-f]` guard so `12:34:56`
+  timestamps stay intact. Also used by `src/llm.js:9`.
+
+### Fixed
+
+- **Processes: header bug** `src/checks/processes.js:28` — `ps -o rss` leaves a
+  `RSS` header line even with `args=`; the first parsed row was
+  `{ name: "RSS", rss: 0 }` and the real top process was shifted out.
+  Filtered explicitly; now `processes/ok` shows the real top 3.
+
 ## [0.3.4] — 2026-08-26
 
 ### Security

@@ -7,6 +7,7 @@
 import { memory } from "./memory.js";
 import { load } from "./load.js";
 import { disk } from "./disk.js";
+import { inodes } from "./inodes.js";
 import { fs } from "./fs.js";
 import { oom } from "./oom.js";
 import { processes } from "./processes.js";
@@ -42,22 +43,27 @@ import { hardware } from "./hardware.js";
 import { audio } from "./audio.js";
 import { backup } from "./backup.js";
 import { fstrim } from "./fstrim.js";
+import { orphans } from "./orphans.js";
+import { boot } from "./boot.js";
+import { cache } from "./cache.js";
+import { wifi } from "./wifi.js";
+import { packages } from "./packages.js";
 
 export const checks = [
   // system
-  memory, load, disk, fs, oom, processes, thermal, journald, zram, locales,
+  memory, load, disk, inodes, fs, oom, processes, thermal, journald, zram, locales,
   // software
   services, timers, journal, suspend, containers, containerdisk, crash,
   // security
   security, secureboot, luks, ssh, autologin,
   // network
-  network, ntp,
+  network, ntp, wifi,
   // updates
-  updates, snap, firmware, flatpak, reboot,
+  updates, snap, firmware, flatpak, reboot, packages,
   // hardware
   battery, gpu, bluetooth, wayland, smart, hardware, audio,
   // data
-  backup, fstrim,
+  backup, fstrim, orphans, boot, cache,
 ];
 
 export const byId = new Map(checks.map((c) => [c.id, c]));
