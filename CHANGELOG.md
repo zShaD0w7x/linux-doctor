@@ -6,6 +6,8 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-08-27
+
 ### Security
 
 - **`--push` / `--alert` refuse plaintext HTTP when auth is configured**: the

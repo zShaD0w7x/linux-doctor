@@ -9,7 +9,7 @@
 # rejects SKIP for a fixed tarball — replace it with the real sha256sum of
 # linux-doctor-$pkgver.tar.gz before submitting/updating the package.
 pkgname=linux-doctor
-pkgver=0.3.4
+pkgver=0.3.5
 pkgrel=1
 pkgdesc="Read-only health checks for your Linux system — finds real problems, explains them, and tells you how to fix them"
 arch=('any')

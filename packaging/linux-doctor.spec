@@ -3,7 +3,7 @@
 #   VERSION=0.2.0; npm pack && mv linux-doctor-*.tgz ~/rpmbuild/SOURCES/linux-doctor-$VERSION.tar.gz
 # npm pack tarballs extract to a `package/` directory, hence -n package.
 Name:           linux-doctor
-Version:        0.3.4
+Version:        0.3.5
 Release:        1%{?dist}
 Summary:        Read-only health checks for your Linux system
 License:        GPL-3.0-or-later
@@ -32,6 +32,9 @@ chmod 0755 %{buildroot}%{_libdir}/linux-doctor/bin/doctor.js
 %{_bindir}/linux-doctor
 
 %changelog
+* Thu, Aug 27, 2026 Linux Doctor <maintainer@example.com> - 0.3.5-1
+- Sync to 0.3.5
+
 * Wed Aug 27 2026 Linux Doctor <maintainer@example.com> - 0.3.4-1
 - Sync to 0.3.4
 * Tue Aug 18 2026 Linux Doctor <maintainer@example.com> - 0.2.0-1
