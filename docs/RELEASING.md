@@ -9,24 +9,31 @@ Pushing a tag `vX.Y.Z` triggers `.github/workflows/release.yml`:
 
 | Job | Runs on | Produces |
 |---|---|---|
-| **cli** | ubuntu-latest | `linux-doctor-X.Y.Z.tgz` (npm pack, after `npm test`) |
-| **gui** | ubuntu-22.04 | `linux-doctor_X.Y.Z_amd64.AppImage`, `linux-doctor_X.Y.Z_amd64.deb` |
+| **cli** | ubuntu-latest | `linux-doctor-X.Y.Z.tgz` (npm pack, after `npm test`) + `SHA256SUMS` |
+| **gui** | ubuntu-22.04 | `Linux.Doctor_X.Y.Z_amd64.AppImage`, `linux-doctor_X.Y.Z_amd64.deb`, `linux-doctor_X.Y.Z_amd64.rpm` + `SHA256SUMS` |
 
 Both jobs attach their files to the same GitHub Release. Release notes are
-auto-generated (`generate_release_notes`). The gui job builds on 22.04 on
+extracted verbatim from `CHANGELOG.md` via `awk` (body_path), not auto-generated. Each asset gets a Sigstore attestation via `actions/attest`. The gui job builds on 22.04 on
 purpose: the AppImage links against an older glibc, so it runs on most
 distributions.
 
-## Cut a release
+## Cut a release (with signed tag + SHA256SUMS)
 
 ```bash
-# 1. bump all three versions to X.Y.Z:
-#    package.json · src-tauri/tauri.conf.json · src-tauri/Cargo.toml (+ Cargo.lock)
-npm run build:gui          # regenerate the dashboard bundle
-npm test                   # must be green before tagging
-git commit -am "Release vX.Y.Z"
-git tag vX.Y.Z
-git push origin main --follow-tags   # CI does the rest (~10 min first run)
+# 0. one-time GPG setup (see /RELEASING.md)
+# 1. bump all manifests atomically + regenerate docs:
+node scripts/bump-version.mjs 0.4.0
+# 2. curate CHANGELOG.md: move [Unreleased] -> ## [0.4.0] - YYYY-MM-DD
+npm run goldens:update   # if output changed
+npm test                 # must be green (439 tests)
+npm pack --dry-run | grep src-gui/index.html
+node bin/doctor.js --self-test && node bin/doctor.js --json | jq .checksRun
+
+git commit -am "chore: release 0.4.0"
+git push origin main              # wait for CI green (Node 20/22/24 + Fedora + Rust)
+git tag -s v0.4.0 -m "v0.4.0" && git tag -v v0.4.0
+git push origin v0.4.0            # triggers release.yml -> tgz + AppImage/deb/rpm + SHA256SUMS + attestations
+# 3. verify Release: SHA256SUMS, CHANGELOG body, --version matches tag
 ```
 
 ## Build the GUI locally (optional)
