@@ -44,7 +44,8 @@ jobs:
       - name: Extract changelog for this tag
         run: |
           TAG=${GITHUB_REF#refs/tags/}
-          awk -v tag="## \\[$TAG\\]" '$0 ~ tag {p=1; next} /^## \[/ {p=0} p' CHANGELOG.md > /tmp/notes.md
+          TAG=${TAG#v}
+          awk -v tag="## [$TAG]" 'index($0, tag) {p=1; next} /^## \[/ {p=0} p' CHANGELOG.md > /tmp/notes.md
           echo "--- Notes for $TAG ---"; cat /tmp/notes.md
           test -s /tmp/notes.md || echo "No changelog entry for $TAG" > /tmp/notes.md
       - name: Create the GitHub release
