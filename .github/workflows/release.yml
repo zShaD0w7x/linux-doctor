@@ -35,7 +35,9 @@ jobs:
           ls -la rel
       - name: Generate SHA256SUMS for tarball
         run: |
-          cd rel && sha256sum *.tgz > SHA256SUMS && cat SHA256SUMS
+          set -x
+          ls -lh rel/
+          sha256sum rel/*.tgz > rel/SHA256SUMS && cat rel/SHA256SUMS
           ls -lh rel/
       - name: Attest tarball provenance (SLSA L2)
         uses: actions/attest-build-provenance@v2
@@ -100,7 +102,9 @@ jobs:
           ls -la
       - name: Generate SHA256SUMS for bundles
         run: |
-          cd dist && sha256sum * > SHA256SUMS-bundles.txt && cat SHA256SUMS-bundles.txt
+          set -x
+          ls -lh dist/
+          sha256sum dist/* > dist/SHA256SUMS-bundles.txt && cat dist/SHA256SUMS-bundles.txt
           ls -lh dist/
       - name: Attest bundle provenance (SLSA L2)
         uses: actions/attest-build-provenance@v2
