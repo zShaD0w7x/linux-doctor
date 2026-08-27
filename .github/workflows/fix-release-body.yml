@@ -1,0 +1,40 @@
+name: Fix Release Body
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to fix (e.g. v0.3.5)
+        required: true
+        default: v0.3.5
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract notes for v0.3.5
+        run: |
+          TAG=v0.3.5
+          STRIP=${TAG#v}
+          awk -v tag="## [$STRIP]" 'index($0, tag) {p=1; next} /^## \[/ {p=0} p' CHANGELOG.md > /tmp/notes.md
+          echo "--- Notes for $TAG ---"
+          cat /tmp/notes.md
+          echo "--- Lines ---"
+          wc -l /tmp/notes.md
+          test -s /tmp/notes.md
+      - name: Update release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=v0.3.5
+          gh release view "$TAG" --json body -q .body | head -n 20
+          gh release edit "$TAG" --notes-file /tmp/notes.md
+          echo "Updated $TAG"
+          gh release view "$TAG" --json body -q .body | head -n 40
