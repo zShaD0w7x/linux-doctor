@@ -41,6 +41,7 @@ export const boot = defineCheck({
         findings.push(finding({
           severity: "high",
           code: "boot/full",
+          dedupeKey: `boot:${mount}`,
           title: `${label} is nearly full (${use}% used)`,
           detail: `${label} is ${use}% full. Kernel updates write to ${mount} and will fail with "No space left on device" when it fills up. Old kernels are the usual culprit.`,
           evidence: df.stdout.trim(),
@@ -53,6 +54,7 @@ export const boot = defineCheck({
         findings.push(finding({
           severity: "medium",
           code: "boot/full",
+          dedupeKey: `boot:${mount}`,
           title: `${label} is getting full (${use}% used)`,
           detail: `${label} is ${use}% full. It will block the next kernel update if it keeps growing.`,
           evidence: df.stdout.trim(),

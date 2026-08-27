@@ -259,7 +259,9 @@ export function renderPlain(findings, { system, score, scoreBreakdown = [], scor
   }
   const penalizedPlain = [...scoreBreakdown].filter((b) => b.penalty > 0).sort((a, b) => b.penalty - a.penalty);
   if (penalizedPlain.length > 0) out.push(`# score-breakdown: ${penalizedPlain.map((b) => `-${b.penalty} ${b.code ?? b.title}`).join(" | ")}`);
-  const scoredPlain = (history || []).filter((r) => typeof r.score === "number").slice(-TREND_WINDOW);
+  const scoredAllPlain = (history || []).filter((r) => typeof r.score === "number");
+  const scoredPlain = scoredAllPlain.slice(-(TREND_WINDOW - 1));
+  if (!historyDisabled && typeof score === "number") scoredPlain.push({ score });
   if (scoredPlain.length >= 2) out.push(`# trend: ${spark(scoredPlain.map((r) => r.score))} (${scoredPlain[0].score} → ${scoredPlain[scoredPlain.length - 1].score})`);
   if (newCount > 0) out.push(`# new: ${newCount}`);
   if (fixedCount > 0) out.push(`# fixed: ${fixedCount}`);

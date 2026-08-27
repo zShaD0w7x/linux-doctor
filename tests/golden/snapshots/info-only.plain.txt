@@ -1,6 +1,7 @@
 # linux-doctor
 # system: Ubuntu 25.04 · kernel 6.14.0 · 4 core(s) · up 6h
 # score: 100/100
+# trend: ▇█ (92 → 100)
 # fixed: 1
 # since: 0 new, 1 fixed, 0 unchanged
 # checks: 36 (2 skipped)

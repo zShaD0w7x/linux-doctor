@@ -63,7 +63,10 @@ export const inodes = defineCheck({
       const mount = p[5];
       const use = pct(p[4]);
       if (use <= 0 || mount === "/") continue;
-      if (EXCLUDED_FS.has(p[0])) continue;
+      // --exclude-type already filters pseudo filesystems; the extra
+      // EXCLUDED_FS check is intentionally device-based (for tmpfs/overlay
+      // the device name equals the type) and only kept for root below.
+      // Non-root relies on df's --exclude-type alone, like disk.js.
       const f = inodeFinding({ mount, use, evidence: l, t, device: p[0] });
       if (f) findings.push(f);
     }

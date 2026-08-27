@@ -2,7 +2,7 @@
 # system: Bazzite 44 · kernel 6.1.0 · 16 core(s) · up 2h
 # score: 77/100 (-23)
 # score-breakdown: -15 disk/full | -8 services/failed
-# trend: █▇█ (100 → 100)
+# trend: █▇█▆ (100 → 77)
 # new: 1
 # since: 1 new, 0 fixed, 2 unchanged
 # checks: 36 (1 skipped)

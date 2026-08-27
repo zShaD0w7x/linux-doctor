@@ -1,7 +1,7 @@
 # linux-doctor
 # system: Fedora 43 · kernel 6.12.0 · 8 core(s) · up 3d
 # score: 100/100 (+0)
-# trend: █████ (100 → 100)
+# trend: ██████ (100 → 100)
 # checks: 36 (1 skipped)
 # summary: 0 high, 0 medium, 0 info
 
