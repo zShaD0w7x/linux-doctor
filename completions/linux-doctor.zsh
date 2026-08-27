@@ -38,8 +38,7 @@ _linux_doctor() {
     "--thresholds-set=[merge thresholds from a JSON payload]:json:" \
     '--schema[print the JSON Schema]' \
     '--profile[show check durations]' \
-    '--license[show Pro license status]' \
-    "--license[show the Linux Doctor Pro add-on status]" \
+    '--license[show Pro add-on status]' \
     '--alert=[POST an alert webhook]:url:' \
     '--daemon[run continuously as a scheduled agent]' \
     '--interval=[seconds between --daemon runs]:seconds:' \

@@ -24,8 +24,9 @@ package() {
   # project-root tar for manual builds.
   local src="${srcdir}/package"
   [ -d "${src}" ] || src="${srcdir}/${pkgname}-${pkgver}"
-  install -d "${pkgdir}/usr/lib/linux-doctor" "${pkgdir}/usr/bin"
-  cp -r "${src}/bin" "${src}/src" "${src}/src-gui/index.html" "${src}/package.json" "${src}/README.md" "${src}/LICENSE" "${pkgdir}/usr/lib/linux-doctor/"
+  install -d "${pkgdir}/usr/lib/linux-doctor" "${pkgdir}/usr/lib/linux-doctor/src-gui" "${pkgdir}/usr/bin"
+  cp -r "${src}/bin" "${src}/src" "${src}/package.json" "${src}/README.md" "${src}/LICENSE" "${pkgdir}/usr/lib/linux-doctor/"
+  install -Dm644 "${src}/src-gui/index.html" "${pkgdir}/usr/lib/linux-doctor/src-gui/index.html"
   ln -s /usr/lib/linux-doctor/bin/doctor.js "${pkgdir}/usr/bin/linux-doctor"
   chmod 0755 "${pkgdir}/usr/lib/linux-doctor/bin/doctor.js"
 }

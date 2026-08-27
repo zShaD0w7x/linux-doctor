@@ -22,8 +22,9 @@ health score, history, and a web dashboard.
 %setup -q -n package
 
 %install
-mkdir -p %{buildroot}%{_libdir}/linux-doctor %{buildroot}%{_bindir}
-cp -r bin src src-gui/index.html package.json README.md LICENSE %{buildroot}%{_libdir}/linux-doctor/
+mkdir -p %{buildroot}%{_libdir}/linux-doctor/src-gui %{buildroot}%{_bindir}
+cp -r bin src package.json README.md LICENSE %{buildroot}%{_libdir}/linux-doctor/
+install -Dm644 src-gui/index.html %{buildroot}%{_libdir}/linux-doctor/src-gui/index.html
 ln -s %{_libdir}/linux-doctor/bin/doctor.js %{buildroot}%{_bindir}/linux-doctor
 chmod 0755 %{buildroot}%{_libdir}/linux-doctor/bin/doctor.js
 

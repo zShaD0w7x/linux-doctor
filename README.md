@@ -102,6 +102,8 @@ change silently.
 | `load` | CPU load vs core count |
 | `disk` | Real partitions near full (ignores virtual/immutable roots) |
 | `inodes` | Inode usage — “No space left” with free space showing in `df -h` |
+| `fs` | Filesystem errors (btrfs, read-only remounts) |
+| `oom` | Out-of-memory kills |
 | `zram` | Swap/zram health — compressed swap near full, swappiness |
 | `locales` | System locale — missing/broken locale generation |
 | `services` | Failed systemd services (system + user) |
