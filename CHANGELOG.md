@@ -8,72 +8,36 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [0.3.5] — 2026-08-27
 
+> **Highlights:** 6 new health checks, stronger fleet/AI privacy, safer `--fix`, and a more robust dashboard. No breaking changes.
+
 ### Security
 
-- **`--push` / `--alert` refuse plaintext HTTP when auth is configured**: the
-  `FLEET_API_KEY` Bearer token now only travels over `https://` (loopback
-  `http://127.0.0.1`/`localhost`/`[::1]` stays exempt for local dev servers).
-  `validatePushUrl(url, { apiKey })` enforces it at CLI validation time and
-  again in `pushReport`/`sendAlert`; a `--push http://host --alert http://host`
-  run with `FLEET_API_KEY` set now fails fast (exit 2) instead of putting the
-  token on the wire in the clear. Covered by new tests in `fleet.test.js` /
-  `alert.test.js`.
-- **`--ai` redacts finding text before it leaves the machine**: the LLM prompt
-  now runs the same `scrub()` as the support bundle, so IPv4/IPv6 literals and
-  `/home/<user>` paths in finding titles/detail never reach a third-party
-  endpoint. Pinned by a new test in `llm.test.js` (the support bundle already
-  scrubbed; the AI channel did not).
-
-### Changed
-
-- **Safe-fix catalog: two fixes that could sever the user's own session are
-  no longer `apply`-tier.** `network/no-route` (which cycles the interface
-  down/up and could drop an SSH session running `--fix --yes`) is now
-  `manual`; the Debian `security/no-firewall` fix now runs
-  `sudo ufw allow OpenSSH` **before** `sudo ufw --force enable`, so enabling
-  the firewall can never lock the next SSH login out (`--force` also stops the
-  interactive y/n prompt hanging a non-interactive run; established sessions
-  survive via conntrack). Both pinned by new tests in `fix.test.js`.
+- **Fleet reporting now blocks plaintext HTTP for authenticated pushes.** When `FLEET_API_KEY` is set, `--push` and `--alert` require `https://` (loopback `http://127.0.0.1`, `localhost`, `[::1]` exempt for local dev). The check runs at CLI validation and again before `pushReport`/`sendAlert`; a misconfigured `http://` endpoint now fails fast with exit 2 instead of leaking the Bearer token. Includes tests in `fleet.test.js` and `alert.test.js`.
+- **AI summaries redact sensitive data before egress.** Finding titles and details are now scrubbed with the same `scrub()` used for support bundles — IPv4/IPv6 literals and `/home/<user>` paths never reach the LLM endpoint. Verified by `llm.test.js`.
 
 ### Added
 
-- **Check: `inodes`** — inode exhaustion (`df -i`), the classic “No space
-  left on device but `df -h` shows free space”. Thresholds
-  `inodeFullPct`/`inodeWarnPct` (90/80, tunable like `diskFullPct`).
-- **Check: `orphans`** — orphaned/unneeded packages (`pacman -Qtdq`, `apt
-  autoremove --dry-run`, `dnf repoquery --unneeded` / `zypper packages
-  --unneeded`). The #1 `r/archlinux` answer for “how to free space”.
-- **Flatpak: `flatpak/unused-runtimes`** — `flatpak uninstall --unused
-  --dry-run` (old SDKs wasting disk silently).
-- **Check: `boot`** — boot partition space (`df -P /boot`, `/boot/efi`) and
-  missing `grub.cfg` / `systemd-boot` entry (the “linux not booting” class).
-- **Check: `cache`** — user cache and trash bloat (`~/.cache`, `~/.local/share/Trash`, 5/10 GB thresholds, desktop/laptop only).
-- **Docs: `docs/checks.md`** — auto-generated catalogue of all 44 checks and
-  their 142+ codes from the registry (`scripts/generate-check-docs.mjs`).
-- **Check: `wifi`** — rfkill soft/hard block, NetworkManager `radio wifi` disabled, adapter presence (`wifi/blocked`, `wifi/disabled`, `wifi/no-adapter`, `wifi/ok`, desktop/laptop only).
-- **Check: `packages`** — broken/locked package manager (`dpkg --audit`, `apt-get check`, `dnf check`, `pacman -Dk`, `packages/broken`, `packages/locked`, `packages/ok`).
-- **Man page: `packaging/linux-doctor.1`** — now documents every flag
-  (`--history-json`, `--thresholds-set`, `--alert`, `--daemon`, `--interval`).
-- **Thresholds: `inodeFullPct` / `inodeWarnPct`** in `docs/configuration.md`
-  and `DEFAULT_THRESHOLDS` `src/thresholds.js:10`.
+- **6 new checks + 1 Flatpak extension (44 checks / 145 codes total):**
+  - `inodes` — inode exhaustion (`df -i`): the classic “No space left on device” when `df -h` still shows free space. Tunable `inodeFullPct` / `inodeWarnPct` (90/80).
+  - `orphans` — orphaned packages: `pacman -Qtdq`, `apt autoremove --dry-run`, `dnf repoquery --unneeded` / `zypper packages --unneeded`.
+  - `boot` — boot partition health: space on `/boot` and `/boot/efi` plus missing `grub.cfg` / `systemd-boot` entry.
+  - `cache` — user cache and trash bloat: `~/.cache` and `~/.local/share/Trash` (5/10 GB thresholds, desktop/laptop).
+  - `wifi` — WiFi state: rfkill soft/hard block, `nmcli radio wifi`, adapter presence (`wifi/blocked`, `wifi/disabled`, `wifi/no-adapter`, `wifi/ok`).
+  - `packages` — package-manager health: `dpkg --audit`, `apt-get check`, `dnf check`, `pacman -Dk` (`packages/broken`, `packages/locked`, `packages/ok`).
+  - `flatpak/unused-runtimes` — `flatpak uninstall --unused --dry-run` for stale SDKs.
+- **Documentation:** `docs/checks.md` — auto-generated catalog of all 44 checks and 145 codes (`scripts/generate-check-docs.mjs`).
+- **Man page:** `packaging/linux-doctor.1` now documents every flag, including `--history-json`, `--thresholds-set`, `--alert`, `--daemon`, and `--interval`.
+- **Thresholds:** `inodeFullPct` / `inodeWarnPct` documented in `docs/configuration.md` and `DEFAULT_THRESHOLDS`.
 
 ### Changed
 
-- **Threshold validation**: `loadThresholds` `src/thresholds.js:36` and the
-  two `POST /api/thresholds` handlers `src/web.js:131` / `src/cli.js:592`
-  now drop non-numeric values (`"90%"` → ignored, keeps default) instead of
-  storing `NaN` and breaking comparisons.
-- **Support bundle / LLM scrub**: `scrub()` `src/support.js:28` now also
-  redacts `::1` and `fe80::` compressed IPv6 (previously slipped past the
-  4-group generic pattern) with a `::`/`[A-Fa-f]` guard so `12:34:56`
-  timestamps stay intact. Also used by `src/llm.js:9`.
+- **Safer `--fix` catalog — no more accidental SSH drops.** `network/no-route` (interface down/up cycle) is now `manual` tier — it would have killed the SSH session running `--fix --yes`. On Debian, `security/no-firewall` now runs `sudo ufw allow OpenSSH` *before* `sudo ufw --force enable` (plus `--force` to avoid the interactive y/n hang; existing sessions survive via conntrack).
+- **Threshold validation is now strict.** `loadThresholds` and both `POST /api/thresholds` handlers drop non-numeric values (`"90%"` → ignored, keeps default) instead of storing `NaN` and breaking comparisons.
+- **Scrubbing now covers compressed IPv6.** `scrub()` also redacts `::1` and `fe80::` without breaking `12:34:56` timestamps (guarded by `::` / `[A-Fa-f]`). Used by both support bundles and `--ai`.
 
 ### Fixed
 
-- **Processes: header bug** `src/checks/processes.js:28` — `ps -o rss` leaves a
-  `RSS` header line even with `args=`; the first parsed row was
-  `{ name: "RSS", rss: 0 }` and the real top process was shifted out.
-  Filtered explicitly; now `processes/ok` shows the real top 3.
+- **Processes: header row no longer shifts the top-3.** `ps -o rss` leaves a `RSS` header even with `args=`; the parser now filters it explicitly. `processes/ok` correctly shows the real top consumers.
 
 ## [0.3.4] — 2026-08-26
 
