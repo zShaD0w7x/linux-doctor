@@ -1,13 +1,14 @@
 # Maintainer: Linux Doctor <maintainer@example.com>
 # Arch Linux package for linux-doctor.
-# Build from the npm tarball produced by `npm pack` at a release tag:
-#   VERSION=0.2.0; npm pack && mv linux-doctor-*.tgz linux-doctor-$VERSION.tar.gz
-# NOTE: npm pack extracts its tarball under `package/`, so package() must
-# look there (see below) — a plain project-root tar also works.
 #
-# IMPORTANT: sha256sums=('SKIP') is only a build-time placeholder. AUR
-# rejects SKIP for a fixed tarball — replace it with the real sha256sum of
-# linux-doctor-$pkgver.tar.gz before submitting/updating the package.
+# Source: the GitHub release tag tarball (same tree as the npm tarball).
+# It extracts to linux-doctor-$pkgver/ — the primary layout below; an npm
+# `package/` layout (from `npm pack`) also works as a fallback in package().
+#
+# IMPORTANT: on every version bump, replace sha256sums with the real
+# sha256sum of the new tarball — AUR rejects ('SKIP') for fixed sources:
+#   curl -sLO https://github.com/zShaD0w7x/linux-doctor/archive/refs/tags/v$pkgver.tar.gz
+#   sha256sum v$pkgver.tar.gz
 pkgname=linux-doctor
 pkgver=0.4.0
 pkgrel=1
@@ -16,14 +17,14 @@ arch=('any')
 url="https://github.com/zShaD0w7x/linux-doctor"
 license=('GPL-3.0-or-later')
 depends=('nodejs>=20')
-source=("https://registry.npmjs.org/${pkgname}/-/${pkgname}-${pkgver}.tgz")
-sha256sums=('SKIP')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/zShaD0w7x/linux-doctor/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('40663190964c406723486ae25b7520bf8e8f35b7a81db3d9224026f89d069011')
 
 package() {
-  # npm pack tarballs extract to $srcdir/package/; fall back to a plain
-  # project-root tar for manual builds.
-  local src="${srcdir}/package"
-  [ -d "${src}" ] || src="${srcdir}/${pkgname}-${pkgver}"
+  # GitHub tag tarballs extract to $srcdir/linux-doctor-$pkgver/; an npm
+  # pack tarball extracts to $srcdir/package/ — both layouts are handled.
+  local src="${srcdir}/${pkgname}-${pkgver}"
+  [ -d "${src}" ] || src="${srcdir}/package"
   install -d "${pkgdir}/usr/lib/linux-doctor" "${pkgdir}/usr/lib/linux-doctor/src-gui" "${pkgdir}/usr/bin"
   cp -r "${src}/bin" "${src}/src" "${src}/package.json" "${src}/README.md" "${src}/LICENSE" "${pkgdir}/usr/lib/linux-doctor/"
   install -Dm644 "${src}/src-gui/index.html" "${pkgdir}/usr/lib/linux-doctor/src-gui/index.html"
