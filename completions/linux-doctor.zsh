@@ -16,6 +16,7 @@ _linux_doctor() {
     '--ai[add AI summary (needs LLM_API_KEY)]' \
     '--push=[post report to fleet server]:url:' \
     '--html=[save a standalone HTML report]:file:_files' \
+    '--md=[save a share-ready Markdown report (redacted)]:file:_files' \
     '--compare=[diff against a previous JSON report]:file:_files' \
     '--severity=[only findings at this severity]:severity:(high medium info)' \
     '--ignore=[hide findings by title]:pattern:' \
@@ -44,6 +45,8 @@ _linux_doctor() {
     '--interval=[seconds between --daemon runs]:seconds:' \
     '--support[write a privacy-safe support bundle (JSON)]' \
     '--no-history[do not read or write run history]' \
+    '--install-timer[install the user systemd timer (daily + --notify)]' \
+    '--uninstall-timer[remove the user systemd timer]' \
     '--help[show help]' \
     '--version[show version]' \
     '*:: :->args'

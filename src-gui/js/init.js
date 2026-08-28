@@ -128,15 +128,20 @@ if (pdfBtn) {
   });
 }
 
-// Markdown export
+// Markdown export — scrubbed, share-ready (same scrub() as CLI --md)
 $("#export").addEventListener("click", async () => {
   if (!lastData) return;
   await copyText(reportMarkdown(lastData));
   const btn = $("#export");
   const old = btn.textContent;
   btn.textContent = "\u2713 Copied";
-  showToast("\u2713 Report copied as Markdown");
+  showToast("\u2713 Report copied as Markdown (scrubbed)");
   setTimeout(() => (btn.textContent = old), 1200);
+});
+$("#export-md-file")?.addEventListener("click", () => {
+  if (!lastData) return;
+  downloadMarkdown(lastData);
+  showToast("\u2713 Markdown file downloaded (scrubbed)");
 });
 
 // Banner buttons: copy fix / jump to finding

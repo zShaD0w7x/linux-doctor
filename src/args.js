@@ -3,8 +3,8 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--severity", "--compare", "--alert", "--interval", "--thresholds-set"]);
-export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear"]);
+export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--md", "--severity", "--compare", "--alert", "--interval", "--thresholds-set"]);
+export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear", "--install-timer", "--uninstall-timer"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -25,6 +25,7 @@ export function parseArgs(argv) {
     ignoreList: false,
     pushUrl: null,
     htmlPath: null,
+    mdPath: null,
     summary: false,
     initConfig: false,
     checkList: false,
@@ -47,6 +48,8 @@ export function parseArgs(argv) {
     historyClear: false,
     thresholdsJson: false,
     thresholdsSet: null,
+    installTimer: false,
+    uninstallTimer: false,
     error: null,
   };
 
@@ -64,6 +67,7 @@ export function parseArgs(argv) {
     else if (flag === "--severity") out.severity = val.toLowerCase();
     else if (flag === "--push") out.pushUrl = val;
     else if (flag === "--html") out.htmlPath = val;
+    else if (flag === "--md") out.mdPath = val;
     else if (flag === "--compare") out.comparePath = val;
     else if (flag === "--alert") out.alertUrl = val;
     else if (flag === "--interval") out.interval = val;
@@ -79,6 +83,7 @@ export function parseArgs(argv) {
       : flag === "--ignore-add" ? "services/failed"
       : flag === "--ignore-remove" ? "fw-fanctrl"
       : flag === "--thresholds-set" ? '\'{"memory.warn":90}\''
+      : flag === "--md" ? "report.md"
       : "fw-fanctrl";
 
   for (let i = 0; i < args.length; i += 1) {

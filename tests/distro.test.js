@@ -35,3 +35,17 @@ test("pkgInstall: map form resolves per-distro package names by pkg first, then 
 test("pkgInstall: a missing key without * is a loud error, not a wrong command", () => {
   assert.throws(() => pkgInstall(detectDistro({ ID: "fedora" }), { debian: "procps" }));
 });
+
+test("pkgInstall: void and gentoo get native commands, not guesses", () => {
+  assert.equal(pkgInstall(detectDistro({ ID: "void" }), "smartmontools"), "sudo xbps-install -Sy smartmontools");
+  assert.equal(pkgInstall(detectDistro({ ID: "gentoo" }), "smartmontools"), "sudo emerge smartmontools");
+});
+
+test("pkgInstall: an unknown distribution gets an honest manual step, never a wrong command", () => {
+  // NixOS (and other unrecognized systems) must not be told to run dnf.
+  const out = pkgInstall(detectDistro({ ID: "nixos" }), "fastfetch");
+  assert.match(out, /fastfetch/);
+  assert.match(out, /package manager/i);
+  assert.doesNotMatch(out, /sudo dnf/);
+  assert.doesNotMatch(out, /sudo apt/);
+});

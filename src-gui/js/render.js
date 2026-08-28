@@ -50,6 +50,7 @@ function render(data) {
   });
 
   applyFilters();
+  renderSecurityPosture(data);
   renderNextStep(data);
   renderCheckErrors(data);
   renderFixed(data);

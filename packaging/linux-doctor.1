@@ -1,5 +1,5 @@
 .\" Linux Doctor man page
-.TH LINUX-DOCTOR 1 "2026-08-27" "linux-doctor 0.3.5" "User Commands"
+.TH LINUX-DOCTOR 1 "2026-08-28" "linux-doctor 0.4.0" "User Commands"
 .SH NAME
 linux-doctor \- read-only health checks for your Linux system
 .SH SYNOPSIS
@@ -60,6 +60,21 @@ Add an AI summary in plain English (requires LLM_API_KEY).
 .TP
 .BR \-\-html " " \fIpath\fR
 Save a standalone HTML report to the given path.
+.TP
+.BR \-\-md " " \fIpath\fR
+Save a share-ready Markdown report to the given path. IP addresses, home
+directory names, and UIDs are redacted, so the file is safe to paste in
+public forums or issues.
+.TP
+.BR \-\-install\-timer
+Install a user-level systemd timer (no sudo) under
+~/.config/systemd/user/ and enable it: Linux Doctor runs shortly after
+boot, then daily, with \-\-notify attached \- you only hear about your
+machine when something NEW appears.
+.TP
+.BR \-\-uninstall\-timer
+Remove and disable the user timer installed by \-\-install\-timer.
+Idempotent.
 .TP
 .BR \-\-compare " " \fIfile\fR
 Diff a previous JSON report against the current run.

@@ -9,7 +9,8 @@ actually matter. Each finding comes with a clear explanation and a
 copy-paste fix. It remembers your last run, so every report tells you what's
 new, what got fixed, and what stayed the same.
 
-It never changes your system. Fixes are suggestions you run yourself.
+It never changes your system. Fixes are suggestions you run yourself. Every
+check and every fix command is covered by 460+ automated tests — read-only by construction.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/dashboard-light.png" alt="Linux Doctor dashboard (light): health score, START HERE action, findings grouped by severity" width="49%"><img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/dashboard-dark.png" alt="Linux Doctor dashboard (dark): health score, START HERE action, findings grouped by severity" width="49%">
@@ -62,10 +63,12 @@ npx github:zShaD0w7x/linux-doctor     # no install, straight from GitHub
 npm install -g linux-doctor && linux-doctor
 ```
 
-Prefer a native CLI package? **Arch / AUR:** `linux-doctor` —
-[PKGBUILD](packaging/PKGBUILD) · **Fedora / RHEL / openSUSE:** build an RPM
-with the [linux-doctor.spec](packaging/linux-doctor.spec). Details:
-[packaging/README.md](packaging/README.md).
+Prefer a native CLI package?
+
+- **Arch / AUR:** `yay -S linux-doctor` — [PKGBUILD](packaging/PKGBUILD)
+- **Fedora / RHEL / Bazzite / openSUSE:** build an RPM with the [linux-doctor.spec](packaging/linux-doctor.spec) or via COPR — details in [packaging/README.md](packaging/README.md)
+- **Debian / Ubuntu:** `.deb` from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)
+- **Any glibc distro:** AppImage or `npx github:zShaD0w7x/linux-doctor`
 
 ```
 STATUS   0 high, 2 medium, 19 info · health 74/100
@@ -176,6 +179,16 @@ report still works.
 - ~~More checks: Bluetooth, Wayland, backup, hardware errors, LUKS~~ — shipped
 - Auto-generated, distro-specific fix instructions
 - Signed store installers and a `.desktop` launcher for the GUI
+- **Maintenance:** single maintainer, AI-assisted. Expect weekly 0.4.x releases,
+  then biweekly 0.5.x; security fixes within days. Roadmap lives in CHANGELOG
+  [Unreleased] and in GitHub issues — contributions welcome.
+
+## Transparency
+
+Development is AI-assisted and the author is the driver of every decision.
+Accountability is by artifacts: 460+ automated tests (golden snapshots,
+shell-safety, output-parity), CI on Fedora + Node 20/22/24, read-only by
+construction with a pinned safe-fix catalog. Judge it by those artifacts.
 
 <a id="tiers"></a>
 ## Editions

@@ -8,3 +8,6 @@ src-tauri/target/
 src-tauri/gen/
 PRO_BOARD_PRIVATE.md
 pro/
+docs/research-user-needs.md
+docs/research-gtm-strategy.md
+launch/

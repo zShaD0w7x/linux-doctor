@@ -44,6 +44,14 @@ const CATEGORY_LABELS = {
   network: "Network", updates: "Updates", hardware: "Hardware",
   data: "Data", other: "Other",
 };
+/* Security posture: the checks that together describe the machine's
+   security hygiene. Shown as a dedicated "Security posture" grouping in the
+   report and sidebar — presentation grouping, not a new check. */
+const SECURITY_POSTURE_CHECKS = ["security", "ssh", "autologin", "secureboot", "luks"];
+function isSecurityPosture(checkId) { return SECURITY_POSTURE_CHECKS.includes(checkId); }
+function securityPostureFindings(findings) {
+  return (findings || []).filter((f) => isSecurityPosture(f.check));
+}
 /* How findings are grouped in the report: "severity" | "category". */
 let groupBy = "severity";
 /* check id → category, filled from /api/checks before the first render. */

@@ -62,6 +62,15 @@ test("parseArgs: --support and --no-history are booleans", () => {
   assert.equal(out.error, null);
 });
 
+test("parseArgs: --install-timer and --uninstall-timer are booleans", () => {
+  const out = parse("--install-timer");
+  assert.equal(out.installTimer, true);
+  assert.equal(out.uninstallTimer, false);
+  const out2 = parse("--uninstall-timer");
+  assert.equal(out2.uninstallTimer, true);
+  assert.equal(out2.error, null);
+});
+
 test("parseArgs: --help wins even with bad flags after it", () => {
   const out = parse("--help", "--bogus");
   assert.equal(out.help, true);

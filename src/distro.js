@@ -36,6 +36,8 @@ export function detectDistro(osRelease = {}) {
   else if (family === "arch") pkg = "pacman";
   else if (family === "suse") pkg = "zypper";
   else if (family === "alpine") pkg = "apk";
+  else if (family === "void") pkg = "xbps";
+  else if (family === "gentoo") pkg = "emerge";
 
   return { id, idLike, variant, family, pkg, imageBased, atomicVariant, all };
 }
@@ -59,11 +61,18 @@ export function pkgInstall(dist, pkgs) {
     return pkgInstall(dist, pick);
   }
   const list = Array.isArray(pkgs) ? pkgs.join(" ") : String(pkgs);
-  const p = dist?.pkg || "dnf";
+  const p = dist?.pkg;
+  // An unknown manager must never degrade to a wrong command — on NixOS or an
+  // exotic system, "sudo dnf install" is bad advice, not a fallback.
+  if (!p || p === "unknown") {
+    return `Manual step: install ${list} with your distribution's package manager (not recognized by linux-doctor).`;
+  }
   if (p === "apt") return `sudo apt install ${list}`;
   if (p === "apk") return `sudo apk add ${list}`;
   if (p === "pacman") return `sudo pacman -S ${list}`;
   if (p === "zypper") return `sudo zypper install ${list}`;
+  if (p === "xbps") return `sudo xbps-install -Sy ${list}`;
+  if (p === "emerge") return `sudo emerge ${list}`;
   if (p === "rpm-ostree") return `sudo rpm-ostree install ${list}`;
   return `sudo dnf install ${list}`;
 }

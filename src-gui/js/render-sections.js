@@ -3,6 +3,38 @@ function firstSentence(text) {
   return String(text || "").split(/(?<=\.)\s/)[0].trim();
 }
 
+function renderSecurityPosture(data) {
+  const el = $("#security-posture");
+  if (!el) return;
+  const sec = securityPostureFindings(data.findings || []);
+  if (!sec.length) { el.hidden = true; el.innerHTML = ""; return; }
+  const counts = { high: 0, medium: 0, info: 0 };
+  for (const f of sec) counts[f.severity] = (counts[f.severity] || 0) + 1;
+  const sevLabel = [];
+  if (counts.high) sevLabel.push(counts.high + " high");
+  if (counts.medium) sevLabel.push(counts.medium + " medium");
+  if (counts.info) sevLabel.push(counts.info + " info");
+  const worst = sec.some((f) => f.severity === "high") ? "high" : sec.some((f) => f.severity === "medium") ? "medium" : "info";
+  const tone = worst === "high" ? "warn" : worst === "medium" ? "warn" : "calm";
+  el.hidden = false;
+  el.className = "security-posture " + tone;
+  el.innerHTML =
+    '<div class="sp-icon" aria-hidden="true">' + catIcon("security", 18) + '</div>' +
+    '<div class="sp-body"><div class="sp-title">Security posture &middot; ' + sec.length + ' finding' + (sec.length > 1 ? "s" : "") + '</div>' +
+    '<div class="sp-hint">' + esc(sevLabel.join(" \u00b7 ") || "review") + ' across firewall, SSH, login & boot checks</div></div>' +
+    '<button data-spjump>Show security findings</button>';
+  el.querySelector("[data-spjump]")?.addEventListener("click", () => {
+    activeFilter = "all";
+    document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
+    // Switch to category view so the security group is together, then scroll to it
+    setGroupBy("category");
+    requestAnimationFrame(() => {
+      applyFilters();
+      scrollToGroup("cat", "security");
+    });
+  }, { once: true });
+}
+
 function renderNextStep(data) {
   const el = $("#nexthep");
   if (!el) return;

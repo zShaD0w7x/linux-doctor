@@ -509,6 +509,22 @@ body.compact #report { gap: 16px; }
 #trend .sevlegend .lg.medium { background: var(--yellow); }
 #trend .sevlegend .lg.info { background: var(--blue); }
 
+/* === Security posture banner === */
+.security-posture {
+  max-width: 1040px; margin: 0 0 16px; width: 100%;
+  border: 1px solid var(--border); border-left: 4px solid var(--blue);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 6%, var(--card)), var(--card));
+  border-radius: var(--radius); padding: 14px 18px;
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+}
+.security-posture.warn { border-left-color: var(--yellow); background: linear-gradient(135deg, color-mix(in srgb, var(--yellow) 6%, var(--card)), var(--card)); }
+.security-posture.high { border-left-color: var(--red); background: linear-gradient(135deg, color-mix(in srgb, var(--red) 6%, var(--card)), var(--card)); }
+.security-posture .sp-icon { flex-shrink: 0; display: grid; place-items: center; }
+.security-posture .sp-body { flex: 1; min-width: 180px; }
+.security-posture .sp-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.security-posture .sp-hint { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
 /* === Start Here Banner === */
 #nexthep {
   max-width: 1040px; margin: 0; width: 100%;
@@ -720,7 +736,8 @@ body.compact #report { gap: 16px; }
       <div class="dropdown" id="export-dropdown">
         <button id="export-trigger" class="toolbtn" aria-haspopup="true" aria-expanded="false" title="Export report">Export ▾</button>
         <div class="dropdown-menu" role="menu">
-          <button class="dropdown-item" id="export" role="menuitem" title="Copy the report as Markdown">📝 Copy as Markdown</button>
+          <button class="dropdown-item" id="export" role="menuitem" title="Copy the report as Markdown (scrubbed)">📝 Copy as Markdown</button>
+          <button class="dropdown-item" id="export-md-file" role="menuitem" title="Save scrubbed Markdown to file">💾 Save as Markdown file</button>
           <button class="dropdown-item" id="copyjson" role="menuitem" title="Copy the raw JSON report">{ } Copy JSON</button>
           <button class="dropdown-item" id="pdfbtn" role="menuitem" title="Export as PDF (print)">🖨 Save as PDF</button>
         </div>
@@ -772,6 +789,7 @@ body.compact #report { gap: 16px; }
         </div>
       </div>
       <main class="content">
+        <div id="security-posture" hidden></div>
         <div id="nexthep" hidden></div>
         <div id="drillhint" class="empty" hidden></div>
         <div id="report" aria-live="polite"><div class="empty">Reading your system…</div></div>
@@ -871,6 +889,14 @@ const CATEGORY_LABELS = {
   network: "Network", updates: "Updates", hardware: "Hardware",
   data: "Data", other: "Other",
 };
+/* Security posture: the checks that together describe the machine's
+   security hygiene. Shown as a dedicated "Security posture" grouping in the
+   report and sidebar — presentation grouping, not a new check. */
+const SECURITY_POSTURE_CHECKS = ["security", "ssh", "autologin", "secureboot", "luks"];
+function isSecurityPosture(checkId) { return SECURITY_POSTURE_CHECKS.includes(checkId); }
+function securityPostureFindings(findings) {
+  return (findings || []).filter((f) => isSecurityPosture(f.check));
+}
 /* How findings are grouped in the report: "severity" | "category". */
 let groupBy = "severity";
 /* check id → category, filled from /api/checks before the first render. */
@@ -1758,7 +1784,17 @@ function setupChecksMatrix() {
 
 
 /* ── export.js ── */
-/* === Markdown export === */
+/* === Markdown export — scrubbed, share-ready === */
+function scrub(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?\b/g, "<ip-redacted>")
+    .replace(/(?:[0-9A-Fa-f]{0,4}:){2,}[0-9A-Fa-f]{0,4}\b/g, (m) => /::|[A-Fa-f]/.test(m) ? "<ip-redacted>" : m)
+    .replace(/\bfe80::[0-9A-Fa-f:]*\b/gi, "<ip-redacted>")
+    .replace(/::1\b/g, "<ip-redacted>")
+    .replace(/\/(home|Users)\/[^\/\s]+/g, "/$1/<user-redacted>")
+    .replace(/\/run\/user\/\d+/g, "/run/user/<uid-redacted>");
+}
 function reportMarkdown(data) {
   const { system = {}, findings = [] } = data;
   const lines = [];
@@ -1766,12 +1802,14 @@ function reportMarkdown(data) {
   // so the stethoscope is safe — and wanted — here, unlike inside the app UI.
   lines.push("# \u{1fa7a} Linux Doctor report");
   lines.push("");
-  lines.push("- **System:** " + [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" \u00b7 "));
+  lines.push("- **System:** " + [scrub(system.distro), scrub(system.kernel), (system.cores || "?") + " core(s)", "up " + scrub(system.uptime)].filter(Boolean).join(" \u00b7 "));
   if (typeof data.score === "number") {
     lines.push("- **Health:** " + data.score + "/100" +
       (typeof data.scoreDelta === "number" ? " (" + (data.scoreDelta > 0 ? "+" + data.scoreDelta : data.scoreDelta) + " since last check)" : ""));
   }
   lines.push("- **Checks:** " + (data.checksRun ?? "?") + " ran, " + (data.checksSkipped ?? 0) + " skipped");
+  lines.push("");
+  lines.push("_IPs and home paths are redacted — safe to paste in public._");
   lines.push("");
   const names = { high: "High severity", medium: "Medium severity", info: "Informational" };
   let count = 0;
@@ -1782,15 +1820,27 @@ function reportMarkdown(data) {
     lines.push("");
     for (const f of group) {
       count++;
-      lines.push((count) + ". **" + (f.title || "") + "**" + (f.code ? " (`" + f.code + "`)" : ""));
-      if (f.detail) lines.push("   - Detail: " + f.detail);
-      if (f.evidence) lines.push("   - Evidence: " + f.evidence);
-      if (f.fix) lines.push("   - Fix: " + f.fix);
+      lines.push((count) + ". **" + scrub(f.title || "") + "**" + (f.code ? " (`" + scrub(f.code) + "`)" : ""));
+      if (f.detail) lines.push("   - Detail: " + scrub(f.detail));
+      if (f.evidence) lines.push("   - Evidence: " + scrub(f.evidence));
+      if (f.fix) lines.push("   - Fix: " + scrub(f.fix));
       lines.push("");
     }
   }
   if (!count) lines.push("No findings.");
   return lines.join("\n");
+}
+function downloadMarkdown(data) {
+  const text = reportMarkdown(data);
+  const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = "linux-doctor-" + ts + ".md";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
 }
 
 
@@ -2013,6 +2063,38 @@ function wrongUrl(f) {
 /* === Sections: next step, fixed, diff, skipped, check errors === */
 function firstSentence(text) {
   return String(text || "").split(/(?<=\.)\s/)[0].trim();
+}
+
+function renderSecurityPosture(data) {
+  const el = $("#security-posture");
+  if (!el) return;
+  const sec = securityPostureFindings(data.findings || []);
+  if (!sec.length) { el.hidden = true; el.innerHTML = ""; return; }
+  const counts = { high: 0, medium: 0, info: 0 };
+  for (const f of sec) counts[f.severity] = (counts[f.severity] || 0) + 1;
+  const sevLabel = [];
+  if (counts.high) sevLabel.push(counts.high + " high");
+  if (counts.medium) sevLabel.push(counts.medium + " medium");
+  if (counts.info) sevLabel.push(counts.info + " info");
+  const worst = sec.some((f) => f.severity === "high") ? "high" : sec.some((f) => f.severity === "medium") ? "medium" : "info";
+  const tone = worst === "high" ? "warn" : worst === "medium" ? "warn" : "calm";
+  el.hidden = false;
+  el.className = "security-posture " + tone;
+  el.innerHTML =
+    '<div class="sp-icon" aria-hidden="true">' + catIcon("security", 18) + '</div>' +
+    '<div class="sp-body"><div class="sp-title">Security posture &middot; ' + sec.length + ' finding' + (sec.length > 1 ? "s" : "") + '</div>' +
+    '<div class="sp-hint">' + esc(sevLabel.join(" \u00b7 ") || "review") + ' across firewall, SSH, login & boot checks</div></div>' +
+    '<button data-spjump>Show security findings</button>';
+  el.querySelector("[data-spjump]")?.addEventListener("click", () => {
+    activeFilter = "all";
+    document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
+    // Switch to category view so the security group is together, then scroll to it
+    setGroupBy("category");
+    requestAnimationFrame(() => {
+      applyFilters();
+      scrollToGroup("cat", "security");
+    });
+  }, { once: true });
 }
 
 function renderNextStep(data) {
@@ -2260,6 +2342,7 @@ function render(data) {
   });
 
   applyFilters();
+  renderSecurityPosture(data);
   renderNextStep(data);
   renderCheckErrors(data);
   renderFixed(data);
@@ -2401,15 +2484,20 @@ if (pdfBtn) {
   });
 }
 
-// Markdown export
+// Markdown export — scrubbed, share-ready (same scrub() as CLI --md)
 $("#export").addEventListener("click", async () => {
   if (!lastData) return;
   await copyText(reportMarkdown(lastData));
   const btn = $("#export");
   const old = btn.textContent;
   btn.textContent = "\u2713 Copied";
-  showToast("\u2713 Report copied as Markdown");
+  showToast("\u2713 Report copied as Markdown (scrubbed)");
   setTimeout(() => (btn.textContent = old), 1200);
+});
+$("#export-md-file")?.addEventListener("click", () => {
+  if (!lastData) return;
+  downloadMarkdown(lastData);
+  showToast("\u2713 Markdown file downloaded (scrubbed)");
 });
 
 // Banner buttons: copy fix / jump to finding

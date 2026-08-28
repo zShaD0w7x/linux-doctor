@@ -8,6 +8,7 @@ import { isPro, proInfo } from "./license.js";
 import { loadProModule } from "./pro.js";
 import { shouldAlert, buildAlert, sendAlert } from "./alert.js";
 import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding } from "./report.js";
+import { renderMarkdown } from "./markdown.js";
 import { aiSummary } from "./llm.js";
 import { pushReport, validatePushUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
@@ -346,6 +347,7 @@ OPTIONS
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
   --html <path>  save a standalone HTML report (open in any browser)
+  --md <path>    save a share-ready Markdown report (IPs and home paths redacted)
   --compare <f>  diff a previous JSON report against the current run
   --push <url>   post the report to a fleet server (FLEET_API_KEY optional)
   --severity <s> show only findings at this severity (high, medium, info)
@@ -360,6 +362,8 @@ OPTIONS
   --support      write a privacy-safe support bundle (JSON) for issues/forums
   --no-history   do not read or write run history (no new/fixed tracking)
   --history-clear clear stored run history
+  --install-timer    install the user systemd timer (daily run + --notify, no sudo)
+  --uninstall-timer  remove and disable the user timer installed by --install-timer
   --license      show the Linux Doctor Pro add-on status and exit
   --alert <url>  POST an alert webhook when the machine degrades [Pro]
   --daemon       run continuously, re-checking every --interval seconds [Pro]
@@ -459,6 +463,24 @@ export async function main(argv) {
         return 2;
       }
     }
+  }
+
+  // --install-timer / --uninstall-timer: manage the user systemd timer and
+  // exit — management commands never run checks (same contract as
+  // --init-config and --history-clear).
+  if (args.installTimer || args.uninstallTimer) {
+    if (args.installTimer && args.uninstallTimer) {
+      console.error("linux-doctor: choose either --install-timer or --uninstall-timer, not both");
+      return 2;
+    }
+    const units = await import("./units.js");
+    const res = args.installTimer ? units.installTimer() : units.uninstallTimer();
+    if (res.ok) {
+      console.log(res.message);
+      return 0;
+    }
+    console.error(`linux-doctor: ${res.error}`);
+    return 2;
   }
 
   // --init-config: create a starter config file and exit.
@@ -956,6 +978,37 @@ function printIgnoreLists(titles, codes) {
       console.log(`Report saved to ${args.htmlPath}`);
     } catch (err) {
       console.error(`linux-doctor: could not write HTML report: ${err.message}`);
+      return 2;
+    }
+    return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;
+  }
+
+  // --md: write the share-ready Markdown export and exit. Same contract as
+  // --html: file written, path echoed, exit code still reflects the FULL
+  // finding set so the flag stays cron/script-safe.
+  if (args.mdPath) {
+    try {
+      const md = renderMarkdown(displayFindings, {
+        system,
+        version: pkg.version,
+        score: sc,
+        scoreBreakdown: report.scoreBreakdown,
+        scoreDelta: report.scoreDelta,
+        newCount,
+        fixedCount: report.fixedCount,
+        unchanged: report.unchanged,
+        ignoredCount: report.ignoredCount,
+        checkErrors: report.checkErrors,
+        checksRun: report.checksRun,
+        checksSkipped: report.checksSkipped,
+        checksAtomicSkipped: report.checksAtomicSkipped,
+        skippedChecks: report.skippedChecks,
+        historyDisabled: report.historyDisabled,
+      });
+      writeFileSync(args.mdPath, md, "utf8");
+      console.log(`Report saved to ${args.mdPath}`);
+    } catch (err) {
+      console.error(`linux-doctor: could not write Markdown report: ${err.message}`);
       return 2;
     }
     return findings.some((f) => f.severity === "high" || f.severity === "medium") ? 1 : 0;

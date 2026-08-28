@@ -6,6 +6,30 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-28
+
+### Added
+
+- **`--md <path>` — share-ready Markdown export.** One flag writes a
+  paste-ready Markdown report (START HERE, severity sections with stable
+  codes, evidence, fixes, since-last-run diff) with the same `scrub()` used
+  by support bundles applied to every text field — IPs, home paths, and UIDs
+  are redacted before the file is written, so it is safe to post in public
+  forums or issues. Exit codes match the normal report.
+- **`--install-timer` / `--uninstall-timer` — one-command scheduling.**
+  Writes user-level systemd units (no sudo) under `~/.config/systemd/user/`
+  with resolved absolute paths (survives npm relocation), enables the timer,
+  and attaches `--notify` — the machine only speaks when something NEW
+  appears. Idempotent install, forgiving uninstall, honest exit 2 when
+  systemd is not running. Management commands never run checks.
+
+### Changed
+
+- **`pkgInstall()` no longer guesses `dnf` on unknown distributions.** Void
+  and Gentoo now get correct native commands (`xbps-install -Sy`, `emerge`);
+  any other unrecognized distro gets an honest manual-step line instead of a
+  wrong `sudo dnf install` (e.g. on NixOS).
+
 ## [0.3.5] — 2026-08-27
 
 > **Highlights:** 6 new health checks, stronger fleet/AI privacy, safer `--fix`, and a more robust dashboard. No breaking changes.

@@ -51,6 +51,22 @@
 #trend .sevlegend .lg.medium { background: var(--yellow); }
 #trend .sevlegend .lg.info { background: var(--blue); }
 
+/* === Security posture banner === */
+.security-posture {
+  max-width: 1040px; margin: 0 0 16px; width: 100%;
+  border: 1px solid var(--border); border-left: 4px solid var(--blue);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 6%, var(--card)), var(--card));
+  border-radius: var(--radius); padding: 14px 18px;
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+}
+.security-posture.warn { border-left-color: var(--yellow); background: linear-gradient(135deg, color-mix(in srgb, var(--yellow) 6%, var(--card)), var(--card)); }
+.security-posture.high { border-left-color: var(--red); background: linear-gradient(135deg, color-mix(in srgb, var(--red) 6%, var(--card)), var(--card)); }
+.security-posture .sp-icon { flex-shrink: 0; display: grid; place-items: center; }
+.security-posture .sp-body { flex: 1; min-width: 180px; }
+.security-posture .sp-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.security-posture .sp-hint { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
 /* === Start Here Banner === */
 #nexthep {
   max-width: 1040px; margin: 0; width: 100%;

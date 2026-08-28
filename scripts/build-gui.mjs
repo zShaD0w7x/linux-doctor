@@ -95,7 +95,8 @@ ${css}
       <div class="dropdown" id="export-dropdown">
         <button id="export-trigger" class="toolbtn" aria-haspopup="true" aria-expanded="false" title="Export report">Export ▾</button>
         <div class="dropdown-menu" role="menu">
-          <button class="dropdown-item" id="export" role="menuitem" title="Copy the report as Markdown">📝 Copy as Markdown</button>
+          <button class="dropdown-item" id="export" role="menuitem" title="Copy the report as Markdown (scrubbed)">📝 Copy as Markdown</button>
+          <button class="dropdown-item" id="export-md-file" role="menuitem" title="Save scrubbed Markdown to file">💾 Save as Markdown file</button>
           <button class="dropdown-item" id="copyjson" role="menuitem" title="Copy the raw JSON report">{ } Copy JSON</button>
           <button class="dropdown-item" id="pdfbtn" role="menuitem" title="Export as PDF (print)">🖨 Save as PDF</button>
         </div>
@@ -147,6 +148,7 @@ ${css}
         </div>
       </div>
       <main class="content">
+        <div id="security-posture" hidden></div>
         <div id="nexthep" hidden></div>
         <div id="drillhint" class="empty" hidden></div>
         <div id="report" aria-live="polite"><div class="empty">Reading your system…</div></div>

@@ -35,8 +35,11 @@ STATUS (`SCORE 77/100 = 100 −15 disk/full …`), pinned by tests so
 --json            machine-readable JSON output (great for scripting)
 --plain           plain, tab-separated text — no colors/emoji, grep-friendly
 --summary         one-liner: score + severity counts + delta (for cron/scripts)
+--md <path>       save a share-ready Markdown report (IPs and home paths redacted)
 --no-history      disable history recording for this run (or set LINUX_DOCTOR_NO_HISTORY)
 --history-clear   clear stored run history
+--install-timer   install the user systemd timer (daily run + --notify, no sudo)
+--uninstall-timer remove and disable the user timer installed by --install-timer
 --todo            numbered, copy-pasteable list of what to run, in order
 --fix             dry run: show the safe-fix commands for the findings found
 --fix --yes       execute the [apply] safe-fix commands ([manual] never runs)
@@ -133,6 +136,19 @@ fix     1   Inspect one with `systemctl status ...`
 Exit codes are the same as the normal report, so `--plain` works in cron and
 scripts too.
 
+## Markdown export (`--md`)
+
+```bash
+linux-doctor --md report.md
+```
+
+Saves the report as a share-ready Markdown file — the paste-on-forum
+successor of "run inxi and paste the output": START HERE, every finding with
+its stable code, evidence, and fix, plus what changed since the last run.
+Every text field goes through the same scrubbing as the support bundle (IPs,
+home paths, UIDs), so the file is safe to post publicly. Exit codes match the
+normal report.
+
 ## Shell completions
 
 Shell completions (bash/zsh/fish) are in [completions/](../completions/).
@@ -146,6 +162,27 @@ install -Dm644 completions/linux-doctor.zsh /usr/share/zsh/site-functions/_linux
 # fish
 install -Dm644 completions/linux-doctor.fish ~/.config/fish/completions/linux-doctor.fish
 ```
+
+## One-command scheduling (`--install-timer`)
+
+```bash
+linux-doctor --install-timer
+```
+
+Writes a **user-level** systemd timer (no sudo, no root) under
+`~/.config/systemd/user/`, then enables it: Linux Doctor runs shortly after
+boot and then once a day, with `--notify` attached — so you only hear about
+your machine when something **new** appears. The units carry resolved
+absolute paths (your node binary + the installed CLI), so they survive npm
+relocation. Remove it any time:
+
+```bash
+linux-doctor --uninstall-timer
+```
+
+Both commands exit `2` honestly when systemd is not running, and never run
+checks themselves. For a **system-wide** variant (root, servers, headless),
+use the manual timer below instead.
 
 ## Run checks automatically (systemd timer)
 
