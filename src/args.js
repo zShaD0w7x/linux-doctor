@@ -4,7 +4,7 @@
  * typo like `--jsonn` must never quietly run a full report.
  */
 export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--md", "--severity", "--compare", "--alert", "--interval", "--thresholds-set"]);
-export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear", "--install-timer", "--uninstall-timer"]);
+export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--ai-local", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear", "--install-timer", "--uninstall-timer"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -18,6 +18,7 @@ export function parseArgs(argv) {
     plain: false,
     web: false,
     ai: false,
+    aiLocal: false,
     checkIds: [],
     ignore: [],
     ignoreCodes: [],

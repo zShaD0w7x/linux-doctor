@@ -2,7 +2,7 @@
 
 Every finding `code` is stable — use it for `--ignore-code`, history diffing, and scripting. Generated from `src/checks/index.js` + `tests/codes-registry.test.js`; do not edit by hand.
 
-Total: **44 checks** → **145 codes**.
+Total: **46 checks** → **154 codes**.
 
 | Check | Category | Codes | Severity |
 |---|---|---|---|
@@ -11,17 +11,18 @@ Total: **44 checks** → **145 codes**.
 | `disk` — Disk space | system | `disk/full` (high/medium) | desktop/laptop/server |
 | `inodes` — Inode usage | system | `inodes/full` (high/medium) | desktop/laptop/server |
 | `fs` — Filesystem errors | system | `fs/btrfs-errors` (high)<br>`fs/io-errors` (high)<br>`fs/ok` (info)<br>`fs/readonly-remount` (high) | desktop/laptop/server |
+| `raid` — RAID array health | storage | `raid/degraded` (high)<br>`raid/rebuilding` (medium)<br>`raid/ok` (info) | server |
 | `oom` — Out-of-memory kills | system | `oom/kills` (medium/high)<br>`oom/ok` (info) | desktop/laptop/server |
 | `processes` — Top memory consumers | system | `processes/high` (medium)<br>`processes/ok` (info)<br>`processes/warn` (medium) | desktop/laptop/server |
 | `thermal` — Temperatures and throttling | system | `thermal/hot` (high)<br>`thermal/ok` (info)<br>`thermal/skipped` (info)<br>`thermal/throttle` (medium)<br>`thermal/warm` (medium) | desktop/laptop/server |
 | `journald` — Journal (systemd log) size | system | `journald/large` (medium)<br>`journald/ok` (info)<br>`journald/skipped` (info) | desktop/laptop/server |
 | `zram` — Swap and zram health | system | `zram/full` (medium)<br>`zram/ok` (info)<br>`zram/swappiness` (info) | desktop/laptop/server |
 | `locales` — Locale configuration | system | `locales/broken` (medium) | desktop/laptop/server |
-| `services` — Failed services | software | `services/failed` (medium/high)<br>`services/skipped` (info) | desktop/laptop/server |
+| `services` — Failed services | software | `services/failed` (medium/high)<br>`services/restart-loop` (high)<br>`services/skipped` (info) | desktop/laptop/server |
 | `timers` — Scheduled tasks (systemd timers) | software | `timers/broken` (medium)<br>`timers/ok` (info) | desktop/laptop/server |
 | `journal` — System log errors (last 24 hours) | software | `journal/errors` (info/medium)<br>`journal/no-noise` (info)<br>`journal/skipped` (info)<br>`journal/unknown` (info) | desktop/laptop/server |
 | `suspend` — Suspend / resume | software | `suspend/failed` (medium) | desktop/laptop |
-| `containers` — Container runtimes | software | `containers/docker-stopped` (medium)<br>`containers/none` (info)<br>`containers/ok` (info)<br>`containers/podman-failed` (medium) | desktop/laptop/server |
+| `containers` — Container runtimes | software | `containers/docker-stopped` (medium)<br>`containers/none` (info)<br>`containers/ok` (info)<br>`containers/oom` (high)<br>`containers/dead` (medium)<br>`containers/restarting` (medium)<br>`containers/podman-failed` (medium) | desktop/laptop/server |
 | `containerdisk` — Container storage | system | `containerdisk/high` (high)<br>`containerdisk/ok` (info)<br>`containerdisk/skipped` (info)<br>`containerdisk/warn` (medium) | desktop/laptop/server |
 | `crash` — Crash and reboot history | system | `crash/coredumps` (high/medium)<br>`crash/panic` (high)<br>`crash/reboots` (info/medium/high)<br>`crash/skipped` (info) | desktop/laptop/server |
 | `security` — Basic security posture | security | `security/autologin` (medium)<br>`security/apparmor` (info)<br>`security/auto-update` (info)<br>`security/firewall` (info)<br>`security/no-firewall` (info)<br>`security/selinux` (info) | desktop/laptop/server |
@@ -40,6 +41,7 @@ Total: **44 checks** → **145 codes**.
 | `packages` — Package manager health | system | `packages/broken` (high)<br>`packages/locked` (medium)<br>`packages/ok` (info) | desktop/laptop/server |
 | `battery` — Battery | hardware | `battery/low` (medium)<br>`battery/none` (info)<br>`battery/status` (info)<br>`battery/wear` (info/medium) | laptop |
 | `gpu` — Graphics / GPU | hardware | `gpu/amd` (info)<br>`gpu/amd-missing` (medium)<br>`gpu/driver` (info)<br>`gpu/none` (info)<br>`gpu/nouveau` (medium)<br>`gpu/nvidia` (info)<br>`gpu/nvidia-missing` (medium)<br>`gpu/skipped` (info)<br>`gpu/software-rendering` (medium) | desktop/laptop |
+| `gpu-usage` — GPU memory pressure | graphics | `gpu-usage/vram-full` (medium)<br>`gpu-usage/active` (info) | desktop/laptop/server |
 | `bluetooth` — Bluetooth | hardware | `bluetooth/failed` (medium)<br>`bluetooth/none` (info)<br>`bluetooth/ok` (info)<br>`bluetooth/stopped` (medium) | desktop/laptop |
 | `wayland` — Wayland / display session | hardware | `wayland/healthy` (info)<br>`wayland/loginctl-missing` (info)<br>`wayland/no-compositor` (medium)<br>`wayland/no-session` (info)<br>`wayland/not-graphical` (info)<br>`wayland/software-rendering` (medium)<br>`wayland/x11` (info) | desktop/laptop |
 | `smart` — Disk health (SMART) | hardware | `smart/failing` (high)<br>`smart/good` (info)<br>`smart/needs-root` (info)<br>`smart/skipped` (info) | desktop/laptop/server |

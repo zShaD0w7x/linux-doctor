@@ -9,6 +9,7 @@ import { load } from "./load.js";
 import { disk } from "./disk.js";
 import { inodes } from "./inodes.js";
 import { fs } from "./fs.js";
+import { raid } from "./raid.js";
 import { oom } from "./oom.js";
 import { processes } from "./processes.js";
 import { thermal } from "./thermal.js";
@@ -36,6 +37,7 @@ import { containerdisk } from "./containerdisk.js";
 import { crash } from "./crash.js";
 import { battery } from "./battery.js";
 import { gpu } from "./gpu.js";
+import { gpuUsage } from "./gpu-usage.js";
 import { bluetooth } from "./bluetooth.js";
 import { wayland } from "./wayland.js";
 import { smart } from "./smart.js";
@@ -51,7 +53,7 @@ import { packages } from "./packages.js";
 
 export const checks = [
   // system
-  memory, load, disk, inodes, fs, oom, processes, thermal, journald, zram, locales,
+  memory, load, disk, inodes, fs, raid, oom, processes, thermal, journald, zram, locales,
   // software
   services, timers, journal, suspend, containers, containerdisk, crash,
   // security
@@ -61,7 +63,7 @@ export const checks = [
   // updates
   updates, snap, firmware, flatpak, reboot, packages,
   // hardware
-  battery, gpu, bluetooth, wayland, smart, hardware, audio,
+  battery, gpu, gpuUsage, bluetooth, wayland, smart, hardware, audio,
   // data
   backup, fstrim, orphans, boot, cache,
 ];

@@ -48,6 +48,7 @@ STATUS (`SCORE 77/100 = 100 −15 disk/full …`), pinned by tests so
 --self-test       explain the environment: distro, profile, which checks run
 --web             open the visual dashboard in your browser (recommended)
 --ai              add an AI summary in plain English (needs LLM_API_KEY)
+--ai-local        same, but use a local Ollama model (no cloud, fully private)
 --html <path>     save a standalone HTML report (open in any browser)
 --compare <file>  diff a previous JSON report against the current run
 --push <url>      post the report to a fleet server (FLEET_API_KEY optional)

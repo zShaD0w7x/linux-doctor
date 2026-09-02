@@ -106,15 +106,16 @@ change silently.
 | `disk` | Real partitions near full (ignores virtual/immutable roots) |
 | `inodes` | Inode usage — “No space left” with free space showing in `df -h` |
 | `fs` | Filesystem errors (btrfs, read-only remounts) |
+| `raid` | Software RAID health (mdadm/ZFS) — degraded arrays, resync in progress |
 | `oom` | Out-of-memory kills |
 | `zram` | Swap/zram health — compressed swap near full, swappiness |
 | `locales` | System locale — missing/broken locale generation |
-| `services` | Failed systemd services (system + user) |
+| `services` | Failed systemd services (system + user); services stuck in a restart loop |
 | `timers` | Scheduled tasks — enabled systemd timers that never run |
 | `journal` | Error log, with known-benign noise filtered out |
 | `journald` | System journal (log) disk usage |
 | `suspend` | Failed suspend/resume hooks (laptops) |
-| `containers` | Container runtimes — podman/docker installed and usable |
+| `containers` | Container runtimes — podman/docker installed and usable; dead, OOM-killed (exit 137), or restart-looping containers |
 | `containerdisk` | Container image storage (podman/docker) — hidden disk usage |
 | `crash` | Crash and reboot history (coredumps + unexpected restarts, correlated with automatic-update mechanisms) |
 | `security` | Firewall, SELinux, update services |
@@ -133,6 +134,7 @@ change silently.
 | `thermal` | CPU temperatures and thermal-throttling events |
 | `battery` | Laptop battery level and capacity wear (skipped on desktops) |
 | `gpu` | Graphics driver health (NVIDIA proprietary vs nouveau vs missing, software rendering) |
+| `gpu-usage` | GPU VRAM pressure (NVIDIA/AMD) — nearly-full VRAM flagged (AI/ML OOM risk) |
 | `bluetooth` | Bluetooth controller presence and daemon state |
 | `wayland` | Display session type, running compositor, software rendering |
 | `audio` | Sound server (PipeWire/PulseAudio) and output device (desktop/laptop) |

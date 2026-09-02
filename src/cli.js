@@ -346,6 +346,7 @@ OPTIONS
   --self-test    explain the environment: distro, profile, which checks run
   --web          open the visual dashboard in your browser (recommended)
   --ai           add an AI summary in plain English (needs LLM_API_KEY)
+  --ai-local     same, but use a local Ollama model (no cloud, fully private)
   --html <path>  save a standalone HTML report (open in any browser)
   --md <path>    save a share-ready Markdown report (IPs and home paths redacted)
   --compare <f>  diff a previous JSON report against the current run
@@ -927,7 +928,15 @@ function printIgnoreLists(titles, codes) {
     : findings;
 
   let summary = null;
-  if (args.ai) {
+  if (args.aiLocal) {
+    // Point the existing OpenAI-compatible client at a local Ollama instance.
+    // Ollama serves an OpenAI-compatible API at <host>/v1 and accepts any key,
+    // so the same code path works fully offline — no data leaves the machine.
+    process.env.LLM_BASE_URL = process.env.LLM_BASE_URL || "http://localhost:11434/v1";
+    process.env.LLM_MODEL = process.env.LLM_MODEL || "llama3.2";
+    process.env.LLM_API_KEY = process.env.LLM_API_KEY || "ollama";
+  }
+  if (args.ai || args.aiLocal) {
     summary = await aiSummary(findings, { premium: pro });
   }
 

@@ -6,6 +6,15 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **New `--ai-local` flag — private, offline AI summaries.** Points the existing AI summary at a local Ollama instance (`http://localhost:11434/v1`, model `llama3.2`, any key) so the plain-English explanation runs entirely on your machine with no cloud and no `LLM_API_KEY` to a third party. Finding text is still redacted with the same `scrub()` before it ever leaves the box.
+- **New `gpu-usage` check (46 checks / 154 codes total):** GPU memory pressure for AI/homelab rigs — reads VRAM used/total for NVIDIA (`nvidia-smi`) and AMD (`amdgpu` sysfs, no tool needed). Stays silent on an idle card, reports usage as informational when the GPU is working (≥50%), and flags VRAM nearly full (≥90%) as **medium** — the OOM risk when you try to load a bigger model. Complements the existing `gpu` driver-health check.
+- **3 new server checks (45 checks / 152 codes total):**
+  - `raid` — software RAID health: a degraded mdadm array (parsed from `/proc/mdstat`, no binary needed) or a `DEGRADED` ZFS pool is flagged **high** (data-loss risk), a resyncing/scrubbing array is **medium**, healthy arrays get an informational line. Server-scoped (pass `--check=raid` to force it anywhere).
+  - `containers/dead` + `containers/oom` + `containers/restarting` — extend the container check: a container that exited non-zero is **medium**, one killed by the OOM killer (exit 137) is **high**, and one stuck in a restart loop is **medium**. Read-only via `podman ps -a` / `docker ps -a`.
+  - `services/restart-loop` — extend the services check: a unit in `auto-restart` substate is "active" but never actually stays up, so it hides behind a green status; flagged **high** with its `NRestarts` count.
+
 ## [0.4.0] — 2026-08-28
 
 ### Added

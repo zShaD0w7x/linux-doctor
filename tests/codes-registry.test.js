@@ -66,6 +66,9 @@ export const REGISTRY = {
   "containers/docker-stopped": { sev: ["medium"], cat: "containers" },
   "containers/none": { sev: ["info"], cat: "containers" },
   "containers/ok": { sev: ["info"], cat: "containers" },
+  "containers/oom": { sev: ["high"], cat: "containers" },
+  "containers/dead": { sev: ["medium"], cat: "containers" },
+  "containers/restarting": { sev: ["medium"], cat: "containers" },
   "containers/podman-failed": { sev: ["medium"], cat: "containers" },
   // crash
   "crash/coredumps": { sev: ["high", "medium"], cat: "stability" },
@@ -81,6 +84,9 @@ export const REGISTRY = {
   "cache/trash": { sev: ["info", "medium"], cat: "system" },
   // disk / fs / inodes
   "disk/full": { sev: ["high", "medium"], cat: "storage" },
+  "raid/degraded": { sev: ["high"], cat: "storage" },
+  "raid/rebuilding": { sev: ["medium"], cat: "storage" },
+  "raid/ok": { sev: ["info"], cat: "storage" },
   "fs/btrfs-errors": { sev: ["high"], cat: "storage" },
   "fs/io-errors": { sev: ["high"], cat: "storage" },
   "fs/ok": { sev: ["info"], cat: "storage" },
@@ -101,6 +107,8 @@ export const REGISTRY = {
   "gpu/amd-missing": { sev: ["medium"], cat: "graphics" },
   "gpu/driver": { sev: ["info"], cat: "graphics" },
   "gpu/none": { sev: ["info"], cat: "graphics" },
+  "gpu-usage/vram-full": { sev: ["medium"], cat: "graphics" },
+  "gpu-usage/active": { sev: ["info"], cat: "graphics" },
   "gpu/nouveau": { sev: ["medium"], cat: "graphics" },
   "gpu/nvidia": { sev: ["info"], cat: "graphics" },
   "gpu/nvidia-missing": { sev: ["medium"], cat: "graphics" },
@@ -162,6 +170,7 @@ export const REGISTRY = {
   "secureboot/tpm": { sev: ["info"], cat: "security" },
   // services / smart / snap / ssh / suspend
   "services/failed": { sev: ["medium", "high"], cat: "system" },
+  "services/restart-loop": { sev: ["high"], cat: "system" },
   "services/skipped": { sev: ["info"], cat: "system" },
   "smart/failing": { sev: ["high"], cat: "storage" },
   "smart/good": { sev: ["info"], cat: "storage" },

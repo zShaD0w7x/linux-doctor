@@ -1,4 +1,4 @@
-import { lines, plural } from "../utils.js";
+import { lines, plural, shq } from "../utils.js";
 
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
@@ -50,6 +50,35 @@ export const services = defineCheck({
         fix: null,
         confidence: "high",
       }));
+      return findings;
+    }
+
+    // Restart loops: a unit in "auto-restart" substate is "active" but never
+    // actually stays up — systemd keeps restarting it after every crash. It hides
+    // behind a green status, which is exactly the blind spot monitoring misses.
+    const loopUnits = await ctx.run(
+      "systemctl list-units --type=service --no-legend --plain 2>/dev/null | grep -i 'auto-restart'"
+    );
+    if (loopUnits.ok && loopUnits.stdout.trim()) {
+      const looping = [];
+      for (const l of lines(loopUnits.stdout)) {
+        const name = l.split(/\s+/)[0];
+        if (!name) continue;
+        const nr = await ctx.run(`systemctl show ${shq(name)} -p NRestarts --value 2>/dev/null`);
+        const n = parseInt((nr.stdout || "").trim(), 10) || 0;
+        looping.push(n >= 3 ? `${name} (${n} restarts)` : name);
+      }
+      if (looping.length > 0) {
+        findings.push(finding({
+          severity: "high",
+          code: "services/restart-loop",
+          title: `${looping.length} service${looping.length > 1 ? "s" : ""} stuck in a restart loop`,
+          detail: `These units are in an "auto-restart" loop — systemd keeps restarting them because they keep exiting: ${looping.join(", ")}. A green "active" status hides the fact that they never stay up. This is usually a broken config, a missing dependency, or an out-of-memory kill (exit 137).`,
+          evidence: looping.join("\n"),
+          fix: `Find the root error with \`journalctl -u ${looping[0].split(" ")[0]} --since "30 min ago"\`. Fix the cause, then \`sudo systemctl reset-failed ${looping[0].split(" ")[0]}\`.`,
+          confidence: "high",
+        }));
+      }
     }
     return findings;
   },

@@ -14,6 +14,7 @@ _linux_doctor() {
     '--plain[print plain tab-separated text]' \
     '--web[open visual dashboard in browser]' \
     '--ai[add AI summary (needs LLM_API_KEY)]' \
+    '--ai-local[use a local Ollama model, fully private]' \
     '--push=[post report to fleet server]:url:' \
     '--html=[save a standalone HTML report]:file:_files' \
     '--md=[save a share-ready Markdown report (redacted)]:file:_files' \
