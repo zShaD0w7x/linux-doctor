@@ -38,7 +38,7 @@ try {
 
   const score = await page.textContent("#scorenum");
   const sysinfo = await page.textContent("#sysinfo");
-  const statusmsg = await page.textContent(".statusmsg");
+  const statusmsg = await page.textContent(".status-headline");
   const statusCls = await page.locator("#status").getAttribute("class");
   const allActive = await page.locator('#filters .fpill[data-sev="all"].active').count();
   const reportVisible = await page.locator("#report").evaluate((el) => !el.hidden);
@@ -69,6 +69,63 @@ try {
   const allActiveAfterClear = await page.locator('#filters .fpill[data-sev="all"].active').count();
   const filterOk = clearDisabledOnLoad && clearEnabledAfterFilter && allActiveAfterClear === 1;
 
+  // Accessibility smoke: valid disclosure markup, modal focus trap + restore,
+  // export menu keyboard + focus return, codepill copy without toggling.
+  let a11yOk = true;
+  const a11yNotes = [];
+  const divSummary = await page.evaluate(() => document.querySelectorAll("#report div.card > summary").length);
+  if (divSummary !== 0) { a11yOk = false; a11yNotes.push(`div.card>summary=${divSummary}`); }
+
+  await page.click("#helpbtn");
+  const helpOpen = await page.locator("#modal").evaluate((el) => !el.hidden);
+  const helpLabel = await page.locator("#modal").getAttribute("aria-label");
+  const helpFocus = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  await page.keyboard.press("Tab");
+  const helpTabWrap = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  await page.keyboard.press("Escape");
+  const helpClosed = await page.locator("#modal").evaluate((el) => el.hidden);
+  const helpRestore = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  if (!(helpOpen && helpLabel === "Keyboard shortcuts" && helpFocus === "modal-x" && helpTabWrap === "modal-x" && helpClosed && helpRestore === "helpbtn")) {
+    a11yOk = false;
+    a11yNotes.push(`help modal open=${helpOpen} label=${helpLabel} focus=${helpFocus} tab=${helpTabWrap} closed=${helpClosed} restore=${helpRestore}`);
+  }
+
+  await page.click("#export-trigger");
+  const expOpen = await page.locator("#export-trigger").getAttribute("aria-expanded");
+  await page.keyboard.press("ArrowDown");
+  const expItem = await page.evaluate(() => document.activeElement && document.activeElement.className);
+  await page.keyboard.press("Escape");
+  const expClosed = await page.locator("#export-trigger").getAttribute("aria-expanded");
+  const expRestore = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  if (!(expOpen === "true" && /dropdown-item/.test(expItem || "") && expClosed === "false" && expRestore === "export-trigger")) {
+    a11yOk = false;
+    a11yNotes.push(`export open=${expOpen} item=${expItem} closed=${expClosed} restore=${expRestore}`);
+  }
+
+  const pillCount = await page.locator("#report .codepill").count();
+  if (pillCount > 0) {
+    const pillToggle = await page.evaluate(async () => {
+      const pill = document.querySelector("#report .codepill");
+      const card = pill && pill.closest("details.card");
+      if (!pill || !card) return null;
+      const before = card.open;
+      pill.click();
+      await new Promise((r) => setTimeout(r, 200));
+      return { before, after: card.open };
+    });
+    if (!pillToggle || pillToggle.before !== pillToggle.after) {
+      a11yOk = false;
+      a11yNotes.push(`codepill toggled card ${JSON.stringify(pillToggle)}`);
+    }
+  }
+
+  const pressedOk = await page.evaluate(() => {
+    const auto = document.querySelector("#autorefresh");
+    const segs = [...document.querySelectorAll(".segbtn")];
+    return !!auto && auto.getAttribute("aria-pressed") !== null && segs.length === 2 && segs.every((b) => b.getAttribute("aria-pressed") !== null);
+  });
+  if (!pressedOk) { a11yOk = false; a11yNotes.push("toggle states missing aria-pressed"); }
+
   // Overview sidebar populates on wide viewports (>= 1100px).
   const sidebarShown = await page.locator("#sidebar").evaluate((el) => !el.hidden);
   const sidebarItems = await page.locator("#sidebar .sb-item").count();
@@ -81,6 +138,7 @@ try {
   console.log("all active on load:", allActive === 1, "| report visible:", reportVisible, "| clear disabled on load:", clearDisabledOnLoad);
   console.log("cards:", cards, "| compact rows:", crowRows, "| visible groups:", visibleGroups, "| high open:", highOpenOk, "| others collapsed:", othersClosedOk);
   console.log("filter → Clear → All:", filterOk);
+  console.log("a11y smoke:", a11yOk, a11yNotes.length ? "| " + a11yNotes.join(" | ") : "");
   console.log("START HERE shown:", nexthepShown, "| sidebar shown:", sidebarShown, "| sidebar items:", sidebarItems);
   console.log("history hidden:", histHidden);
   console.log("console errors:", consoleErrors.length);
@@ -95,7 +153,8 @@ try {
     reportVisible &&
     highOpenOk &&
     othersClosedOk &&
-    filterOk;
+    filterOk &&
+    a11yOk;
 } finally {
   await browser.close();
 }

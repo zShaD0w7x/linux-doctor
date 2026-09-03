@@ -1,8 +1,17 @@
 /* === Shared modal shell === */
-function openModal(html) {
+let modalOpener = null;
+
+function focusableInModal(modal) {
+  return [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => !el.disabled && el.getClientRects().length > 0);
+}
+
+function openModal(html, label) {
   const modal = $("#modal");
   const body = $("#modal-body");
   if (!modal || !body) return;
+  modalOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (label) modal.setAttribute("aria-label", label);
   body.innerHTML = html;
   modal.hidden = false;
   $("#modal-x")?.focus();
@@ -11,6 +20,8 @@ function openModal(html) {
 function closeModal() {
   const modal = $("#modal");
   if (modal && !modal.hidden) modal.hidden = true;
+  if (modalOpener && document.contains(modalOpener)) modalOpener.focus();
+  modalOpener = null;
 }
 
 function isModalOpen() {
@@ -24,6 +35,16 @@ function setupModal() {
   // Backdrop click closes; clicks inside the card do not.
   modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
   $("#modal-x")?.addEventListener("click", closeModal);
+  // Keep Tab inside the dialog while it is open.
+  modal.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const items = focusableInModal(modal);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 }
 
 /* Keyboard shortcuts help (?). */
@@ -37,5 +58,5 @@ function openHelp() {
     "<div><kbd>/</kbd></div><div>Focus the search box</div>" +
     "<div><kbd>Esc</kbd></div><div>Close this dialog \u00b7 clear search &amp; filters \u00b7 close thresholds</div>" +
     '<div><kbd>?</kbd></div><div>Show this help</div>' +
-    "</div>");
+    "</div>", "Keyboard shortcuts");
 }

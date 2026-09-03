@@ -24,6 +24,8 @@ function syncAutoPausedUI() {
   if (!autoRefresh) autoBtn.title = "Auto-refresh off \u2014 click to enable";
   else if (paused) autoBtn.title = "Paused \u2014 clear filter/search or collapse cards to resume";
   else autoBtn.title = "Auto-refresh every 20s";
+  autoBtn.setAttribute("aria-pressed", String(autoRefresh));
+  autoBtn.setAttribute("aria-label", autoBtn.title);
 }
 
 async function poll() {
@@ -53,6 +55,7 @@ function startPolling() {
 function setupPolling() {
   const autoBtn = $("#autorefresh");
   if (autoBtn) {
+    autoBtn.setAttribute("aria-pressed", String(autoRefresh));
     autoBtn.addEventListener("click", () => {
       autoRefresh = !autoRefresh;
       autoBtn.classList.toggle("on", autoRefresh);

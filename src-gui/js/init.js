@@ -76,16 +76,29 @@ $("#expandall").addEventListener("click", () => {
     dd.classList.remove("open");
     trigger.setAttribute("aria-expanded", "false");
   });
+  const menuItems = () => [...dd.querySelectorAll(".dropdown-item")];
+  const closeMenu = (focusTrigger) => {
+    dd.classList.remove("open");
+    trigger.setAttribute("aria-expanded", "false");
+    if (focusTrigger) trigger.focus();
+  };
   dd.querySelectorAll(".dropdown-item").forEach(btn => {
-    btn.addEventListener("click", () => {
-      dd.classList.remove("open");
-      trigger.setAttribute("aria-expanded", "false");
-    });
+    btn.addEventListener("click", () => closeMenu(true));
+  });
+  dd.addEventListener("keydown", (e) => {
+    if (!dd.classList.contains("open")) return;
+    const list = menuItems();
+    const i = list.indexOf(document.activeElement);
+    // Stop the global card-navigation handler on document from also acting.
+    if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); (list[i + 1] || list[0])?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); (list[i - 1] || list[list.length - 1])?.focus(); }
+    else if (e.key === "Home") { e.preventDefault(); e.stopPropagation(); list[0]?.focus(); }
+    else if (e.key === "End") { e.preventDefault(); e.stopPropagation(); list[list.length - 1]?.focus(); }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && dd.classList.contains("open")) {
-      dd.classList.remove("open");
-      trigger.setAttribute("aria-expanded", "false");
+      closeMenu(true);
+      e.stopImmediatePropagation();
     }
   });
 })();
@@ -197,6 +210,9 @@ document.addEventListener("click", async (e) => {
   }
   // Generic copy
   if (e.target.dataset.copy !== undefined) {
+    // A code pill lives inside the card <summary>: copying must not also
+    // toggle the finding open/closed.
+    if (e.target.closest && e.target.closest(".codepill")) e.preventDefault();
     await copyText(e.target.dataset.copy);
     const old = e.target.textContent;
     e.target.textContent = "\u2713 Copied";

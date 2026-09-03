@@ -78,8 +78,11 @@ function setGroupBy(mode) {
   try { localStorage.setItem("ld-groupby", mode); } catch {}
   if (groupBy === mode) return;
   groupBy = mode;
-  document.querySelectorAll(".segbtn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.groupby === mode));
+  document.querySelectorAll(".segbtn").forEach((b) => {
+    const on = b.dataset.groupby === mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
   if (lastData) render(lastData);
 }
 
@@ -94,6 +97,8 @@ function setupSidebar() {
         b.classList.toggle("active", b.dataset.groupby === saved));
     }
   } catch {}
+  document.querySelectorAll(".segbtn").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.groupby === groupBy)));
 
   document.addEventListener("click", (e) => {
     // Segmented control

@@ -1,17 +1,18 @@
-/* === Status zone: gauge, score, status message === */
-const SCORE_RING_R = 25;
+/* === Status zone: gauge, score, status message — PREMIUM HIERARCHY === */
+const SCORE_RING_R = 26;
 const SCORE_RING_C = 2 * Math.PI * SCORE_RING_R;
 
-function renderGauge(score) {
+function renderGauge(score, size) {
+  const s = size || 96;
   const scoreColor = score >= 80 ? "var(--green)" : score >= 50 ? "var(--yellow)" : "var(--red)";
-  return '<div class="gauge">' +
+  return '<div class="gauge' + (s > 96 ? ' large' : '') + '" style="width:' + s + 'px;height:' + s + 'px">' +
     '<svg viewBox="0 0 62 62" role="img" aria-label="Health score ' + score + ' of 100">' +
     '<circle class="track" cx="31" cy="31" r="' + SCORE_RING_R + '"></circle>' +
     '<circle class="ring" id="scorering" cx="31" cy="31" r="' + SCORE_RING_R + '" ' +
     'transform="rotate(-90 31 31)" stroke="' + scoreColor + '" ' +
     'stroke-dasharray="' + SCORE_RING_C + '" stroke-dashoffset="' + SCORE_RING_C + '"></circle>' +
     '</svg>' +
-    '<div class="gauge-center"><div class="scorenum" id="scorenum">0</div><div class="scoreout">/ 100</div></div>' +
+    '<div class="gauge-center"><div class="scorenum" id="scorenum">0</div><div class="scoreout">/100</div></div>' +
     '</div>';
 }
 
@@ -41,58 +42,92 @@ function animateScore(target) {
 function renderStatusMessage(findings) {
   const high = findings.filter((f) => f.severity === "high").length;
   const med = findings.filter((f) => f.severity === "medium").length;
-  let msgCls, msgTxt;
+  const inf = findings.filter((f) => f.severity === "info").length;
+  let headline, sublabel, level;
   if (high + med === 0) {
-    msgCls = "ok";
-    msgTxt = findings.length === 0
-      ? "Nothing needs your attention."
-      : "No high or medium issues \u2014 informational notes below.";
+    if (findings.length === 0) {
+      headline = "Healthy";
+      sublabel = "No high or medium issues — no issues detected";
+    } else {
+      headline = "Healthy";
+      sublabel = "No high or medium issues — " + inf + " informational " + (inf === 1 ? "note" : "notes") + " — no action needed";
+    }
+    level = "ok";
+  } else if (high > 0) {
+    headline = high === 1 ? "Needs attention" : "Needs attention";
+    sublabel = high + " high-severity " + (high === 1 ? "issue" : "issues") + (med ? " · " + med + " warnings" : "");
+    level = "critical";
   } else {
-    const parts = [];
-    if (high) parts.push(high + " high-severity " + (high === 1 ? "issue" : "issues"));
-    if (med) parts.push(med + " medium-severity " + (med === 1 ? "issue" : "issues"));
-    msgCls = "warn";
-    msgTxt = parts.join(" and ") + " need attention \u2014 see below.";
+    headline = "Needs attention";
+    sublabel = med + " " + (med === 1 ? "issue needs" : "issues need") + " attention";
+    level = "warn";
   }
-  return { msgCls, msgTxt };
+  return { headline, sublabel, level, high, med, inf };
 }
 
 function renderStatus(data) {
   const { findings = [], system = {} } = data;
   const ver = (data.version || "").replace(/^v/, "");
   $(".sysinfo").innerHTML =
-    [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" \u00b7 ") +
-    (ver ? ' \u00b7 <span class="ver">v' + ver + "</span>" : "");
+    [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · ") +
+    (ver ? ' · <span class="ver">v' + ver + "</span>" : "");
 
   const high = findings.filter((f) => f.severity === "high").length;
   const med = findings.filter((f) => f.severity === "medium").length;
   const inf = findings.filter((f) => f.severity === "info").length;
 
-  const { msgCls, msgTxt } = renderStatusMessage(findings);
+  const { headline, sublabel, level } = renderStatusMessage(findings);
 
   const scoreDelta = typeof data.scoreDelta === "number" ? data.scoreDelta : null;
   const deltaCls = scoreDelta === null ? "" : scoreDelta > 0 ? "delta-up" : scoreDelta < 0 ? "delta-down" : "delta-flat";
-  const deltaTxt = scoreDelta === null ? "no baseline yet" : scoreDelta > 0 ? "\u25b2 +" + scoreDelta : scoreDelta < 0 ? "\u25bc " + scoreDelta : "unchanged";
+  const deltaIcon = scoreDelta === null ? "" : scoreDelta > 0 ? "↗" : scoreDelta < 0 ? "↘" : "→";
+  const deltaTxt = scoreDelta === null ? "no baseline yet" : (scoreDelta > 0 ? "+" + scoreDelta : String(scoreDelta)) + " since last check";
   const score = typeof data.score === "number" ? data.score : 0;
+
+  // Build breakdown: human language, distinguish issues vs findings
+  let breakdownHtml = "";
+  if (high + med > 0) {
+    const parts = [];
+    if (high) parts.push("<b>" + high + "</b> high-severity " + (high === 1 ? "issue" : "issues"));
+    if (med) parts.push("<b>" + med + "</b> medium " + (med === 1 ? "finding" : "findings"));
+    breakdownHtml = '<div class="status-breakdown">' + parts.join('<span class="sep">·</span>') + '</div>';
+    if (inf) breakdownHtml += '<div class="status-breakdown" style="margin-top:2px;color:var(--muted2)">' + inf + " informational " + (inf === 1 ? "note" : "notes") + " — no action needed</div>";
+  } else if (inf) {
+    breakdownHtml = '<div class="status-breakdown">' + inf + " informational " + (inf === 1 ? "finding" : "findings") + "</div>";
+  }
 
   const chips =
     (data.newCount > 0 ? '<span class="newbadge">NEW ' + data.newCount + "</span>" : "") +
     (data.fixedCount > 0 ? '<span class="fixedbadge">FIXED ' + data.fixedCount + "</span>" : "");
 
   const status = $("#status");
-  status.className = "status" + (high + med === 0 ? " calm" : "");
+  status.className = "status" + (high + med === 0 ? " calm" : high > 0 ? " warn" : "");
+
+  // Hierarchy: [Gauge]  61 / NEEDS ATTENTION / breakdown / delta+chips
+  const scoreLabel = level === "ok" ? "HEALTHY" : level === "critical" ? "NEEDS ATTENTION" : "NEEDS ATTENTION";
+  const labelColor = level === "ok" ? "var(--green)" : level === "critical" ? "var(--red)" : "var(--yellow)";
+
   status.innerHTML =
     '<div class="status-main">' +
-    renderGauge(score) +
-    '<div class="hero-main"><div class="k">Health</div>' +
-    '<div class="scoredelta ' + deltaCls + '">' + deltaTxt + '</div></div>' +
+    renderGauge(score, 84) +
     '</div>' +
-    '<div class="status-body">' +
-    '<div class="statusmsg ' + msgCls + '">' + msgTxt + "</div>" +
-    '<div class="status-meta"><span class="dot" id="statusdot"></span><span id="statuspill-txt"></span>' + chips +
+    '<div class="status-body" style="gap:4px">' +
+    '<div class="status-eyebrow" style="color:' + labelColor + ';font-size:9px;letter-spacing:.13em">' + scoreLabel + '</div>' +
+    '<div class="status-score-row" style="align-items:baseline;gap:10px;margin-top:2px">' +
+      '<div style="font-size:42px;font-weight:800;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">' + score + '<span style="font-size:15px;font-weight:600;color:var(--muted2);margin-left:2px">/100</span></div>' +
+      '<div class="scoredelta ' + deltaCls + '" style="font-size:11px;padding:3px 8px">' + deltaIcon + " " + deltaTxt + "</div>" +
+    '</div>' +
+    '<div class="status-headline ' + (level === "ok" ? "ok" : "warn") + '" style="font-size:13px;margin-top:6px;font-weight:650">' + headline + '</div>' +
+    '<div style="font-size:12px;color:var(--muted);margin-top:1px">' + sublabel + '</div>' +
+    breakdownHtml.replace('status-breakdown', 'status-breakdown" style="font-size:12px;margin-top:6px').replace('margin-top:2px;color:var(--muted2)', 'margin-top:2px;color:var(--muted2);font-size:11px') +
+    '<div class="status-meta">' + chips +
     '<span id="hero-spark" class="chip-trend" hidden></span>' +
-    '<span id="checkschip" class="lowbadge" hidden></span>' +
+    '<button id="checkschip" type="button" class="lowbadge" hidden></button>' +
     "</div>" +
+    "</div>" +
+    '<div class="status-trend" style="align-self:center;flex-direction:column;align-items:flex-end;gap:6px;min-width:140px">' +
+      '<div style="font-size:11px;color:var(--muted2);text-align:right">' + (data.checksRun ? data.checksRun + " checks" : "") + (data.checksSkipped ? " · " + data.checksSkipped + " skipped" : "") + "</div>" +
+      '<div style="font-size:11px;color:var(--muted2)"><span class="dot" id="statusdot"></span><span id="statuspill-txt"></span></div>' +
     "</div>";
 
   animateScore(score);

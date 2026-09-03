@@ -1,4 +1,4 @@
-/* === Finding cards and groups === */
+/* === Finding cards and groups — premium diagnostic storytelling === */
 function durFor(check) {
   try {
     if (!check || typeof lastReportData === 'undefined' || !lastReportData) return null;
@@ -11,38 +11,46 @@ function durFor(check) {
 }
 function renderCard(f, sev) {
   const sevIcon = SEV_ICONS[sev] || "";
+  // Only quiet code + NEW in header — durpill/checkid/lowconf moved to body to reduce chrome
+  const codeBadge = f.code ? '<button class="codepill" data-copy="' + esc(f.code) + '" title="Copy ' + esc(f.code) + ' — type code:' + esc(f.code) + ' in search to filter">' + esc(f.code) + '</button>' : "";
+  const badges = codeBadge + (f.isNew ? '<span class="newbadge">NEW</span>' : "");
   const dur = durFor(f.check);
-  const durBadge = dur != null ? '<span class="durpill" title="Check wall time">' + dur + 'ms</span>' : "";
-  const codeBadge = f.code ? '<button class="codepill" data-copy="' + esc(f.code) + '" title="Click to copy code — filter with code:' + esc(f.code) + '">' + esc(f.code) + '</button>' : "";
-  const badges =
-    codeBadge +
-    durBadge +
-    (f.isNew ? '<span class="newbadge" title="Appeared since your last check">NEW</span>' : "") +
-    (f.confidence === "low" ? '<span class="lowbadge" title="This finding may be a false positive">LOW CONF</span>' : "") +
-    (f.check ? '<span class="checkid" title="Check id — runs with --check ' + esc(f.check) + '">' + esc(f.check) + "</span>" : "");
-
-  const SEV_COST = { high: "costs 15 points (+5 each extra)", medium: "costs 8 points (+1 past the third)", info: "informational — free" };
+  const SEV_COST = { high: "15 points", medium: "8 points", info: "info" };
   let html = '<details class="card ' + SEV[sev].cls + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +
     (f.check ? ' data-check="' + esc(f.check) + '"' : "") + ">";
-  html += '<summary><span class="sevicon" data-sev="' + sev + '" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " \u2014 " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">\u25b8</span></summary>';
+  html += '<summary><span class="sevicon" data-sev="' + sev + '" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " — " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">▸</span></summary>';
   html += '<div class="card-body">';
 
-  if (f.detail) html += '<div class="detail">' + esc(f.detail) + "</div>";
+  // Problem — what happened (detail first sentence)
+  if (f.detail) {
+    const firstDot = f.detail.indexOf(". ");
+    const problem = firstDot > 30 ? f.detail.slice(0, firstDot + 1) : f.detail.split("\n")[0];
+    const rest = firstDot > 30 ? f.detail.slice(firstDot + 2) : "";
+    html += '<div class="detail"><b>What happened:</b> ' + esc(problem) + '</div>';
+    if (rest) html += '<div class="detail" style="margin-top:8px;color:var(--muted)"><span style="font-weight:600;color:var(--text)">Why it matters:</span> ' + esc(rest) + '</div>';
+    if (f.confidence === "low") html += '<div style="font-size:11px;color:var(--muted2);margin-top:6px;display:flex;gap:6px;align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:var(--yellow);display:inline-block"></span> Low confidence — may be a false positive</div>';
+  }
 
   if (f.evidence) {
     const evId = "ev-" + (f.id || f.code || Math.random().toString(36).slice(2));
-    html += '<details class="ev"><summary>Evidence</summary>' +
+    html += '<details class="ev"><summary>Evidence — how we detected it</summary>' +
       '<div class="evidence" id="' + evId + '">' + esc(f.evidence) + '</div>' +
       '<div style="display:flex; gap:6px; margin:6px 12px 10px; flex-wrap:wrap;">' +
       '<button class="ev-expand" data-ev="' + evId + '" hidden>Show more</button>' +
-      '<button class="ev-copy" data-evcopy="' + evId + '">\u22b1 Copy evidence</button></div></details>';
+      '<button class="ev-copy" data-evcopy="' + evId + '">Copy evidence</button>' +
+      (dur != null ? '<span class="durpill" style="margin-left:auto" title="Check time">' + dur + 'ms</span>' : '') +
+      '</div></details>';
+  } else if (dur != null) {
+    html += '<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:2px">' + dur + 'ms</div>';
   }
 
   html += '<div class="fix">';
+  html += '<div class="fix-label">Recommended next step</div>';
   if (f.fix) html += '<div class="fixtext">' + esc(f.fix) + '</div>';
-  html += '<button data-copy="' + esc(f.fix || f.detail || f.title) + '">Copy</button>';
-  html += '<button data-ignore="' + esc(f.title) + '" title="Never report this finding again (saved to ~/.config/linux-doctor/config.json)">Ignore</button>';
-  html += '<a class="reportbtn" href="' + wrongUrl(f) + '" target="_blank" rel="noopener" title="This finding looks wrong? Open a GitHub issue pre-filled with the details">Report wrong</a>';
+  else html += '<div class="fixtext" style="color:var(--muted2)">No automated fix — review details above.</div>';
+  html += '<button data-copy="' + esc(f.fix || f.detail || f.title) + '">Copy fix</button>';
+  html += '<button data-ignore="' + esc(f.title) + '" title="Hide this finding in future runs">Dismiss</button>';
+  html += '<a class="reportbtn" href="' + wrongUrl(f) + '" target="_blank" rel="noopener">Report</a>';
   html += '</div>';
 
   html += "</div></details>";
@@ -51,7 +59,12 @@ function renderCard(f, sev) {
 
 function groupSummaryHtml(icon, label, count, sev) {
   const ds = sev ? ' data-sev="' + sev + '"' : "";
-  return '<summary><span class="sevicon"' + ds + ' aria-hidden="true">' + icon + '</span> ' + esc(label) + " <b>" + count + '</b><span class="chev" aria-hidden="true">\u25b8</span></summary>';
+  // Human language per brief: distinguish issues needing action
+  let humanLabel = label;
+  if (sev === "high") humanLabel = (count === 1 ? "1 issue needs attention" : count + " issues need attention");
+  else if (sev === "medium") humanLabel = count + " " + (count === 1 ? "finding" : "findings") + " — review soon";
+  else if (sev === "info") humanLabel = count + " observation" + (count === 1 ? "" : "s");
+  return '<summary><span class="sevicon"' + ds + ' aria-hidden="true">' + icon + '</span> ' + esc(humanLabel) + ' <span style="margin-left:6px;font-weight:400;color:var(--muted2);font-size:11px">' + esc(label) + '</span><span class="chev" aria-hidden="true">▸</span></summary>';
 }
 
 function wrapGroup(cls, type, key, summaryInner, cardsHtml, open) {
@@ -60,21 +73,21 @@ function wrapGroup(cls, type, key, summaryInner, cardsHtml, open) {
     summaryInner + '<div class="group-body">' + cardsHtml + "</div></details>";
 }
 
-/* Severity mode: one group per severity tier, high first, high pre-opened. */
+/* Severity mode: high first, high pre-opened — but info collapsed by default to reduce noise */
 function renderReportBySeverity(findings) {
   let html = "";
   for (const sev of SEV_ORDER) {
     const group = findings.filter((f) => f.severity === sev);
     if (!group.length) continue;
     const cards = group.map((f) => renderCard(f, sev)).join("");
+    const isInfo = sev === "info";
     html += wrapGroup(SEV[sev].cls, "sev", sev,
-      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length, sev), cards, sev === "high");
+      groupSummaryHtml(SEV_ICONS[sev] || "", SEV_NAMES[sev], group.length, sev), cards, sev === "high" && !isInfo);
   }
   return html;
 }
 
-/* Category mode: one neutral group per check category; severity stays
-   visible on each card's colored edge and icon. Unknown checks → Other. */
+/* Category mode */
 function renderReportByCategory(findings) {
   const buckets = new Map();
   for (const f of findings) {
@@ -86,7 +99,6 @@ function renderReportByCategory(findings) {
   for (const cat of CATEGORY_ORDER) {
     const group = buckets.get(cat);
     if (!group || !group.length) continue;
-    // Within a category: highest severity first so the top card is the headline.
     group.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity));
     const cards = group.map((f) => renderCard(f, f.severity)).join("");
     html += wrapGroup("", "cat", cat,

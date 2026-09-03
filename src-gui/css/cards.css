@@ -1,68 +1,74 @@
-/* === Finding Cards === */
+/* === Finding Cards — reduced chrome, diagnostic storytelling === */
 .card {
-  background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--muted);
-  border-radius: 16px; margin-bottom: 0; overflow: hidden;
-  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  transition: border-color .15s ease, background .15s ease;
 }
-.card:hover { border-color: color-mix(in srgb, var(--border) 50%, var(--text) 30%); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
-.card.high { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 2.5%, var(--card)); }
-.card.medium { border-left-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 2.5%, var(--card)); }
-.card.info { border-left-color: var(--blue); }
-.card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
-.card summary h3 { font-size: 14.5px; font-weight: 650; flex: 1; letter-spacing: -0.01em; }
-.card summary .chev { color: var(--muted); font-size: 12px; transition: transform .18s ease; }
+.card:hover { border-color: var(--border); background: color-mix(in srgb, var(--card) 98%, var(--text) 2%); }
+.card.high { border-left: 3px solid var(--red); }
+.card.medium { border-left: 3px solid var(--yellow); }
+.card.info { border-left: 3px solid var(--border); }
+.card.high:hover { border-left-color: var(--red); }
+.card.medium:hover { border-left-color: var(--yellow); }
+
+.card summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; user-select: none; }
+.card summary h3 { font-size: 14px; font-weight: 600; flex: 1; letter-spacing: -0.015em; line-height: 1.35; color: var(--text); }
+.card summary .chev { color: var(--muted2); font-size: 11px; transition: transform .18s ease; flex-shrink: 0; }
 .card[open] summary .chev { transform: rotate(90deg); }
 .card:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 7px; flex-shrink: 0; }
-.codepill {
-  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: -0.01em;
-  color: var(--muted); background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 6px; padding: 2px 7px; flex-shrink: 0; cursor: pointer;
-  transition: all .12s ease;
-}
-.codepill:hover { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
-.durpill {
-  font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted);
-  background: transparent; border: 1px dashed var(--border); border-radius: 6px;
-  padding: 2px 6px; flex-shrink: 0;
-}
-.badge.high { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
-.badge.medium { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
-.badge.info { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
+.card:focus:not(:focus-visible) { outline: none; }
 
-/* === Card Body === */
+/* Pills — quieter */
+.badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 7px; border-radius: 6px; flex-shrink: 0; border: 1px solid transparent; }
+.badge.high { background: var(--red); color: #111; }
+.badge.medium { background: var(--yellow); color: #111; }
+.badge.info { background: var(--blue); color: #06121f; }
+:root[data-theme="light"] .badge.info { color: #fff; }
+.codepill {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: -0.01em;
+  color: var(--muted2); background: transparent; border: none;
+  padding: 0; flex-shrink: 0; cursor: pointer;
+}
+.codepill:hover { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.codepill::before { content: "· "; color: var(--border); }
+.durpill { display: none; } /* moved to details — reduce summary chrome */
+.lowbadge { display: none; } /* shown inside body when relevant */
+.checkid { display: none; } /* keep for data but hide from summary — reduce chrome */
+
+/* Show durpill only when card is open, as subtle metadata */
+.card[open] .durpill { display: inline-flex; }
+
+/* === Card Body — storytelling === */
 .card-body {
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 14px 16px 16px;
-  animation: fadein .2s ease;
+  display: flex; flex-direction: column; gap: 0;
+  padding: 0 16px 16px;
+  animation: fadein .18s ease;
 }
 @keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 .card .detail {
-  font-size: 13.8px; line-height: 1.65; letter-spacing: -0.01em;
-  color: var(--text);
+  font-size: 13.5px; line-height: 1.6; letter-spacing: -0.01em;
+  color: var(--muted); padding: 12px 0 14px; border-top: 1px solid var(--border);
+  margin-top: 0;
 }
+.card .detail b, .card .detail strong { color: var(--text); font-weight: 600; }
 
-/* === Evidence === */
+/* Evidence — progressive disclosure, quieter */
 details.ev {
-  background: color-mix(in srgb, var(--bg2) 50%, transparent);
-  border: 1px solid var(--border); border-radius: 11px; padding: 0; overflow: hidden;
+  background: transparent; border: none; padding: 0; overflow: hidden;
+  margin: 0; border-top: 1px solid var(--border);
 }
-details.ev[open] { border-color: color-mix(in srgb, var(--border) 70%, var(--blue) 15%); }
 details.ev summary {
   list-style: none; display: flex; align-items: center; gap: 8px;
-  padding: 9px 12px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em;
-  color: var(--muted); cursor: pointer; user-select: none;
-  background: var(--card2);
+  padding: 10px 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted2); cursor: pointer; user-select: none;
 }
-details.ev[open] summary { border-bottom: 1px solid var(--border); color: var(--text); background: var(--card); }
+details.ev summary::before { content: "▸"; font-size: 10px; transition: transform .15s ease; }
+details.ev[open] summary::before { transform: rotate(90deg); }
 details.ev summary::-webkit-details-marker { display: none; }
 .evidence {
-  margin-top: 0; border: none; border-radius: 0;
-  background: var(--evidence-bg);
-  max-height: 200px; overflow: auto;
-  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
-  padding: 9px 11px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 9px;
+  max-height: 180px; overflow: auto;
+  padding: 10px 12px; margin: 0 0 10px;
   font-family: var(--mono); font-size: 11.5px; color: var(--muted);
   white-space: pre-wrap; word-break: break-word;
 }
@@ -71,75 +77,76 @@ details.ev summary::-webkit-details-marker { display: none; }
 .evidence::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
 .ev-expand {
   margin: 0; align-self: flex-start;
-  background: var(--card2); border: 1px solid var(--border); border-radius: 999px;
-  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--blue); cursor: pointer;
+  background: transparent; border: none; padding: 0; font-size: 12px; font-weight: 500; color: var(--blue); cursor: pointer;
 }
-.ev-expand:hover { background: var(--hover); border-color: var(--border); }
+.ev-expand:hover { color: var(--accent); }
 .ev-copy {
-  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
-  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+  background: transparent; border: 1px solid var(--border); border-radius: 7px;
+  padding: 4px 9px; font-size: 11px; font-weight: 500; color: var(--muted2); cursor: pointer;
 }
-.ev-copy:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.ev-copy:hover { border-color: var(--muted2); color: var(--text); }
 
-/* === Fix Section === */
+/* Fix — Recommended Action, clear hierarchy */
 .fix {
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
-  margin-top: 2px; padding-top: 14px;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-top: 0; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.fix-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted2); width: 100%; margin-bottom: -2px;
 }
 .fix .fixtext {
   flex: 1 1 100%; min-width: 260px;
   background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 11px; padding: 11px 14px;
-  font-size: 12.6px; line-height: 1.55;
-  position: relative; font-family: var(--mono); color: var(--text);
+  border-radius: 9px; padding: 10px 12px;
+  font-size: 12.5px; line-height: 1.5;
+  font-family: var(--mono); color: var(--text);
 }
-.fix .fixtext::before {
-  content: "Fix";
-  display: block; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 6px;
-}
+.fix .fixtext::before { display: none; }
 .fix button, .fix .reportbtn {
-  height: 34px; border-radius: 10px; font-weight: 600; font-size: 12.5px;
-  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; border-radius: 8px; font-weight: 600; font-size: 12px;
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;
 }
 .fix button[data-copy] {
-  background: var(--accent); color: #fff; border-color: var(--accent);
+  background: var(--text); color: var(--bg); border-color: var(--text);
 }
+.fix button[data-copy]:hover { background: var(--text); opacity: .9; }
 .fix button[data-ignore] {
-  background: transparent; border-color: var(--border); color: var(--muted);
+  background: transparent; border-color: var(--border); color: var(--muted2);
+  font-weight: 500;
 }
-.fix button[data-ignore]:hover { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); }
+.fix button[data-ignore]:hover { border-color: var(--border); color: var(--muted); background: var(--hover); }
 .fix .reportbtn {
-  background: transparent; border: 1px solid transparent; color: var(--muted);
-  padding: 0 10px; text-decoration: none; font-size: 12px; align-self: center;
+  background: transparent; border: none; color: var(--muted2);
+  padding: 0 8px; text-decoration: none; font-size: 12px; height: auto;
 }
-.fix .reportbtn:hover { color: var(--text); background: var(--hover); border-color: var(--border); }
+.fix .reportbtn:hover { color: var(--muted); background: transparent; border-color: transparent; text-decoration: underline; }
 .fix .reportbtn::before { content: "↗"; font-size: 11px; }
 
-/* === Compact rows (info) === */
-.crow { border: 1px solid transparent; border-left: 3px solid transparent; border-radius: 10px; margin-bottom: 4px; background: color-mix(in srgb, var(--card) 60%, transparent); transition: all .15s ease; }
-.crow:hover { background: var(--card); border-color: var(--border); border-left-color: var(--blue); }
-.crow summary { list-style: none; display: flex; align-items: center; gap: 9px; padding: 8px 12px; cursor: pointer; user-select: none; }
+/* Compact rows (info) — even quieter */
+.crow { border: 1px solid transparent; border-radius: 9px; margin-bottom: 2px; background: transparent; transition: background .15s ease, border-color .15s ease; }
+.crow:hover { background: var(--card); border-color: var(--border); }
+.crow summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 10px; cursor: pointer; user-select: none; }
 .crow summary::-webkit-details-marker { display: none; }
-.crow summary h3 { font-size: 13px; font-weight: 600; flex: 1; letter-spacing: -0.01em; color: var(--text); }
-.crow summary .chev { color: var(--muted); font-size: 11px; transition: transform .18s ease; }
+.crow summary h3 { font-size: 13px; font-weight: 500; flex: 1; letter-spacing: -0.01em; color: var(--muted); }
+.crow[open] summary h3 { color: var(--text); }
+.crow summary .chev { color: var(--muted2); font-size: 10px; transition: transform .18s ease; }
 .crow[open] summary .chev { transform: rotate(90deg); }
-.crow[open] { background: var(--card); border-color: var(--border); border-left-color: var(--blue); box-shadow: var(--shadow-sm); }
-.crow .card-body { gap: 10px; padding: 10px 12px 12px; }
-.crow .detail { font-size: 13.2px; padding: 10px 12px; }
-.crow .fix .fixtext { font-size: 12px; }
+.crow[open] { background: var(--card); border-color: var(--border); }
+.crow .card-body { gap: 10px; padding: 8px 10px 10px; }
+.crow .detail { font-size: 13px; padding: 8px 0; border-top: none; }
 
-/* === Search highlight === */
-mark.hl { background: color-mix(in srgb, var(--yellow) 32%, transparent); color: inherit; padding: 0 2px; border-radius: 3px; border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent); }
+/* Search highlight */
+mark.hl { background: color-mix(in srgb, var(--yellow) 28%, transparent); color: inherit; padding: 0 2px; border-radius: 3px; }
 
-/* === Compact density (body.compact) === */
-body.compact .group summary { padding: 10px 14px; }
-body.compact .group-body { gap: 8px; padding: 10px; }
-body.compact .card summary { padding: 8px 12px; }
+/* Compact density */
+body.compact .group summary { padding: 9px 4px; }
+body.compact .group-body { gap: 8px; padding: 10px 0 8px; }
+body.compact .card summary { padding: 11px 14px; }
 body.compact .card summary h3 { font-size: 13.5px; }
-body.compact .card-body { gap: 10px; padding: 10px 12px 12px; }
-body.compact .card .detail { font-size: 13px; line-height: 1.5; }
-body.compact .fix { padding-top: 10px; }
+body.compact .card-body { gap: 0; padding: 0 14px 14px; }
+body.compact .card .detail { font-size: 13px; }
+body.compact .fix { padding-top: 12px; }
 body.compact .fix .fixtext { padding: 8px 11px; font-size: 12px; }
-body.compact #report { gap: 16px; }
+body.compact #report { gap: 14px; }

@@ -31,7 +31,7 @@ function render(data) {
   const reportHtml = renderReport(findings);
   if (reportHtml) {
     $("#report").innerHTML = reportHtml;
-  } else if (high + med === 0) {
+  } else if (counts.high + counts.medium === 0) {
     // Celebratory all-clean state — earned, so show it properly.
     $("#report").innerHTML =
       '<div class="cleanhero"><div class="ch-icon" aria-hidden="true">\u2713</div><div>' +

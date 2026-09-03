@@ -55,7 +55,7 @@ function checksMatrixHtml(data, checks) {
       else if (s.rank === 2) cleanCount++;
       else naCount++;
       const gotoAttr = s.goto
-        ? ' data-goto-code="' + esc(((findingsByCheck.get(c.id) || [])[0] || {}).code || "") + '" data-goto-check="' + esc(c.id) + '"'
+        ? ' data-goto-code="' + esc(((findingsByCheck.get(c.id) || [])[0] || {}).code || "") + '" data-goto-check="' + esc(c.id) + '" tabindex="0" role="button" aria-label="Show ' + esc(c.id) + ' finding"'
         : "";
       body += '<div class="mx-row' + (s.goto ? " link" : "") + '"' + gotoAttr + ">" +
         '<span class="mx-st" aria-hidden="true">' + s.icon + '</span>' +
@@ -77,30 +77,43 @@ function checksMatrixHtml(data, checks) {
 }
 
 async function openChecksMatrix() {
-  openModal('<div class="mx-head">All checks</div><div class="mx-sub">Loading\u2026</div>');
+  openModal('<div class="mx-head">All checks</div><div class="mx-sub">Loading\u2026</div>', "All checks");
   const checks = STATIC_DATA ? [] : await fetchChecks();
-  openModal(checksMatrixHtml(lastReportData || {}, checks));
+  openModal(checksMatrixHtml(lastReportData || {}, checks), "All checks");
 
-  // Deep-link rows: close the modal and reveal the finding card.
-  $("#modal-body").addEventListener("click", (e) => {
-    const row = e.target.closest("[data-goto-check]");
-    if (!row) return;
-    closeModal();
-    activeFilter = "all";
-    document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
-    syncGroupsOpen();
-    applyFilters();
-    const code = row.dataset.gotoCode;
-    const card = (code && document.querySelector('#report details[data-code="' + code.replace(/"/g, '\\"') + '"]'))
-      || document.querySelector('#report details[data-check="' + row.dataset.gotoCheck.replace(/"/g, '\\"') + '"]');
-    if (card) {
-      card.setAttribute("open", "");
-      card.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-      showToast("Showing " + row.dataset.gotoCheck);
-    }
-  }, { once: true });
+}
+
+function gotoFinding(check, code) {
+  closeModal();
+  activeFilter = "all";
+  document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
+  syncGroupsOpen();
+  applyFilters();
+  const card = (code && document.querySelector('#report details[data-code="' + code.replace(/"/g, '\\"') + '"]'))
+    || document.querySelector('#report details[data-check="' + check.replace(/"/g, '\\"') + '"]');
+  if (card) {
+    card.setAttribute("open", "");
+    card.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+    if (card.tabIndex >= 0) card.focus({ preventScroll: true });
+    showToast("Showing " + check);
+  }
 }
 
 function setupChecksMatrix() {
   $("#checksmatrixbtn")?.addEventListener("click", openChecksMatrix);
+  // Deep-link rows: mouse and keyboard share one persistent handler.
+  const body = $("#modal-body");
+  if (!body) return;
+  body.addEventListener("click", (e) => {
+    const row = e.target.closest("[data-goto-check]");
+    if (!row || !isModalOpen()) return;
+    gotoFinding(row.dataset.gotoCheck, row.dataset.gotoCode);
+  });
+  body.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const row = e.target.closest("[data-goto-check]");
+    if (!row || !isModalOpen()) return;
+    e.preventDefault();
+    gotoFinding(row.dataset.gotoCheck, row.dataset.gotoCode);
+  });
 }

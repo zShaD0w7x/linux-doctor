@@ -12,31 +12,45 @@ linux-doctor --web
 Opens a dashboard in your browser at `127.0.0.1:43901` (a stable, predictable
 URL — a second instance falls back to a free port instead of crashing). The
 layout is organized into four clear zones: **identity** (logo + system info +
-actions), **status** (health gauge with score/delta, a plain-language message,
-and NEW/FIXED chips), **control** (severity filters with live counts, search,
-Expand/Collapse all, and a Clear button), and **content** (High → Medium →
-Informational → Fixed → Skipped → history trend, in that fixed order).
+actions: notifications, theme, **Export** menu, help, **Re-run checks**),
+**status** (health gauge with score/delta, a plain-language message,
+NEW/FIXED chips, and a checks chip that opens the all-checks matrix),
+**control** (group-by Severity/Category, severity pills with live counts,
+search, Auto-refresh, Expand all, Density, Checks, Clear, and thresholds),
+and **content** (security posture, START HERE, High → Medium →
+Informational, then Fixed, Skipped, Failed checks, Changes, and history).
 **High** findings are open by default; **Medium**, **Informational**,
 **Fixed**, and **Skipped** collapse, so a full report fits on one screen
-without scrolling. Click any finding to expand its explanation, **Evidence**,
-and a **Copy** button next to the fix. Hit **Re-run checks** for a fresh
-report. The dashboard **auto-refreshes** every 20s — it pauses while you are
-reading (searching, filtering, or with a finding expanded) so your place is
-never reset. Pure HTML/CSS/JS — no frameworks, no build step.
+without scrolling. Click any finding to expand what happened and why it
+matters, an **Evidence** expander with a copy button and the check's run
+time, plus the recommended next step with **Copy fix**, **Dismiss**, and
+**Report** actions. Every card header carries a quiet `code` pill — click it
+to copy the stable code, or type `code:<prefix>` in search to filter by it.
+Hit **Re-run checks** for a fresh report. The dashboard **auto-refreshes**
+every 20s — it pauses while you are reading (searching, filtering, or with a
+finding expanded) so your place is never reset, and the Auto button shows
+its paused state. Density defaults to compact (more findings per viewport)
+and is remembered, like the theme. Pure HTML/CSS/JS — no frameworks; the
+page served by `--web`, the desktop app, and `--html` exports are all built
+from `src-gui/` via `npm run build:gui`.
 
 The **history** view draws your health-score sparkline (with date tooltips
 and a dashed 50-point "needs attention" line) plus a stacked bar chart of
 high/medium/info findings across recent runs, so you can see at a glance
-whether problems are trending up or down. The **Skipped** section now also
-lists checks skipped because they do not apply to an immutable/atomic system
-(e.g. `reboot`).
+whether problems are trending up or down. With fewer than two recorded runs
+it explains what will appear there instead of vanishing. The **Skipped**
+section lists checks that do not apply to this machine profile plus checks
+skipped on immutable/atomic systems (e.g. `reboot`).
 
 **Dark/light theme:** the dashboard follows your system theme and remembers
-your choice — the 🌓 button in the header cycles light → dark → auto.
-**Keyboard navigation:** `↑`/`↓` move between findings, `Enter` opens/closes
-the focused one. The palette is color-blind friendly: every severity has an
-icon (🔴 🟡 🔵) plus a text label, never color alone. While checks re-run, a
-spinner shows progress and the button is disabled.
+your choice — the theme button in the header cycles light → dark → auto.
+**Keyboard navigation:** `↑`/`↓` move between findings, `Enter`/`Space`
+opens/closes the focused one, `/` focuses search, `?` shows all shortcuts,
+`Esc` closes dialogs/menus/panels or clears search and filters. Every
+severity has an icon plus a text label, never color alone; status changes
+and confirmations are announced through live regions, and motion honors
+`prefers-reduced-motion`. While checks re-run, a spinner shows progress and
+the button is disabled.
 
 ## Desktop app (GUI)
 
