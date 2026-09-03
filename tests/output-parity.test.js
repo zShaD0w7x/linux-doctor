@@ -152,6 +152,13 @@ test("vocabulary: the same phrases exist in CLI output and the dashboard HTML", 
     ["Failed checks (GUI)", null, /Failed checks/],
     ["clean run streak (CLI)", streaky, /3 clean run\(s\) in a row/],
     ["clean run streak (GUI)", null, /clean run/],
+    ["humanized group labels (GUI)", null, /issues need attention/],
+    ["card actions (GUI)", null, /Copy fix/],
+    ["dismiss action (GUI)", null, /Dismiss/],
+    ["recommended next step (GUI)", null, /Recommended next step/],
+    ["what happened (GUI)", null, /What happened/],
+    ["evidence label (GUI)", null, /Evidence — how we detected it/],
+    ["inspect action (GUI)", null, /Inspect details/],
   ];
   for (const [name, text, re] of phrases) {
     if (text !== null) assert.ok(re.test(text), `CLI report missing "${name}"`);
