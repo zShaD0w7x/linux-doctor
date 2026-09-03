@@ -200,3 +200,28 @@ test("web rejects cross-origin POSTs to config-writing endpoints (CSRF)", async 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("web serves read-only schedule state via /api/schedule", async () => {
+  const sched = { installed: true, enabled: true, active: true, systemd: true };
+  const server = await startWeb({ collect: async () => ({ findings: [] }), schedule: () => sched, open: false, port: 0, quiet: true });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const body = await (await fetch(base + "/api/schedule")).json();
+    assert.deepEqual(body.schedule, sched);
+  } finally {
+    server.close();
+  }
+});
+
+test("web /api/schedule defaults to the real timer probe with a stable shape", async () => {
+  const server = await startWeb({ collect: async () => ({ findings: [] }), open: false, port: 0, quiet: true });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const body = await (await fetch(base + "/api/schedule")).json();
+    for (const k of ["installed", "enabled", "active", "systemd"]) {
+      assert.equal(typeof body.schedule[k], "boolean", `schedule.${k} is a boolean`);
+    }
+  } finally {
+    server.close();
+  }
+});

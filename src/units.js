@@ -111,6 +111,30 @@ export function installTimer({
 }
 
 /**
+ * Read-only status of the user timer for the dashboard's schedule strip.
+ * Never throws, never writes: a missing systemctl, a non-zero exit, or a
+ * non-systemd host simply reads as "not enabled/active". Injectable
+ * `exists`/`exec` keep it testable without touching a real session.
+ */
+export function timerStatus({ exists = existsSync, exec = execFileSync } = {}) {
+  const paths = unitPaths();
+  const installed = !!(exists(paths.service) && exists(paths.timer));
+  const out = { installed, enabled: false, active: false, systemd: systemdPresent(exists) };
+  if (!installed || !out.systemd) return out;
+  try {
+    out.enabled = String(exec("systemctl", ["--user", "is-enabled", "linux-doctor.timer"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })).trim() === "enabled";
+  } catch {
+    out.enabled = false;
+  }
+  try {
+    out.active = String(exec("systemctl", ["--user", "is-active", "linux-doctor.timer"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })).trim() === "active";
+  } catch {
+    out.active = false;
+  }
+  return out;
+}
+
+/**
  * Remove and disable the user timer. Every step is forgiving: a half-installed
  * or already-removed timer must still uninstall cleanly.
  */

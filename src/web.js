@@ -9,6 +9,7 @@ import { dirname } from "node:path";
 import { addIgnore } from "./ignore.js";
 import { loadConfig, configFile } from "./config.js";
 import { DEFAULT_THRESHOLDS } from "./thresholds.js";
+import { timerStatus } from "./units.js";
 import { shq } from "./utils.js";
 
 /**
@@ -50,7 +51,7 @@ function isLoopbackOrigin(origin) {
   }
 }
 
-export async function startWeb({ collect, history = () => [], checkList = async () => [], port = 43901, open = true, quiet = false, render = (d) => d }) {
+export async function startWeb({ collect, history = () => [], checkList = async () => [], schedule = () => timerStatus(), port = 43901, open = true, quiet = false, render = (d) => d }) {
   const server = http.createServer(async (req, res) => {
     if (!isLoopbackHost(req.headers.host)) {
       res.writeHead(403, { "Content-Type": "text/plain" });
@@ -88,6 +89,19 @@ export async function startWeb({ collect, history = () => [], checkList = async 
         const checks = await checkList();
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
         res.end(JSON.stringify({ checks }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+    // Read-only schedule state for the dashboard's "Daily check" strip:
+    // whether the user timer is installed/enabled/active. No actions here —
+    // installing stays a CLI decision (linux-doctor --install-timer).
+    if (url.pathname === "/api/schedule" && req.method === "GET") {
+      try {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ schedule: schedule() }));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

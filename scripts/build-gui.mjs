@@ -40,6 +40,7 @@ const JS_ORDER = [
   "ui-filters.js",     // activeFilter state + filter/search logic
   "ui-polling.js",     // pollTimer, autoRefresh state
   "ui-notify.js",
+  "ui-schedule.js",    // daily-check strip (read-only schedule state)
   "ui-thresholds.js",
   "ui-history.js",     // statusTimer + trend rendering
   "ui-sidebar.js",     // overview sidebar: breakdown bars + nav counts
@@ -148,6 +149,7 @@ ${css}
         </div>
       </div>
       <main class="content">
+        <div id="schedstrip" class="sched" hidden></div>
         <div id="security-posture" hidden></div>
         <div id="nexthep" hidden></div>
         <div id="drillhint" class="empty" hidden></div>

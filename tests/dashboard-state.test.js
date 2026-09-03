@@ -190,3 +190,44 @@ test("renderTrend: two or more runs render the charts", async () => {
   assert.match(trend, /Findings by severity/);
   assert.equal(el("#hero-spark").hidden, false);
 });
+
+// ---------------------------------------------------------------------------
+// scheduleHtml(): the "Daily check" strip vocabulary.
+// ---------------------------------------------------------------------------
+
+const stripHtml = (sched, notify) => {
+  const s = makeSandbox();
+  return vm.runInContext(`scheduleHtml(${JSON.stringify(sched)}, ${JSON.stringify(notify)})`, s.ctx);
+};
+
+test("scheduleHtml: null schedule renders nothing (strip stays hidden)", () => {
+  assert.equal(stripHtml(null, "off"), "");
+});
+
+test("scheduleHtml: timer off shows state plus the setup command", () => {
+  const html = stripHtml({ installed: false, enabled: false, active: false, systemd: true }, "off");
+  assert.match(html, /Daily check off/);
+  assert.match(html, /linux-doctor --install-timer/);
+  assert.match(html, /Copy setup command/);
+  assert.match(html, /Browser alerts off/);
+});
+
+test("scheduleHtml: active timer reads as on", () => {
+  const html = stripHtml({ installed: true, enabled: true, active: true, systemd: true }, "on");
+  assert.match(html, /Daily check on/);
+  assert.match(html, /notifies only on new findings/);
+  assert.match(html, /Browser alerts on/);
+  assert.ok(!html.includes("install-timer"), "no setup command when the timer is healthy");
+});
+
+test("scheduleHtml: installed but inactive timer needs attention", () => {
+  const html = stripHtml({ installed: true, enabled: false, active: false, systemd: true }, "off");
+  assert.match(html, /needs attention/);
+  assert.match(html, /linux-doctor --install-timer/);
+});
+
+test("scheduleHtml: unavailable browser notify omits the alerts bit", () => {
+  const html = stripHtml({ installed: true, enabled: true, active: true, systemd: true }, "unavailable");
+  assert.match(html, /Daily check on/);
+  assert.ok(!html.includes("Browser alerts"), "no alerts bit when the API is unavailable");
+});

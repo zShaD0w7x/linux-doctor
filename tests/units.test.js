@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cliBin, installTimer, renderService, renderTimer, systemdPresent, unitPaths, uninstallTimer } from "../src/units.js";
+import { cliBin, installTimer, renderService, renderTimer, systemdPresent, timerStatus, unitPaths, uninstallTimer } from "../src/units.js";
 
 /** A fake systemctl that logs its arguments and always succeeds. */
 function fakeSystemctl(dir) {
@@ -137,5 +137,72 @@ test("uninstallTimer: disables, removes units, survives a second run", () => {
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(shim.dir, { recursive: true, force: true });
+  }
+});
+
+test("timerStatus: no unit files reads as not installed, never throws", () => {
+  const prev = process.env.LINUX_DOCTOR_USER_UNITS;
+  process.env.LINUX_DOCTOR_USER_UNITS = join(tmpdir(), "ld-units-absent-" + Date.now());
+  try {
+    const st = timerStatus({ exists: () => false, exec: () => { throw new Error("nope"); } });
+    assert.deepEqual(st, { installed: false, enabled: false, active: false, systemd: false });
+  } finally {
+    if (prev === undefined) delete process.env.LINUX_DOCTOR_USER_UNITS;
+    else process.env.LINUX_DOCTOR_USER_UNITS = prev;
+  }
+});
+
+test("timerStatus: installed + enabled + active timer", () => {
+  const dir = fakeHome();
+  const prev = process.env.LINUX_DOCTOR_USER_UNITS;
+  process.env.LINUX_DOCTOR_USER_UNITS = dir;
+  try {
+    writeFileSync(join(dir, "linux-doctor.service"), "x");
+    writeFileSync(join(dir, "linux-doctor.timer"), "x");
+    const exists = (p) => p === "/run/systemd/system" || existsSync(p);
+    const exec = (cmd, args) => (args.includes("is-enabled") ? "enabled\n" : "active\n");
+    assert.deepEqual(timerStatus({ exists, exec }), { installed: true, enabled: true, active: true, systemd: true });
+  } finally {
+    if (prev === undefined) delete process.env.LINUX_DOCTOR_USER_UNITS;
+    else process.env.LINUX_DOCTOR_USER_UNITS = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("timerStatus: installed but failing systemctl reads as inactive, never throws", () => {
+  const dir = fakeHome();
+  const prev = process.env.LINUX_DOCTOR_USER_UNITS;
+  process.env.LINUX_DOCTOR_USER_UNITS = dir;
+  try {
+    writeFileSync(join(dir, "linux-doctor.service"), "x");
+    writeFileSync(join(dir, "linux-doctor.timer"), "x");
+    const exists = (p) => p === "/run/systemd/system" || existsSync(p);
+    const st = timerStatus({ exists, exec: () => { throw new Error("systemctl failed"); } });
+    assert.deepEqual(st, { installed: true, enabled: false, active: false, systemd: true });
+  } finally {
+    if (prev === undefined) delete process.env.LINUX_DOCTOR_USER_UNITS;
+    else process.env.LINUX_DOCTOR_USER_UNITS = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("timerStatus: unit files without systemd read as installed but inert", () => {
+  const dir = fakeHome();
+  const prev = process.env.LINUX_DOCTOR_USER_UNITS;
+  process.env.LINUX_DOCTOR_USER_UNITS = dir;
+  try {
+    writeFileSync(join(dir, "linux-doctor.service"), "x");
+    writeFileSync(join(dir, "linux-doctor.timer"), "x");
+    let called = false;
+    const st = timerStatus({ exists: (p) => p !== "/run/systemd/system" && existsSync(p), exec: () => { called = true; return ""; } });
+    assert.equal(st.installed, true);
+    assert.equal(st.systemd, false);
+    assert.equal(st.enabled, false);
+    assert.equal(st.active, false);
+    assert.equal(called, false, "no systemctl probe without systemd");
+  } finally {
+    if (prev === undefined) delete process.env.LINUX_DOCTOR_USER_UNITS;
+    else process.env.LINUX_DOCTOR_USER_UNITS = prev;
+    rmSync(dir, { recursive: true, force: true });
   }
 });

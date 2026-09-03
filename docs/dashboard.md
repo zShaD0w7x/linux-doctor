@@ -17,8 +17,15 @@ actions: notifications, theme, **Export** menu, help, **Re-run checks**),
 NEW/FIXED chips, and a checks chip that opens the all-checks matrix),
 **control** (group-by Severity/Category, severity pills with live counts,
 search, Auto-refresh, Expand all, Density, Checks, Clear, and thresholds),
-and **content** (security posture, START HERE, High → Medium →
+and **content** (daily-check strip, security posture, START HERE, High → Medium →
 Informational, then Fixed, Skipped, Failed checks, Changes, and history).
+The **daily-check strip** answers whether the machine will check itself
+tomorrow: it reads the user timer state from `GET /api/schedule` (read-only —
+installing stays a CLI decision) and shows **on** (runs after boot, then
+daily, notifies only on new findings), **off** (with a one-click copy of
+`linux-doctor --install-timer`), or **needs attention** (units exist but the
+timer isn't active), plus the browser-alerts state. It stays hidden for
+static `--html` exports.
 **High** findings are open by default; **Medium**, **Informational**,
 **Fixed**, and **Skipped** collapse, so a full report fits on one screen
 without scrolling. Click any finding to expand what happened and why it

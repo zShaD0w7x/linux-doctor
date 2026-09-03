@@ -8,6 +8,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
+- **Dashboard "Daily check" strip.** The report now opens with the scheduling
+  state: whether the user timer (`--install-timer`) is installed and active,
+  plus the browser-alerts state — with a one-click copy of the setup command
+  when the timer is off. Served read-only from the new `GET /api/schedule`
+  endpoint (no report-schema change); hidden for static `--html` exports.
+
 - **New `--ai-local` flag — private, offline AI summaries.** Points the existing AI summary at a local Ollama instance (`http://localhost:11434/v1`, model `llama3.2`, any key) so the plain-English explanation runs entirely on your machine with no cloud and no `LLM_API_KEY` to a third party. Finding text is still redacted with the same `scrub()` before it ever leaves the box.
 - **New `gpu-usage` check (46 checks / 154 codes total):** GPU memory pressure for AI/homelab rigs — reads VRAM used/total for NVIDIA (`nvidia-smi`) and AMD (`amdgpu` sysfs, no tool needed). Stays silent on an idle card, reports usage as informational when the GPU is working (≥50%), and flags VRAM nearly full (≥90%) as **medium** — the OOM risk when you try to load a bigger model. Complements the existing `gpu` driver-health check.
 - **3 new server checks (45 checks / 152 codes total):**
