@@ -1,3 +1,4 @@
+import { hostname as osHostname } from "node:os";
 import { run, lines, num } from "../utils.js";
 import { detectDistro } from "../distro.js";
 
@@ -16,11 +17,14 @@ export async function systemInfo() {
 }
 
 async function computeSystemInfo() {
-  const [os, kernel, uptime, nproc] = await Promise.all([
+  const [os, kernel, uptime, nproc, arch, cpu, mem] = await Promise.all([
     run("cat /etc/os-release 2>/dev/null"),
     run("uname -r 2>/dev/null"),
     run("cat /proc/uptime 2>/dev/null"),
     run("nproc 2>/dev/null"),
+    run("uname -m 2>/dev/null"),
+    run("grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2-"),
+    run("grep -m1 '^MemTotal:' /proc/meminfo 2>/dev/null"),
   ]);
 
   const osRelease = {};
@@ -61,6 +65,18 @@ async function computeSystemInfo() {
     pkg: dist.pkg,
   };
 
+  // Wiki facts: everything below is a cheap read-only probe (or pure env /
+  // node introspection — no subprocess at all) feeding the dashboard's
+  // System view. All additive and optional, so schema v1 never bumps.
+  // NOTE: do not call it `os` here — the os-release probe result above
+  // already owns that name in this scope and would shadow the node import.
+  let hostname = null;
+  try {
+    hostname = osHostname() || null;
+  } catch {
+    hostname = null;
+  }
+  const memKB = num((mem.stdout.match(/(\d+)/) || [])[1]);
   return {
     osRelease,
     distro: `${osRelease.NAME || "Linux"} ${osRelease.VERSION_ID || ""}`.trim(),
@@ -72,5 +88,11 @@ async function computeSystemInfo() {
     cores: nproc.stdout.trim() || "unknown",
     immutable,
     atomic,
+    arch: arch.stdout.trim() || null,
+    hostname,
+    cpuModel: cpu.stdout.trim() || null,
+    memTotalBytes: memKB > 0 ? memKB * 1024 : null,
+    desktop: process.env.XDG_CURRENT_DESKTOP || process.env.DESKTOP_SESSION || null,
+    sessionType: process.env.XDG_SESSION_TYPE || null,
   };
 }

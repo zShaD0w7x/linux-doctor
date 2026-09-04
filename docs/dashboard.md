@@ -17,8 +17,36 @@ actions: notifications, theme, **Export** menu, help, **Re-run checks**),
 NEW/FIXED chips, and a checks chip that opens the all-checks matrix),
 **control** (group-by Severity/Category, severity pills with live counts,
 search, Auto-refresh, Expand all, Density, Checks, Clear, and thresholds),
-and **content** (daily-check strip, security posture, START HERE, High → Medium →
-Informational, then Fixed, Skipped, Failed checks, Changes, and history).
+and **content** (full-width START HERE, then a shared **notices** row — the
+daily-check strip and the security posture as compact one-liners side by
+side — then High → Medium → Informational, Fixed, Skipped, Failed checks,
+Changes, and history). The spine stays hero → START HERE → findings; when
+only one notice is visible it spans the full width instead of leaving a
+half-empty column.
+The report area is organized into five **views** — **Overview** (today's
+report, the default), **History** (score trend, severity charts, and a
+newest-first ledger of past runs with per-run deltas), **Checks** (the
+all-checks matrix inline, with deep-links back to the findings),
+**System** (a full machine wiki — Operating system, Hardware, and Session
+sections plus this report's summary), and **Schedule**
+(timer status and cadence, notification state, and copy-paste setup,
+alert, and heartbeat commands). Tabs carry live count badges (runs,
+open problems). Switch from the sidebar navigation (icon + live count badges, Cockpit-style)
+on wide screens, the scrollable tab bar below it on narrow ones, keys
+`1`–`5`, or the arrow keys while a tab is focused; the choice is remembered.
+Secondary panels share a two-column card grid next to START HERE instead of
+stacking full-width. Overview
+never moves: filters, search, keyboard navigation, and auto-refresh behave
+exactly as before, and the background refresh keeps pausing while you read —
+an open card in a hidden view never freezes updates.
+
+**IA rule: five views, no more.** Research (NN/g, Hick's law) puts the
+sweet spot for top-level navigation at 5–7 items, and each of ours answers
+a distinct user question — broken now (Overview), over time (History),
+what was checked (Checks), which machine (System), watched tomorrow
+(Schedule). New features land *inside* existing views (alert examples live
+in Schedule, thresholds in its panel), never as new top-level views; past
+7, regroup instead of adding.
 The **daily-check strip** answers whether the machine will check itself
 tomorrow: it reads the user timer state from `GET /api/schedule` (read-only —
 installing stays a CLI decision) and shows **on** (runs after boot, then
@@ -49,8 +77,11 @@ it explains what will appear there instead of vanishing. The **Skipped**
 section lists checks that do not apply to this machine profile plus checks
 skipped on immutable/atomic systems (e.g. `reboot`).
 
-**Dark/light theme:** the dashboard follows your system theme and remembers
-your choice — the theme button in the header cycles light → dark → auto.
+**Themes:** the dashboard follows your system theme and remembers your
+choice — the theme button in the header cycles light → dark → terminal →
+auto. **Terminal** is a phosphor-console look (near-black, mono everywhere,
+sharp corners, flat surfaces) for sysadmins; same layout and the same
+contrast budget as the other themes, only variables change.
 **Keyboard navigation:** `↑`/`↓` move between findings, `Enter`/`Space`
 opens/closes the focused one, `/` focuses search, `?` shows all shortcuts,
 `Esc` closes dialogs/menus/panels or clears search and filters. Every

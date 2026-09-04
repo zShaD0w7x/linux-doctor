@@ -32,7 +32,17 @@ function setupKeyboard() {
       return;
     }
 
+    // "1..5" jump between app views (not while typing).
+    if ((e.key >= "1" && e.key <= "5") && !typing) {
+      e.preventDefault();
+      switchView(["overview", "history", "checks", "system", "schedule"][Number(e.key) - 1]);
+      return;
+    }
+
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      // Card navigation belongs to Overview — never steal focus from a
+      // hidden report while the user reads History or Checks.
+      if (document.getElementById("view-overview")?.hidden) return;
       const cards = [...document.querySelectorAll("#report .card, #report .crow")];
       if (!cards.length) return;
       let idx = cards.indexOf(document.activeElement);

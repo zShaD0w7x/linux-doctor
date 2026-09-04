@@ -34,7 +34,7 @@ function catIcon(cat, size) {
     '<path d="' + ic.d + '" fill="none" stroke="' + ic.c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 const SEV_NAMES = { high: "High severity", medium: "Medium severity", info: "Informational" };
-const THEME_ORDER = ["light", "dark", "auto"];
+const THEME_ORDER = ["light", "dark", "terminal", "auto"];
 const POLL_MS = 20000;
 /* Category grouping: known check categories in display order; anything
    unmapped (plugins, older payloads) lands under "other". */

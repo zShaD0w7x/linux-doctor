@@ -74,7 +74,10 @@ in the same config file:
     "journalWarnBytes": 2147483648, // journal size above → medium (2 GB)
     "containerWarnGB": 20,  // container storage above → medium
     "containerHighGB": 50,  // container storage above → high
-    "dnsSlowMs": 500        // DNS resolution above → medium (ms)
+    "dnsSlowMs": 500,       // DNS resolution above → medium (ms)
+    "certWarnDays": 30,     // TLS cert lifetime below → medium (days)
+    "certCritDays": 7,      // TLS cert lifetime below → high (days)
+    "backupStaleDays": 30   // scheduled backup not run for → medium (days)
   }
 }
 ```

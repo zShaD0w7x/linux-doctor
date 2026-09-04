@@ -66,6 +66,12 @@ export const disk = defineCheck({
       const p = l.split(/\s+/);
       if (p.length < 6) continue;
       const mount = p[5];
+      // AppImage runtime mounts (fuse-mounted squashfs at /tmp/.mount_*,
+      // device named *.AppImage) always report 100% by design — a fixed-size
+      // image, not a filling disk. Same false-positive class as the excluded
+      // squashfs/overlay layers above; df cannot exclude them by type because
+      // the fstype embeds the app name (fuse.Foo.AppImage), so skip by shape.
+      if (p[0].includes(".AppImage") || mount.includes("/.mount_")) continue;
       const use = pct(p[4]);
       const avail = num(p[3]);
       if (use <= 0 || mount === "/") continue; // root handled separately below

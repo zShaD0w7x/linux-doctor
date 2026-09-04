@@ -51,6 +51,8 @@ function render(data) {
 
   applyFilters();
   refreshSchedule();
+  renderSystemView(data);
+  updateChecksBadge(data);
   renderSecurityPosture(data);
   renderNextStep(data);
   renderCheckErrors(data);

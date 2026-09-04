@@ -13,7 +13,7 @@ premium checks ever leak into this tree.
 | Who | everyday users | power users & sysadmins | teams | organizations |
 | All free features | ✅ | ✅ | ✅ | ✅ |
 | Premium checks (`hardening`, `scrub`, `boottime`, `connets`, `journalcap`) | — | ✅ | ✅ | ✅ |
-| Alerting webhook (`--alert`), scheduled agent (`--daemon`), advanced AI plans | — | ✅ | ✅ | ✅ |
+| Alerting webhook (`--alert`), dead-man's switch (`--heartbeat`), scheduled agent (`--daemon`), advanced AI plans | — | ✅ | ✅ | ✅ |
 | Hosted fleet dashboard, seats & machines, shared ignore policies | — | — | ✅ | ✅ |
 | SSO/SCIM, on-prem fleet, SLA, volume licensing | — | — | — | ✅ |
 | Proprietary-embedding rights (dual license) | — | — | — | ✅ |

@@ -4,10 +4,12 @@
   header .logo { width: 38px; height: 38px; }
   h1 { font-size: 17px; }
   .actions { margin-left: 0; width: 100%; gap: 6px; }
-  .actions .export-group { flex: 1; justify-content: center; }
-  .status { flex-wrap: wrap; gap: 16px; padding: 20px 18px; }
-  .status-main { width: 100%; justify-content: center; }
+  /* The desktop 3-column hero (gauge / body / trend) cannot fit 390px:
+     grid needs an explicit single column — flex-wrap is a no-op on grid. */
+  .status { grid-template-columns: 1fr; gap: 14px; padding: 20px 18px; }
+  .status-main { width: 100%; justify-content: flex-start; flex-direction: row; }
   .gauge { width: 72px; height: 72px; }
+  .stat-tiles { min-width: 0; width: 100%; }
   .toolbar { top: 108px; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
   .filters { justify-content: center; }
   #search { min-width: 0; }
@@ -23,7 +25,23 @@
   /* Touch targets: every interactive control reaches ~40px tall. */
   button { min-height: 38px; }
   .fpill, .segbtn { padding: 9px 14px; }
-  .sb-item { display: none; } /* sidebar is hidden <1100px anyway */
+  .sb-item { display: none; }
   .evidence { font-size: 10.5px; max-height: 160px; }
   .ev-copy, .ev-expand { padding: 8px 12px; min-height: 36px; }
+}
+
+/* Below the desktop sidebar breakpoint (1100px) the aside becomes the views
+   nav: only the Views section shows, as a horizontal scroll strip. */
+@media (max-width: 1099px) {
+  #sidebar { display: block; position: static; max-height: none; overflow: visible; padding: 0; margin: 0 0 12px; }
+  #sidebar .sb-block { display: none; }
+  #sidebar .sb-views { display: block; margin-bottom: 0; }
+  #sidebar .sb-views h2 { display: none; }
+  #sidebar .viewtabs {
+    flex-direction: row; overflow-x: auto; width: 100%;
+    background: var(--card); border: 1px solid var(--border);
+    padding: 3px; border-radius: 999px;
+  }
+  #sidebar .viewtab { width: auto; flex-shrink: 0; }
+  #sidebar .viewtab.active { background: var(--text); color: var(--bg); outline: none; }
 }

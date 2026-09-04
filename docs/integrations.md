@@ -51,6 +51,33 @@ Works with any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`). If
 the AI is unreachable, Linux Doctor silently falls back to the plain report —
 the AI is a bonus, never a dependency.
 
+## Alerts & heartbeat [Pro]
+
+`--alert` POSTs a compact JSON payload only when the machine actually
+degrades (a high-severity finding, or a new medium/high since the last run).
+`--alert` accepts any webhook — the simplest phone push is
+[ntfy](https://ntfy.sh) (self-hostable, apps for Android/iOS, no account):
+
+```bash
+# Phone push via ntfy (create the topic by simply using it):
+linux-doctor --alert https://ntfy.sh/my-server-topic
+
+# Same, on a schedule — the timer only speaks when something NEW breaks:
+linux-doctor --install-timer   # runs daily with --notify attached
+# or: linux-doctor --daemon --interval 3600 --alert https://ntfy.sh/my-server-topic
+```
+
+`--heartbeat` is the complement: a dead-man's switch. After every completed
+run it sends a bare GET (no body — liveness only, nothing sensitive leaves
+the machine) to a service that alerts on *silence* (Healthchecks.io,
+BetterStack). If the timer is deleted, the box goes offline, or the run
+itself breaks, the pings stop and the external service raises through its
+own notification path — the monitor that watches the watchers:
+
+```bash
+linux-doctor --heartbeat https://hc-ping.com/your-uuid
+```
+
 ## Fleet reporting (enterprise)
 
 ```bash

@@ -16,7 +16,11 @@ function renderCard(f, sev) {
   const badges = codeBadge + (f.isNew ? '<span class="newbadge">NEW</span>' : "");
   const dur = durFor(f.check);
   const SEV_COST = { high: "15 points", medium: "8 points", info: "info" };
-  let html = '<details class="card ' + SEV[sev].cls + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +
+  // Informational findings render as compact rows (Uptime Kuma / alert-list
+  // pattern): dot + title + code, scannable in a second, full body on open.
+  // The .card class stays so every selector, counter, and keyboard flow that
+  // targets cards keeps working unchanged.
+  let html = '<details class="card ' + SEV[sev].cls + (sev === "info" ? " crow" : "") + '" tabindex="0" data-code="' + esc(f.code || "") + '"' +
     (f.check ? ' data-check="' + esc(f.check) + '"' : "") + ">";
   html += '<summary><span class="sevicon" data-sev="' + sev + '" aria-hidden="true" title="' + esc(SEV_NAMES[sev] + " — " + (SEV_COST[sev] || "")) + '">' + sevIcon + '</span><h3>' + esc(f.title) + '</h3>' + badges + '<span class="chev" aria-hidden="true">▸</span></summary>';
   html += '<div class="card-body">';
@@ -33,7 +37,8 @@ function renderCard(f, sev) {
 
   if (f.evidence) {
     const evId = "ev-" + (f.id || f.code || Math.random().toString(36).slice(2));
-    html += '<details class="ev"><summary>Evidence — how we detected it</summary>' +
+    const evLines = String(f.evidence).split("\n").length;
+    html += '<details class="ev"><summary>Evidence — how we detected it · ' + evLines + (evLines === 1 ? " line" : " lines") + "</summary>" +
       '<div class="evidence" id="' + evId + '">' + esc(f.evidence) + '</div>' +
       '<div style="display:flex; gap:6px; margin:6px 12px 10px; flex-wrap:wrap;">' +
       '<button class="ev-expand" data-ev="' + evId + '" hidden>Show more</button>' +

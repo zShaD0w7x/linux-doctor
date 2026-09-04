@@ -13,6 +13,9 @@ function pollPaused() {
   if ($("#rerun").disabled) return true;
   if ($("#search").value.trim()) return true;
   if (activeFilter && activeFilter !== "all") return true;
+  // Only cards the user can actually see pause the refresh — an open card
+  // in a hidden Overview must not freeze updates forever.
+  if (document.getElementById("view-overview")?.hidden) return false;
   return document.querySelectorAll("#report details[open]").length > 0;
 }
 

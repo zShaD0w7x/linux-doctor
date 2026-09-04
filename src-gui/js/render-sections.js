@@ -7,21 +7,20 @@ function renderSecurityPosture(data) {
   const el = $("#security-posture");
   if (!el) return;
   const sec = securityPostureFindings(data.findings || []);
-  if (!sec.length) { el.hidden = true; el.innerHTML = ""; return; }
+  if (!sec.length) { el.hidden = true; el.innerHTML = ""; syncNotices(); return; }
   const counts = { high: 0, medium: 0, info: 0 };
   for (const f of sec) counts[f.severity] = (counts[f.severity] || 0) + 1;
   // Only visually compete if high-severity security issue is present
   const hasHigh = counts.high > 0;
   const hasMedium = counts.medium > 0;
   if (!hasHigh && !hasMedium) {
-    // Quiet informational: show as subtle line, not competing card
+    // Quiet informational: one subtle line inside the shared notices row.
     el.hidden = false;
     el.className = "security-posture";
     el.innerHTML =
       '<div class="sp-icon" aria-hidden="true" style="opacity:.5">' + catIcon("security", 16) + '</div>' +
-      '<div class="sp-body"><div class="sp-title" style="font-weight:500;color:var(--muted2)">' + sec.length + ' security observations</div>' +
-      '<div class="sp-hint">' + sec.length + ' informational findings — no action needed</div></div>' +
-      '<button style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:7px" data-spjump>View</button>';
+      '<span class="sp-text">' + sec.length + ' security observations — no action needed</span>' +
+      '<button data-spjump>View</button>';
   } else {
     const tone = hasHigh ? "high" : "warn";
     el.hidden = false;
@@ -29,10 +28,11 @@ function renderSecurityPosture(data) {
     const label = hasHigh ? counts.high + " high" : hasMedium ? counts.medium + " warning" + (counts.medium > 1 ? "s" : "") : "";
     el.innerHTML =
       '<div class="sp-icon" aria-hidden="true">' + catIcon("security", 18) + '</div>' +
-      '<div class="sp-body"><div class="sp-title">Security posture &middot; ' + sec.length + ' finding' + (sec.length > 1 ? "s" : "") + '</div>' +
-      '<div class="sp-hint">' + esc(label + (counts.info ? " · " + counts.info + " info" : "") + ' — firewall, SSH, login & boot') + '</div></div>' +
+      '<span class="sp-text"><b>Security posture</b> · ' +
+      esc(label + (counts.info ? " · " + counts.info + " info" : "") + ' — firewall, SSH, login & boot') + '</span>' +
       '<button data-spjump>Review security</button>';
   }
+  syncNotices();
   el.querySelector("[data-spjump]")?.addEventListener("click", () => {
     activeFilter = "all";
     document.querySelectorAll(".fpill").forEach((b) => b.classList.toggle("active", b.dataset.sev === "all"));
@@ -50,11 +50,15 @@ function renderNextStep(data) {
   const order = { high: 0, medium: 1, info: 2 };
   const pick = data.nextAction
     || [...(data.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9)).find((f) => f.fix);
-  if (!pick || !pick.fix) { el.hidden = true; return; }
+  if (!pick || !pick.fix) { el.hidden = true; syncNoticeGrid(); return; }
 
   // Find the full finding for evidence/detail
   const full = (data.findings || []).find((f) => f.code === pick.code) || pick;
   const detail = full.detail || pick.detail || "";
+  // "Why it matters" must add context, never echo: it shows everything
+  // AFTER the first sentence (What happened already prints the full text).
+  // Single-sentence details hide the section instead of repeating line one.
+  const whyText = String(detail).split(/(?<=\.)\s/).slice(1).join(" ").trim();
   const evidence = full.evidence || "";
   const code = pick.code || full.code || "";
   const sev = pick.severity || full.severity || "medium";
@@ -68,7 +72,7 @@ function renderNextStep(data) {
       (code ? '<div style="font-family:var(--mono);font-size:11px;color:var(--muted2);margin-top:4px">' + esc(code) + '</div>' : '') +
       '<div class="nh-section"><div class="nh-section-label">What happened</div><div class="nh-hint">' + esc(detail || "An issue was detected that needs attention.") + '</div></div>' +
       (evidence ? '<div class="nh-section"><div class="nh-section-label">Evidence</div><div style="font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;overflow:auto;max-height:120px;white-space:pre-wrap;color:var(--muted)">' + esc(String(evidence).split("\n").slice(0,5).join("\n")) + '</div></div>' : '') +
-      '<div class="nh-section"><div class="nh-section-label">Why it matters</div><div class="nh-hint">' + esc(detail ? detail.split(".")[0] + "." : "Repeated issues may indicate a broken package, driver, or configuration.") + '</div></div>' +
+      (whyText ? '<div class="nh-section"><div class="nh-section-label">Why it matters</div><div class="nh-hint">' + esc(whyText) + '</div></div>' : '') +
       '<div class="nh-section"><div class="nh-section-label">Recommended next step</div><div class="nh-hint">' + esc(firstSentence(pick.fix).slice(0, 160)) + '</div></div>' +
       '<div class="nh-actions">' +
         // Primary: actually inspect — jumps to the finding card (delegated handler)
@@ -77,6 +81,7 @@ function renderNextStep(data) {
         '<button data-nhcopy="' + esc(pick.fix) + '" style="background:var(--card);border:1px solid var(--border);color:var(--text)">Copy fix</button>' +
       '</div>' +
     '</div>';
+  syncNoticeGrid();
 }
 
 function renderCheckErrors(data) {

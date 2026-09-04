@@ -58,12 +58,14 @@ STATUS (`SCORE 77/100 = 100 −15 disk/full …`), pinned by tests so
 --ignore-list     show configured ignore patterns and exit
 --ignore-add <v>  persistently ignore a code or title fragment (saved to config)
 --ignore-remove <v> remove a previously ignored code or title fragment
+--init            guided first-run setup (config, timer, notification test)
 --init-config     create a starter config file with commented thresholds
 --schema          print the JSON Schema for --json output (v1)
 --support         write a privacy-scrubbed support bundle for bug reports
 --profile         append per-check durations to the report
 --license         show Pro license status and exit
 --alert <url>     POST a webhook when the machine degrades [Pro]
+--heartbeat <url> ping a dead-man's switch after every run [Pro]
 --daemon          run continuously, re-checking every --interval [Pro]
 --interval <s>    seconds between --daemon runs (default 3600) [Pro]
 --help            usage

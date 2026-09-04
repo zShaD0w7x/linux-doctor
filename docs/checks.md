@@ -2,7 +2,7 @@
 
 Every finding `code` is stable — use it for `--ignore-code`, history diffing, and scripting. Generated from `src/checks/index.js` + `tests/codes-registry.test.js`; do not edit by hand.
 
-Total: **46 checks** → **154 codes**.
+Total: **49 checks** → **161 codes**.
 
 | Check | Category | Codes | Severity |
 |---|---|---|---|
@@ -18,6 +18,7 @@ Total: **46 checks** → **154 codes**.
 | `journald` — Journal (systemd log) size | system | `journald/large` (medium)<br>`journald/ok` (info)<br>`journald/skipped` (info) | desktop/laptop/server |
 | `zram` — Swap and zram health | system | `zram/full` (medium)<br>`zram/ok` (info)<br>`zram/swappiness` (info) | desktop/laptop/server |
 | `locales` — Locale configuration | system | `locales/broken` (medium) | desktop/laptop/server |
+| `fds` — File descriptor pressure | system | `fds/exhausted` (high/medium) | server |
 | `services` — Failed services | software | `services/failed` (medium/high)<br>`services/restart-loop` (high)<br>`services/skipped` (info) | desktop/laptop/server |
 | `timers` — Scheduled tasks (systemd timers) | software | `timers/broken` (medium)<br>`timers/ok` (info) | desktop/laptop/server |
 | `journal` — System log errors (last 24 hours) | software | `journal/errors` (info/medium)<br>`journal/no-noise` (info)<br>`journal/skipped` (info)<br>`journal/unknown` (info) | desktop/laptop/server |
@@ -30,6 +31,8 @@ Total: **46 checks** → **154 codes**.
 | `luks` — Disk encryption (LUKS) | security | `luks/encrypted` (info)<br>`luks/none` (info) | desktop/laptop/server |
 | `ssh` — SSH server configuration | security | `ssh/ok` (info)<br>`ssh/root-login` (medium)<br>`ssh/root-password` (high) | desktop/laptop/server |
 | `autologin` — Automatic login | security | — | desktop/laptop/server |
+| `certs` — TLS certificate expiry | security | `certs/critical` (high)<br>`certs/expiring` (medium)<br>`certs/ok` (info) | server |
+| `ports` — Exposed network services | security | `ports/exposed-risky` (medium)<br>`ports/ok` (info) | server |
 | `network` — Network connectivity and DNS | network | `network/dns` (medium)<br>`network/dns-slow` (medium)<br>`network/no-route` (medium)<br>`network/ok` (info)<br>`network/skipped` (info) | desktop/laptop/server |
 | `ntp` — Time synchronization | network | `ntp/ok` (info)<br>`ntp/pending` (medium)<br>`ntp/skipped` (info)<br>`ntp/unsynced` (medium) | desktop/laptop/server |
 | `wifi` — WiFi | network | `wifi/blocked` (medium)<br>`wifi/disabled` (medium)<br>`wifi/no-adapter` (info)<br>`wifi/ok` (info) | desktop/laptop |
@@ -47,7 +50,7 @@ Total: **46 checks** → **154 codes**.
 | `smart` — Disk health (SMART) | hardware | `smart/failing` (high)<br>`smart/good` (info)<br>`smart/needs-root` (info)<br>`smart/skipped` (info) | desktop/laptop/server |
 | `hardware` — Hardware errors (MCE/ECC) | hardware | `hardware/ecc` (medium)<br>`hardware/mce` (high)<br>`hardware/ok` (info) | desktop/laptop/server |
 | `audio` — Audio (PipeWire / PulseAudio) | hardware | `audio/no-output` (medium)<br>`audio/no-server` (medium)<br>`audio/ok` (info)<br>`audio/sinks-skipped` (info) | desktop/laptop |
-| `backup` — Backups and snapshots | data | `backup/none` (info)<br>`backup/ok` (info)<br>`backup/unscheduled` (info) | desktop/laptop/server |
+| `backup` — Backups and snapshots | data | `backup/none` (info)<br>`backup/ok` (info)<br>`backup/stale` (medium)<br>`backup/unscheduled` (info) | desktop/laptop/server |
 | `fstrim` — SSD TRIM (fstrim) | data | `fstrim/disabled` (medium)<br>`fstrim/ok` (info)<br>`fstrim/ok-discard` (info) | desktop/laptop/server |
 | `orphans` — Orphaned packages | system | `orphans/many` (medium)<br>`orphans/none` (info)<br>`orphans/some` (info) | desktop/laptop/server |
 | `boot` — Boot partition | system | `boot/full` (high/medium)<br>`boot/no-config` (medium)<br>`boot/ok` (info) | desktop/laptop/server |

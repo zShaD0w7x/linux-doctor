@@ -266,6 +266,9 @@ setupNotifyButton();
 setupSidebar();
 setupModal();
 setupChecksMatrix();
+setupChecksView();
+setupViews();
+setupBrand();
 
 // JSON export — the same versioned envelope /api/report serves.
 $("#copyjson")?.addEventListener("click", async () => {

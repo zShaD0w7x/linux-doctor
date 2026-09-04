@@ -32,6 +32,7 @@ _linux_doctor() {
     '--interactive[browse findings in an interactive terminal UI]' \
     '--notify[desktop notification when new issues appear]' \
     '--self-test[explain the environment]' \
+    '--init[guided first-run setup]' \
     '--init-config[create a starter config file]' \
     '--check-list[list checks as JSON]' \
     '--history-json[print run history as JSON]' \
@@ -42,6 +43,7 @@ _linux_doctor() {
     '--profile[show check durations]' \
     '--license[show Pro add-on status]' \
     '--alert=[POST an alert webhook]:url:' \
+    '--heartbeat=[ping a dead-man switch after every run]:url:' \
     '--daemon[run continuously as a scheduled agent]' \
     '--interval=[seconds between --daemon runs]:seconds:' \
     '--support[write a privacy-safe support bundle (JSON)]' \

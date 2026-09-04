@@ -8,6 +8,7 @@ import { checks } from "../src/checks/index.js";
 import { memory } from "../src/checks/memory.js";
 import { load } from "../src/checks/load.js";
 import { disk } from "../src/checks/disk.js";
+import { inodes } from "../src/checks/inodes.js";
 import { services } from "../src/checks/services.js";
 import { timers } from "../src/checks/timers.js";
 import { ntp } from "../src/checks/ntp.js";
@@ -120,6 +121,22 @@ test("disk: composefs (immutable) root is NOT reported as full", async () => {
   });
   const findings = await disk.run(ctx);
   assert.equal(findings.length, 0, "a full composefs root must be ignored");
+});
+
+test("disk: AppImage runtime mounts (always 100% by design) are NOT reported as full", async () => {
+  const ctx = stubCtx({
+    "df -P -B1 --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2": `Filesystem     1024-blocks        Used   Available Capacity Mounted on\nLinux.Doctor_0.3.5_amd64.AppImage     79822848     79822848            0    100% /tmp/.mount_Linux.icbcpE\n/dev/sda3     957000000000 350000000000 600000000000   37% /var/home`,
+  });
+  const findings = await disk.run(ctx);
+  assert.equal(findings.length, 0, "a 100% AppImage FUSE mount is a fixed-size image, not a filling disk");
+});
+
+test("inodes: AppImage runtime mounts are NOT reported as inode-exhausted", async () => {
+  const ctx = stubCtx({
+    "df -iP --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2 2>/dev/null": `Filesystem     Inodes IUsed IFree IUse% Mounted on\nLinux.Doctor_0.3.5_amd64.AppImage     100 100 0 100% /tmp/.mount_Linux.icbcpE\n/dev/sda3     1000000 100000 900000   10% /var/home`,
+  });
+  const findings = await inodes.run(ctx);
+  assert.equal(findings.length, 0, "same AppImage exemption as the disk check");
 });
 
 test("disk: configurable thresholds are honored", async () => {

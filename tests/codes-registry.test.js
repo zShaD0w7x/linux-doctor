@@ -47,7 +47,17 @@ export const REGISTRY = {
   // backup
   "backup/none": { sev: ["info"], cat: "backup" },
   "backup/ok": { sev: ["info"], cat: "backup" },
+  "backup/stale": { sev: ["medium"], cat: "backup" },
   "backup/unscheduled": { sev: ["info"], cat: "backup" },
+  // certs
+  "certs/critical": { sev: ["high"], cat: "security" },
+  "certs/expiring": { sev: ["medium"], cat: "security" },
+  "certs/ok": { sev: ["info"], cat: "security" },
+  // ports
+  "ports/exposed-risky": { sev: ["medium"], cat: "security" },
+  "ports/ok": { sev: ["info"], cat: "security" },
+  // fds
+  "fds/exhausted": { sev: ["high", "medium"], cat: "system" },
   // battery
   "battery/low": { sev: ["medium"], cat: "hardware" },
   "battery/none": { sev: ["info"], cat: "hardware" }, // evidence: null allowed (data absence IS the finding)

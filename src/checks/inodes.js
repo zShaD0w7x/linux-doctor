@@ -61,6 +61,9 @@ export const inodes = defineCheck({
       const p = l.split(/\s+/);
       if (p.length < 6) continue;
       const mount = p[5];
+      // Same AppImage exemption as disk.js: FUSE runtime mounts at
+      // /tmp/.mount_* (device *.AppImage) always read 100% by design.
+      if (p[0].includes(".AppImage") || mount.includes("/.mount_")) continue;
       const use = pct(p[4]);
       if (use <= 0 || mount === "/") continue;
       // --exclude-type already filters pseudo filesystems; the extra

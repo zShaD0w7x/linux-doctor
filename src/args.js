@@ -3,8 +3,8 @@
  * arguments, and value flags without a value are errors (exit 2) — a silent
  * typo like `--jsonn` must never quietly run a full report.
  */
-export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--md", "--severity", "--compare", "--alert", "--interval", "--thresholds-set"]);
-export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--ai-local", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear", "--install-timer", "--uninstall-timer"]);
+export const VALUE_FLAGS = new Set(["--check", "--ignore", "--ignore-code", "--ignore-add", "--ignore-remove", "--push", "--html", "--md", "--severity", "--compare", "--alert", "--heartbeat", "--interval", "--thresholds-set"]);
+export const BOOL_FLAGS = new Set(["--json", "--plain", "--web", "--ai", "--ai-local", "--list", "--schema", "--profile", "--ignore-list", "--summary", "--init", "--init-config", "--check-list", "--history-json", "--thresholds-json", "--todo", "--self-test", "--license", "--daemon", "--support", "--no-history", "--fix", "--yes", "--interactive", "--notify", "--history-clear", "--install-timer", "--uninstall-timer"]);
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
@@ -28,6 +28,7 @@ export function parseArgs(argv) {
     htmlPath: null,
     mdPath: null,
     summary: false,
+    init: false,
     initConfig: false,
     checkList: false,
     comparePath: null,
@@ -35,6 +36,7 @@ export function parseArgs(argv) {
     selfTest: false,
     license: false,
     alertUrl: null,
+    heartbeatUrl: null,
     daemon: false,
     interval: null,
     support: false,
@@ -71,6 +73,7 @@ export function parseArgs(argv) {
     else if (flag === "--md") out.mdPath = val;
     else if (flag === "--compare") out.comparePath = val;
     else if (flag === "--alert") out.alertUrl = val;
+    else if (flag === "--heartbeat") out.heartbeatUrl = val;
     else if (flag === "--interval") out.interval = val;
   };
 
@@ -80,6 +83,7 @@ export function parseArgs(argv) {
       : flag === "--severity" ? "high"
       : flag === "--compare" ? "report.json"
       : flag === "--alert" ? "https://ntfy.sh/your-topic"
+      : flag === "--heartbeat" ? "https://hc-ping.com/your-uuid"
       : flag === "--interval" ? "3600"
       : flag === "--ignore-add" ? "services/failed"
       : flag === "--ignore-remove" ? "fw-fanctrl"

@@ -1,4 +1,4 @@
-import { lines } from "../utils.js";
+import { lines, shq } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 
@@ -53,6 +53,37 @@ export const backup = defineCheck({
         detail: `${present.join(", ")} ${present.length > 1 ? "are" : "is"} installed, but no backup systemd timer or cron job was found. A backup only protects you if it actually runs.`,
         evidence: "tools: " + present.join(", ") + "\nscheduled: none",
         fix: "Create a timer or cron job that runs the backup regularly, e.g. daily with a systemd timer, or use the tool's built-in scheduling (Timeshift/Snapper schedule their own snapshots).",
+        confidence: "high",
+      }));
+      return findings;
+    }
+
+    // A scheduled backup that never actually ran is the most expensive
+    // silent failure in self-hosting ("stopped in March, found in
+    // September"). LastTriggerUSec is 0 for a timer that never triggered;
+    // an unreadable value (non-systemd) means "unknown", never "stale".
+    const staleLimit = ctx.thresholds.backupStaleDays ?? 30;
+    const stale = [];
+    for (const name of timerNames) {
+      const show = await ctx.run(`systemctl show ${shq(name)} -p LastTriggerUSec --value 2>/dev/null`);
+      if (!show.ok) continue;
+      const usec = Number(show.stdout.trim());
+      if (!Number.isFinite(usec)) continue;
+      if (usec === 0) {
+        stale.push(`${name} (scheduled but never ran)`);
+      } else {
+        const days = (Date.now() - usec / 1000) / 86400000;
+        if (days > staleLimit) stale.push(`${name} (last ran ${Math.floor(days)} days ago)`);
+      }
+    }
+    if (stale.length > 0) {
+      findings.push(finding({
+        severity: "medium",
+        code: "backup/stale",
+        title: "Scheduled backups are not running",
+        detail: `A backup timer exists but the backup behind it is not happening: ${stale.join(", ")}. A backup that never runs protects nothing — this is usually a broken timer unit or a job that fails silently.`,
+        evidence: stale.join("\n"),
+        fix: `Check the timer state with \`systemctl status ${stale[0].split(" ")[0]}\` and its last error with \`journalctl -u ${stale[0].split(" ")[0]} --since "7 days ago"\`.`,
         confidence: "high",
       }));
       return findings;

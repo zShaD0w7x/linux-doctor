@@ -33,6 +33,11 @@ export const DEFAULT_THRESHOLDS = {
   containerHighGB: 50,
   // network.js — DNS resolution time in ms before it is flagged as slow
   dnsSlowMs: 500,
+  // certs.js — days of TLS certificate lifetime left before it is flagged
+  certWarnDays: 30,
+  certCritDays: 7,
+  // backup.js — days since a scheduled backup timer last triggered
+  backupStaleDays: 30,
   // pro/demo.js — demo premium check (private, not in docs)
   demoWarn: 0.9,
 };

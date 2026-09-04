@@ -7,6 +7,7 @@ import { systemInfo } from "./checks/system.js";
 import { isPro, proInfo } from "./license.js";
 import { loadProModule } from "./pro.js";
 import { shouldAlert, buildAlert, sendAlert } from "./alert.js";
+import { pingHeartbeat } from "./heartbeat.js";
 import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding } from "./report.js";
 import { renderMarkdown } from "./markdown.js";
 import { aiSummary } from "./llm.js";
@@ -105,11 +106,12 @@ async function runSelfTest(checks) {
 }
 
 /**
- * Starter config with the shipped thresholds — written by --init-config.
- * Values come from DEFAULT_THRESHOLDS (src/thresholds.js) so the example
- * can never drift from the defaults; unset keys keep the defaults at load.
+ * Starter config with the shipped thresholds — written by --init-config
+ * (and the --init wizard). Values come from DEFAULT_THRESHOLDS
+ * (src/thresholds.js) so the example can never drift from the defaults;
+ * unset keys keep the defaults at load.
  */
-function starterConfig() {
+export function starterConfig() {
   return JSON.stringify({
     // Linux Doctor Pro license key (optional): read by the installed Pro
     // add-on. Setting LINUX_DOCTOR_LICENSE overrides this file.
@@ -357,6 +359,7 @@ OPTIONS
    --ignore-add <v>  persistently ignore a code or title fragment (saved to config)
    --ignore-remove <v> remove a previously ignored code or title fragment
    --ignore-list  show configured ignore patterns and exit
+  --init         guided first-run setup (config, daily timer, notification test)
   --init-config  create a starter config file at ~/.config/linux-doctor/config.json
   --schema       print the JSON Schema for --json output (v1)
   --profile      append per-check durations to the report
@@ -367,6 +370,7 @@ OPTIONS
   --uninstall-timer  remove and disable the user timer installed by --install-timer
   --license      show the Linux Doctor Pro add-on status and exit
   --alert <url>  POST an alert webhook when the machine degrades [Pro]
+  --heartbeat <url> ping a dead-man's switch after every run [Pro]
   --daemon       run continuously, re-checking every --interval seconds [Pro]
   --interval <s> seconds between --daemon runs (default 3600) [Pro]
   --help         show this help
@@ -441,8 +445,8 @@ export async function main(argv) {
 
   // Pro-only flags are rejected up front in the free edition — the premium
   // features simply do not exist without a key.
-  if ((args.alertUrl || args.daemon || args.interval) && !pro) {
-    console.error("linux-doctor: --alert, --daemon and --interval are Linux Doctor Pro features — install the Pro add-on to use them (see README #tiers)");
+  if ((args.alertUrl || args.daemon || args.interval || args.heartbeatUrl) && !pro) {
+    console.error("linux-doctor: --alert, --daemon, --heartbeat and --interval are Linux Doctor Pro features — install the Pro add-on to use them (see README #tiers)");
     return 2;
   }
   if (args.interval !== null && (!Number.isInteger(Number(args.interval)) || Number(args.interval) < 1)) {
@@ -454,9 +458,9 @@ export async function main(argv) {
   // The apiKey is passed so the guard can refuse plaintext HTTP to a
   // non-loopback host — a Bearer token must never leave the machine in the
   // clear. pushReport/sendAlert re-check the same rule at send time.
-  if ((args.pushUrl || args.alertUrl)) {
+  if ((args.pushUrl || args.alertUrl || args.heartbeatUrl)) {
     const apiKey = process.env.FLEET_API_KEY;
-    for (const [flag, url] of [["--push", args.pushUrl], ["--alert", args.alertUrl]]) {
+    for (const [flag, url] of [["--push", args.pushUrl], ["--alert", args.alertUrl], ["--heartbeat", args.heartbeatUrl]]) {
       if (!url) continue;
       const err = validatePushUrl(url, { apiKey });
       if (err) {
@@ -482,6 +486,12 @@ export async function main(argv) {
     }
     console.error(`linux-doctor: ${res.error}`);
     return 2;
+  }
+
+  // --init: guided first-run setup, then exit (never runs checks).
+  if (args.init) {
+    const { runWizard } = await import("./wizard.js");
+    return runWizard();
   }
 
   // --init-config: create a starter config file and exit.
@@ -770,7 +780,7 @@ function printIgnoreLists(titles, codes) {
     const intervalMs = Number(args.interval ?? 3600) * 1000;
     process.on("SIGINT", () => process.exit(0));
     process.on("SIGTERM", () => process.exit(0));
-    console.log(`linux-doctor agent: checking every ${intervalMs / 1000}s${args.pushUrl ? `, pushing to ${args.pushUrl}` : ""}${args.alertUrl ? `, alerting ${args.alertUrl}` : ""}`);
+    console.log(`linux-doctor agent: checking every ${intervalMs / 1000}s${args.pushUrl ? `, pushing to ${args.pushUrl}` : ""}${args.alertUrl ? `, alerting ${args.alertUrl}` : ""}${args.heartbeatUrl ? `, heartbeat ${args.heartbeatUrl}` : ""}`);
     for (;;) {
       const t0 = Date.now();
       try {
@@ -802,6 +812,13 @@ function printIgnoreLists(titles, codes) {
             console.log(`Alert sent to ${args.alertUrl}`);
           } catch (err) {
             console.error(`linux-doctor: could not send alert: ${err.message}`);
+          }
+        }
+        if (args.heartbeatUrl) {
+          try {
+            await pingHeartbeat(args.heartbeatUrl);
+          } catch (err) {
+            console.error(`linux-doctor: could not ping heartbeat: ${err.message}`);
           }
         }
       } catch (err) {
@@ -972,6 +989,16 @@ function printIgnoreLists(titles, codes) {
       }
     } catch (err) {
       console.error(`linux-doctor: could not send alert: ${err.message}`);
+    }
+  }
+
+  // --heartbeat: ping the dead-man's switch after every completed run, so
+  // silence itself becomes the alert. Best effort, like --alert.
+  if (args.heartbeatUrl) {
+    try {
+      await pingHeartbeat(args.heartbeatUrl);
+    } catch (err) {
+      console.error(`linux-doctor: could not ping heartbeat: ${err.message}`);
     }
   }
 

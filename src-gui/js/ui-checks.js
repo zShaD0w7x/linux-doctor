@@ -117,3 +117,35 @@ function setupChecksMatrix() {
     gotoFinding(row.dataset.gotoCheck, row.dataset.gotoCode);
   });
 }
+
+/* Checks view: the same matrix, inline instead of in a modal. Rendered
+   lazily on every activation so it never goes stale behind the report. */
+async function renderChecksView() {
+  const box = $("#checksview");
+  if (!box) return;
+  const checks = STATIC_DATA ? [] : await fetchChecks();
+  box.innerHTML = checksMatrixHtml(lastReportData || {}, checks);
+}
+
+function setupChecksView() {
+  // Deep-link rows inside the Checks view: same goto as the modal, but the
+  // finding lives in Overview, so switch views first. Bound once.
+  const cv = $("#view-checks");
+  if (cv && !cv.dataset.bound) {
+    cv.dataset.bound = "1";
+    cv.addEventListener("click", (e) => {
+      const row = e.target.closest("[data-goto-check]");
+      if (!row) return;
+      switchView("overview");
+      gotoFinding(row.dataset.gotoCheck, row.dataset.gotoCode);
+    });
+    cv.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const row = e.target.closest("[data-goto-check]");
+      if (!row) return;
+      e.preventDefault();
+      switchView("overview");
+      gotoFinding(row.dataset.gotoCheck, row.dataset.gotoCode);
+    });
+  }
+}

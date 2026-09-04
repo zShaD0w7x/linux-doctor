@@ -25,6 +25,8 @@ import { ssh } from "./ssh.js";
 import { autologin } from "./autologin.js";
 import { secureboot } from "./secureboot.js";
 import { luks } from "./luks.js";
+import { certs } from "./certs.js";
+import { ports } from "./ports.js";
 import { network } from "./network.js";
 import { ntp } from "./ntp.js";
 import { updates } from "./updates.js";
@@ -46,6 +48,7 @@ import { audio } from "./audio.js";
 import { backup } from "./backup.js";
 import { fstrim } from "./fstrim.js";
 import { orphans } from "./orphans.js";
+import { fds } from "./fds.js";
 import { boot } from "./boot.js";
 import { cache } from "./cache.js";
 import { wifi } from "./wifi.js";
@@ -53,11 +56,11 @@ import { packages } from "./packages.js";
 
 export const checks = [
   // system
-  memory, load, disk, inodes, fs, raid, oom, processes, thermal, journald, zram, locales,
+  memory, load, disk, inodes, fs, raid, oom, processes, thermal, journald, zram, locales, fds,
   // software
   services, timers, journal, suspend, containers, containerdisk, crash,
   // security
-  security, secureboot, luks, ssh, autologin,
+  security, secureboot, luks, ssh, autologin, certs, ports,
   // network
   network, ntp, wifi,
   // updates

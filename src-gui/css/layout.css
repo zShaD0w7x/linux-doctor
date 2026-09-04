@@ -12,6 +12,11 @@ header .logo {
   background: var(--card); border: 1px solid var(--border); border-radius: 11px;
   color: var(--green);
 }
+/* Brand home-link: logo + title behave as one link to Overview. */
+.brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; border-radius: 11px; }
+.brand:hover h1 { text-decoration: underline; text-underline-offset: 3px; }
+.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.brand h1 { margin: 0; }
 header .logo svg { display: block; }
 h1 { font-size: 18px; font-weight: 750; letter-spacing: -0.025em; line-height: 1.2; }
 .sysinfo { color: var(--muted2); font-size: 12px; margin-top: 2px; font-weight: 450; }
@@ -19,9 +24,6 @@ h1 { font-size: 18px; font-weight: 750; letter-spacing: -0.025em; line-height: 1
 .sysinfo .dot.stale { background: var(--yellow); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 18%, transparent); }
 .sysinfo .ver { font-family: var(--mono); font-size: 11px; letter-spacing: 0; color: var(--muted2); }
 .actions { margin-left: auto; display: flex; gap: 7px; align-items: center; }
-.export-group { display: flex; gap: 0; background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 2px; }
-.export-group button { border: none; background: transparent; padding: 5px 9px; font-size: 11px; font-weight: 600; letter-spacing: .02em; border-radius: 6px; }
-.export-group button:hover { background: var(--hover); transform: none; }
 .dropdown { position: relative; }
 .dropdown-menu {
   position: absolute; top: calc(100% + 8px); right: 0; min-width: 180px;
@@ -75,7 +77,6 @@ button:disabled { opacity: .45; cursor: default; }
 .status-main { display: flex; flex-direction: column; align-items: center; gap: 0; position: relative; z-index: 1; }
 .status-body { flex: 1; min-width: 0; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 6px; }
 .status-score-row { display: flex; align-items: baseline; gap: 12px; }
-.status-score-meta { display: flex; flex-direction: column; gap: 4px; }
 
 /* Gauge — larger, quieter track */
 .gauge { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
@@ -85,22 +86,23 @@ button:disabled { opacity: .45; cursor: default; }
 .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .scorenum { font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .scoreout { font-size: 10px; color: var(--muted2); margin-top: -1px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.hero-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.hero-main .k { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted2); font-weight: 700; }
 .scoredelta { font-size: 12px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; background: var(--bg2); border: 1px solid var(--border); width: fit-content; }
 .delta-up { color: var(--green); } .delta-down { color: var(--red); } .delta-flat { color: var(--muted2); }
 
 /* New hierarchy inside status-body */
-.status-eyebrow { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--muted2); }
 .status-headline { font-size: 22px; font-weight: 750; line-height: 1.25; letter-spacing: -0.02em; }
 .status-headline.ok { color: var(--text); }
 .status-headline.warn { color: var(--text); }
-.status-headline.critical { color: var(--red); }
 .status-breakdown { font-size: 13px; line-height: 1.5; color: var(--muted); margin-top: 6px; }
 .status-breakdown b { color: var(--text); font-weight: 650; }
 .status-breakdown .sep { color: var(--muted2); margin: 0 6px; }
-.status-trend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted2); }
-.status-trend b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Hero stat tiles (Beszel header-stats pattern): at-a-glance numbers filling
+   the space beside the score instead of two lost lines of small text. */
+.stat-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 210px; align-self: center; }
+.stat-tile { background: var(--bg2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; min-width: 0; }
+.stat-tile b { display: block; font-size: 17px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat-tile span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted2); }
+.stat-tile .dot { width: 7px; height: 7px; }
 .status-meta { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--muted2); flex-wrap: wrap; }
 .status-meta .dot { width: 6px; height: 6px; }
 .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
@@ -247,3 +249,67 @@ footer { margin-top: 56px; color: var(--muted2); font-size: 11.5px; text-align: 
   .layout { grid-template-columns: 240px minmax(0, 1fr); gap: 32px; }
   .sidebar { display: block; }
 }
+
+/* === App views: Cockpit-style sidebar nav on desktop, scrollable tab bar
+   on mobile. One set of buttons (id="viewtabs") moves between the two
+   presentations purely through CSS. */
+#sidebar .viewtabs { display: flex; flex-direction: column; gap: 2px; }
+#sidebar .viewtab {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 8px; border-radius: 8px; border: none; background: transparent;
+  color: var(--muted); font-size: 12.5px; font-weight: 500; cursor: pointer;
+  text-align: left;
+}
+#sidebar .viewtab:hover { background: var(--hover); color: var(--text); }
+#sidebar .viewtab.active { background: var(--card); color: var(--text); outline: 1px solid var(--border); }
+#sidebar .viewtab svg { flex-shrink: 0; }
+#sidebar .tabbadge { margin-left: auto; }
+/* Notices row under the full-width START HERE card: schedule strip and
+   security posture side by side (Cockpit gallery pattern); a lone visible
+   child spans the full width instead of leaving a gap. */
+#notices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; margin-bottom: 12px; }
+#notices[hidden] { display: none; }
+#notices.single > :not([hidden]) { grid-column: 1 / -1; }
+@media (max-width: 900px) { #notices { grid-template-columns: 1fr; } }
+/* .layout/.history carry their own display values, which would override the
+   hidden attribute — views must stay hidden when told to. */
+.view[hidden] { display: none; }
+#checksview .mx-head { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+#checksview .mx-sub { font-size: 12px; color: var(--muted2); margin-bottom: 12px; }
+.tabbadge {
+  font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: 999px; padding: 1px 6px; margin-left: 5px;
+}
+/* Generic view card + fact rows (System view, Schedule view). */
+.viewcard {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 20px; margin-bottom: 14px;
+}
+.sysfact {
+  display: flex; gap: 12px; align-items: baseline;
+  padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px;
+}
+.sysfact:first-of-type { border-top: none; }
+.sysfact-k { width: 170px; flex-shrink: 0; color: var(--muted2); font-size: 12px; }
+.sysfact-v { color: var(--text); min-width: 0; }
+.sched-static { margin: 12px 0 4px; }
+/* Run ledger (History view): one row per recorded run, newest first. */
+.ledger-head { font-size: 13px; font-weight: 700; margin: 18px 0 8px; }
+.ledger-sub { font-weight: 400; color: var(--muted2); font-size: 11px; margin-left: 6px; }
+.ledger {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 6px 16px;
+}
+.ledger-row {
+  display: flex; gap: 12px; align-items: baseline;
+  padding: 8px 0; border-top: 1px solid var(--border);
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+.ledger-row:first-child { border-top: none; }
+.ledger-when { color: var(--muted2); width: 110px; flex-shrink: 0; }
+.ledger-score { font-weight: 700; width: 64px; flex-shrink: 0; }
+.ledger-delta { width: 44px; flex-shrink: 0; color: var(--muted2); }
+.ledger-delta.up { color: var(--green); }
+.ledger-delta.down { color: var(--red); }
+.ledger-counts { margin-left: auto; color: var(--muted); font-size: 11.5px; text-align: right; }

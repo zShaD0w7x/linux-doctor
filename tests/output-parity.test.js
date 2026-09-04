@@ -159,6 +159,14 @@ test("vocabulary: the same phrases exist in CLI output and the dashboard HTML", 
     ["what happened (GUI)", null, /What happened/],
     ["evidence label (GUI)", null, /Evidence — how we detected it/],
     ["inspect action (GUI)", null, /Inspect details/],
+    ["view tabs (GUI)", null, /data-view="overview"/],
+    ["brand home-link (GUI)", null, /id="brand"/],
+    ["views panels (GUI)", null, /id="view-history"/],
+    ["all five views (GUI)", null, /data-view="schedule"/],
+    ["system view (GUI)", null, /Operating system/],
+    ["system wiki hardware (GUI)", null, /What this machine is/],
+    ["schedule view (GUI)", null, /Scheduled checks/],
+    ["run ledger (GUI)", null, /Past runs/],
   ];
   for (const [name, text, re] of phrases) {
     if (text !== null) assert.ok(re.test(text), `CLI report missing "${name}"`);

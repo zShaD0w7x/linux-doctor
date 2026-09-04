@@ -103,31 +103,36 @@ function renderStatus(data) {
   const status = $("#status");
   status.className = "status" + (high + med === 0 ? " calm" : high > 0 ? " warn" : "");
 
-  // Hierarchy: [Gauge]  61 / NEEDS ATTENTION / breakdown / delta+chips
-  const scoreLabel = level === "ok" ? "HEALTHY" : level === "critical" ? "NEEDS ATTENTION" : "NEEDS ATTENTION";
-  const labelColor = level === "ok" ? "var(--green)" : level === "critical" ? "var(--red)" : "var(--yellow)";
+  // Hierarchy: [Gauge] score + delta / headline / one detail line / chips
+  // One message line only: the breakdown when there is something to act on,
+  // the plain-language sublabel when healthy (it carries the "no high or
+  // medium issues" phrasing pinned by output-parity). The eyebrow and the
+  // big "/100" duplicated the headline and the gauge, so they are gone.
+  const detailHtml = (high + med > 0)
+    ? breakdownHtml.replace('status-breakdown', 'status-breakdown" style="font-size:12px;margin-top:6px').replace('margin-top:2px;color:var(--muted2)', 'margin-top:2px;color:var(--muted2);font-size:11px')
+    : '<div style="font-size:12px;color:var(--muted);margin-top:1px">' + sublabel + '</div>';
 
   status.innerHTML =
     '<div class="status-main">' +
     renderGauge(score, 84) +
     '</div>' +
     '<div class="status-body" style="gap:4px">' +
-    '<div class="status-eyebrow" style="color:' + labelColor + ';font-size:9px;letter-spacing:.13em">' + scoreLabel + '</div>' +
     '<div class="status-score-row" style="align-items:baseline;gap:10px;margin-top:2px">' +
-      '<div style="font-size:42px;font-weight:800;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">' + score + '<span style="font-size:15px;font-weight:600;color:var(--muted2);margin-left:2px">/100</span></div>' +
+      '<div style="font-size:42px;font-weight:800;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums" title="Health score ' + score + ' of 100">' + score + '</div>' +
       '<div class="scoredelta ' + deltaCls + '" style="font-size:11px;padding:3px 8px">' + deltaIcon + " " + deltaTxt + "</div>" +
     '</div>' +
     '<div class="status-headline ' + (level === "ok" ? "ok" : "warn") + '" style="font-size:13px;margin-top:6px;font-weight:650">' + headline + '</div>' +
-    '<div style="font-size:12px;color:var(--muted);margin-top:1px">' + sublabel + '</div>' +
-    breakdownHtml.replace('status-breakdown', 'status-breakdown" style="font-size:12px;margin-top:6px').replace('margin-top:2px;color:var(--muted2)', 'margin-top:2px;color:var(--muted2);font-size:11px') +
+    detailHtml +
     '<div class="status-meta">' + chips +
     '<span id="hero-spark" class="chip-trend" hidden></span>' +
     '<button id="checkschip" type="button" class="lowbadge" hidden></button>' +
     "</div>" +
     "</div>" +
-    '<div class="status-trend" style="align-self:center;flex-direction:column;align-items:flex-end;gap:6px;min-width:140px">' +
-      '<div style="font-size:11px;color:var(--muted2);text-align:right">' + (data.checksRun ? data.checksRun + " checks" : "") + (data.checksSkipped ? " · " + data.checksSkipped + " skipped" : "") + "</div>" +
-      '<div style="font-size:11px;color:var(--muted2)"><span class="dot" id="statusdot"></span><span id="statuspill-txt"></span></div>' +
+    '<div class="stat-tiles">' +
+      '<div class="stat-tile"><b style="color:' + (high > 0 ? "var(--red)" : med > 0 ? "var(--yellow)" : "var(--green)") + '">' + (high + med) + "</b><span>problems</span></div>" +
+      '<div class="stat-tile"><b>' + (data.checksRun != null ? data.checksRun : "—") + "</b><span>checks" + (data.checksSkipped ? " · " + data.checksSkipped + " skipped" : "") + "</span></div>" +
+      '<div class="stat-tile"><b>' + (typeof data.cleanStreak === "number" && data.cleanStreak > 0 ? data.cleanStreak + "×" : "—") + "</b><span>clean streak</span></div>" +
+      '<div class="stat-tile"><b><span class="dot" id="statusdot"></span> <span id="statuspill-txt"></span></b><span>last check</span></div>' +
     "</div>";
 
   animateScore(score);

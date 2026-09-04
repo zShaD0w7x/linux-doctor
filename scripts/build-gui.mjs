@@ -44,12 +44,14 @@ const JS_ORDER = [
   "ui-thresholds.js",
   "ui-history.js",     // statusTimer + trend rendering
   "ui-sidebar.js",     // overview sidebar: breakdown bars + nav counts
+  "ui-views.js",       // Overview / History / Checks app views
   "ui-checks.js",      // all-checks matrix modal + jump-to-finding
   "export.js",
   "render-charts.js",
   "render-findings.js",
   "render-sections.js",
   "render-status.js",
+  "ui-system.js",      // System view (machine facts from the payload)
   "render.js",         // render orchestrator
   "init.js",           // entry point (runs at load) — MUST be last
 ];
@@ -85,9 +87,11 @@ ${css}
 <a class="skip-link" href="#report">Skip to findings</a>
 <div class="wrap">
   <header>
-    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M2 13h4l2.5-7 4 12 3-8 1.5 3H22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    <div>
+    <a id="brand" class="brand" href="#overview" aria-label="Linux Doctor — go to Overview">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M2 13h4l2.5-7 4 12 3-8 1.5 3H22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <h1>Linux Doctor</h1>
+    </a>
+    <div>
       <div class="sysinfo" id="sysinfo" role="status">Loading…</div>
     </div>
     <div class="actions">
@@ -111,6 +115,16 @@ ${css}
   </div>
   <div class="layout">
     <aside id="sidebar" class="sidebar" hidden aria-label="Report overview">
+      <section class="sb-block sb-views">
+        <h2>Views</h2>
+        <nav id="viewtabs" class="viewtabs" role="tablist" aria-label="Views">
+          <button class="viewtab active" role="tab" aria-selected="true" data-view="overview"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>Overview</button>
+          <button class="viewtab" role="tab" aria-selected="false" data-view="history" tabindex="-1"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 20h18M5 16l4-5 3 3 4-6 3 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>History <span class="tabbadge" id="tabbadge-history" hidden></span></button>
+          <button class="viewtab" role="tab" aria-selected="false" data-view="checks" tabindex="-1"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 6l1.5 1.5L8 5m4 1h8M4 12l1.5 1.5L8 11m4 1h8M4 18l1.5 1.5L8 17m4 1h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Checks <span class="tabbadge" id="tabbadge-checks" hidden></span></button>
+          <button class="viewtab" role="tab" aria-selected="false" data-view="system" tabindex="-1"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>System</button>
+          <button class="viewtab" role="tab" aria-selected="false" data-view="schedule" tabindex="-1"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Schedule</button>
+        </nav>
+      </section>
       <section class="sb-block">
         <h2>Why this score</h2>
         <div id="sb-breakdown"></div>
@@ -125,6 +139,7 @@ ${css}
       </section>
     </aside>
     <div class="maincol">
+    <div id="view-overview" class="view" role="tabpanel" aria-label="Overview">
       <div class="toolbar" role="toolbar" aria-label="Report controls">
         <div class="seg" role="group" aria-label="Group findings by">
           <button class="segbtn active" data-groupby="severity">Severity</button>
@@ -149,9 +164,11 @@ ${css}
         </div>
       </div>
       <main class="content">
-        <div id="schedstrip" class="sched" hidden></div>
-        <div id="security-posture" hidden></div>
         <div id="nexthep" hidden></div>
+        <div id="notices" hidden>
+          <div id="schedstrip" class="sched" hidden></div>
+          <div id="security-posture" hidden></div>
+        </div>
         <div id="drillhint" class="empty" hidden></div>
         <div id="report"><div class="empty">Reading your system…</div></div>
         <div id="nomatch" class="empty" hidden></div>
@@ -173,14 +190,27 @@ ${css}
         </details>
       </main>
     </div>
-  </div>
+  <div id="view-history" class="view" role="tabpanel" aria-label="History" hidden>
   <section id="history" class="history" hidden>
     <details class="hist-details">
       <summary class="hist-summary">History <span class="hist-sub">score &amp; findings across recent runs</span><span class="chev">▸</span></summary>
       <div id="trend"></div>
+      <div id="runledger"></div>
     </details>
   </section>
-  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>Esc</kbd> clear</footer>
+  </div>
+  <div id="view-checks" class="view" role="tabpanel" aria-label="All checks" hidden>
+    <div id="checksview"></div>
+  </div>
+  <div id="view-system" class="view" role="tabpanel" aria-label="System" hidden>
+    <div id="systemview"></div>
+  </div>
+  <div id="view-schedule" class="view" role="tabpanel" aria-label="Schedule" hidden>
+    <div id="schedview"></div>
+  </div>
+    </div>
+  </div>
+  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>1</kbd>–<kbd>5</kbd> views · <kbd>Esc</kbd> clear</footer>
 </div>
 <div id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Details">

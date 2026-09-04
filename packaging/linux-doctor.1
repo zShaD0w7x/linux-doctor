@@ -103,6 +103,10 @@ Show configured ignore patterns and exit.
 .BR \-\-history\-clear
 Clear stored run history.
 .TP
+.BR \-\-init
+Guided first-run setup: environment summary, starter config, daily timer,
+and a notification test. Prints copy-paste steps without a TTY.
+.TP
 .BR \-\-init\-config
 Create a starter config file at ~/.config/linux-doctor/config.json.
 .TP
@@ -132,6 +136,9 @@ POST an alert webhook when the machine degrades [Pro].
 .TP
 .BR \-\-daemon
 Run continuously, re-checking every \-\-interval seconds [Pro].
+.TP
+.BR \-\-heartbeat " " \fIurl\fR
+Ping a dead-man's switch after every completed run [Pro].
 .TP
 .BR \-\-interval " " \fIseconds\fR
 Seconds between \-\-daemon runs (default 3600) [Pro].

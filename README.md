@@ -1,5 +1,8 @@
 # 🩺 Linux Doctor
 
+[![Latest release](https://img.shields.io/github/v/release/zShaD0w7x/linux-doctor)](https://github.com/zShaD0w7x/linux-doctor/releases/latest)
+[![CI](https://github.com/zShaD0w7x/linux-doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/zShaD0w7x/linux-doctor/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/zShaD0w7x/linux-doctor)](https://github.com/zShaD0w7x/linux-doctor/blob/main/LICENSE)
 [![Sponsor](https://img.shields.io/github/sponsors/zShaD0w7x)](https://github.com/sponsors/zShaD0w7x)
 
 **Linux diagnostics that explain the problem — and remember what changed.**
@@ -9,8 +12,11 @@ actually matter. Each finding comes with a clear explanation and a
 copy-paste fix. It remembers your last run, so every report tells you what's
 new, what got fixed, and what stayed the same.
 
-It never changes your system. Fixes are suggestions you run yourself. Every
-check and every fix command is covered by 460+ automated tests — read-only by construction.
+- 🎯 **One clear next step** — every report leads with ▶ START HERE, the single most useful action, not a wall of graphs
+- 🧠 **Memory built in** — health score (0–100), trend sparkline, and a plain-language NEW/FIXED diff on every run
+- 🔒 **Read-only by construction** — it never changes your system; fixes are suggestions you run yourself (optional `--fix` is dry-run first, double opt-in)
+- 🖥️ **CLI + desktop app** — terminal report, web dashboard, and a Tauri desktop app (AppImage / deb / rpm) sharing the exact same checks
+- 📦 **Runs anywhere** — `npx`, npm, AUR, RPM spec, `.deb`, AppImage; graceful on immutable distros (Silverblue, Bazzite)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/dashboard-light.png" alt="Linux Doctor dashboard (light): health score, START HERE action, findings grouped by severity" width="49%"><img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/dashboard-dark.png" alt="Linux Doctor dashboard (dark): health score, START HERE action, findings grouped by severity" width="49%">
@@ -33,12 +39,15 @@ AppImage runs on most distributions (glibc-based); on immutable systems
 requirement: **Node.js ≥ 20 installed** (`node --version`) — the app runs
 the checks through it; everything else is bundled.
 
-**AppImage on very new Mesa (Fedora/Bazzite):** the bundle's WebKitGTK
-comes from an older LTS base and its accelerated paths can abort against
-bleeding-edge host Mesa (`Could not create default EGL display`). This is
-about the host's Mesa driver stack, not the GPU brand: **AMD and Intel**
-graphics (and nouveau) all run on Mesa and are equally exposed; NVIDIA's
-proprietary driver ships its own stack and is unlikely to hit it.
+<details>
+<summary>AppImage graphics troubleshooting (very new Mesa, v0.3.2 and older)</summary>
+
+The bundle's WebKitGTK comes from an older LTS base and its accelerated
+paths can abort against bleeding-edge host Mesa (`Could not create default
+EGL display`). This is about the host's Mesa driver stack, not the GPU
+brand: **AMD and Intel** graphics (and nouveau) all run on Mesa and are
+equally exposed; NVIDIA's proprietary driver ships its own stack and is
+unlikely to hit it.
 
 **Current builds handle this automatically** — the AppImage defaults to
 software GL on launch (a diagnostics dashboard does not need GPU anyway).
@@ -52,6 +61,7 @@ LIBGL_ALWAYS_SOFTWARE=1 ./Linux.Doctor_*_amd64.AppImage
 > The desktop app shells out to Node.js ≥ 20 for the checks themselves
 > (bundled-runtime builds are planned). Everything else — window, dashboard,
 > history — needs nothing.
+</details>
 
 ## Install & first run (CLI)
 
@@ -111,6 +121,9 @@ change silently.
 | `zram` | Swap/zram health — compressed swap near full, swappiness |
 | `locales` | System locale — missing/broken locale generation |
 | `services` | Failed systemd services (system + user); services stuck in a restart loop |
+| `certs` | TLS certificate expiry (certbot state + actually-deployed certs on local TLS ports) |
+| `ports` | Risky services (databases, FTP/Telnet) listening outside localhost without a firewall |
+| `fds` | File-descriptor pressure (`/proc/sys/fs/file-nr` near the kernel limit) |
 | `timers` | Scheduled tasks — enabled systemd timers that never run |
 | `journal` | Error log, with known-benign noise filtered out |
 | `journald` | System journal (log) disk usage |
@@ -138,7 +151,7 @@ change silently.
 | `bluetooth` | Bluetooth controller presence and daemon state |
 | `wayland` | Display session type, running compositor, software rendering |
 | `audio` | Sound server (PipeWire/PulseAudio) and output device (desktop/laptop) |
-| `backup` | Backup/snapshot tools installed and scheduled (borg, restic, snapper, timeshift…) |
+| `backup` | Backup/snapshot tools installed, scheduled, and actually running (stale backups flagged) |
 | `fstrim` | SSD TRIM — weekly fstrim.timer enabled or continuous discard mounting |
 | `hardware` | Machine check exceptions and corrected ECC memory errors |
 | `smart` | Disk SMART health (needs root or smartmontools) |
@@ -181,14 +194,14 @@ report still works.
 - ~~More checks: Bluetooth, Wayland, backup, hardware errors, LUKS~~ — shipped
 - Auto-generated, distro-specific fix instructions
 - Signed store installers and a `.desktop` launcher for the GUI
-- **Maintenance:** single maintainer, AI-assisted. Expect weekly 0.4.x releases,
-  then biweekly 0.5.x; security fixes within days. Roadmap lives in CHANGELOG
-  [Unreleased] and in GitHub issues — contributions welcome.
+- **Maintenance:** single maintainer, AI-assisted. Roadmap lives in CHANGELOG
+  [Unreleased] and in GitHub issues — security fixes within days,
+  contributions welcome.
 
 ## Transparency
 
 Development is AI-assisted and the author is the driver of every decision.
-Accountability is by artifacts: 460+ automated tests (golden snapshots,
+Accountability is by artifacts: 540+ automated tests (golden snapshots,
 shell-safety, output-parity), CI on Fedora + Node 20/22/24, read-only by
 construction with a pinned safe-fix catalog. Judge it by those artifacts.
 

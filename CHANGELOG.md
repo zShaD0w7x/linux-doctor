@@ -6,8 +6,26 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **AppImage runtime mounts no longer report as full disks.** FUSE mounts at `/tmp/.mount_*` (device `*.AppImage`) always read 100% because they are fixed-size images, not filling disks — same false-positive class as the excluded squashfs layers. Skipped by mount shape in the disk *and* inode checks.
+
 ### Added
 
+- **Terminal theme for the dashboard.** A phosphor-console look (near-black green-tinted background, monospace throughout, sharp corners, flat surfaces, green accents) as a fourth theme option behind the header button — same layout, same contrast budget, variables only.
+- **Cockpit-style app navigation.** The five views move into a sidebar rail with icons and live count badges on wide screens (scrollable tab bar below that width); secondary panels share a two-column card grid beside START HERE instead of stacking full-width. Same renderers, same keyboard flows, same remembered choice.
+- **Product-look pass on findings and hero.** Informational findings now render as compact one-line rows (dot + title + code, full body on open) instead of full cards; evidence summaries carry their line count; the hero's empty right side is now four stat tiles (problems, checks, clean streak, last check with the live checked-ago indicator).
+- **Dashboard content order.** START HERE takes the full width first; the daily-check strip and the security posture share a two-column notices row beneath it (spanning full width when only one is visible) — the Overview spine reads hero → START HERE → findings with no information or action removed.
+- **System view is a full machine wiki.** The report payload now carries architecture, hostname, CPU model, total RAM, desktop, and session type (additive schema fields, still v1); the view renders them as Operating system / Hardware / Session sections next to the report summary.
+- **Dashboard app views: Overview / History / Checks / System / Schedule.** The single scroll now has homes: today's report stays exactly as-is under Overview (the default), History gains a newest-first run ledger beside the trend charts, the all-checks matrix renders inline under Checks, System shows machine facts plus the report summary, and Schedule shows timer status, cadence, notification state, and copy-paste setup/alert/heartbeat commands. Tabs carry live count badges; tab bar, `1`–`5` shortcuts, roving arrow-key tabs, remembered choice — existing filters, keyboard flows, and the auto-refresh pause behavior are untouched.
+- **`--init` — guided first-run setup (Free).** Detects the environment (profile, systemd, node), then offers the three steps that turn a one-off run into set-and-forget monitoring: a starter config, the daily systemd timer, and a desktop-notification test. Every mutating step asks first; without a TTY it prints the same steps as copy-paste commands.
+- **`--heartbeat <url>` [Pro] — dead-man's switch.** Pings a heartbeat URL (Healthchecks.io, BetterStack) with a bare GET after every completed run, in one-off and `--daemon` mode. The ping carries no body — liveness only — and failures are warnings, never exit-code changes. Same Pro gate and URL validation as `--alert`.
+- **ntfy examples for `--alert` in docs/integrations.md.** Phone push via ntfy (self-hostable, no account) plus the `--heartbeat` complement, so scheduled runs reach a human without a fleet server.
+- **4 new server checks (49 checks / 161 codes total):**
+  - `certs` — TLS certificate expiry, the classic silent outage: reads certbot state (`/etc/letsencrypt/live/*/cert.pem`) *and* the actually-deployed cert via `s_client` against locally-listening TLS ports (catches "renewed on disk but never reloaded"). Expired or <7 days → **high**, <30 days → **medium**. Tunable `certWarnDays` / `certCritDays`.
+  - `ports` — risky services (MySQL, PostgreSQL, Redis, MongoDB, FTP/Telnet…) listening on non-loopback interfaces, cross-checked against the firewall (same signals as the security check). Exposed with no firewall → **medium**; firewalled or clean → informational.
+  - `fds` — file-descriptor pressure from `/proc/sys/fs/file-nr`: the "server dies mysteriously with no metric spiking" cause. ≥95% of the kernel limit → **high**, ≥90% → **medium**, healthy stays silent.
+  - `backup/stale` — extends the backup check: a scheduled backup timer that never triggered, or last ran over `backupStaleDays` (30) ago, is **medium**. A backup that never runs protects nothing.
 - **Dashboard "Daily check" strip.** The report now opens with the scheduling
   state: whether the user timer (`--install-timer`) is installed and active,
   plus the browser-alerts state — with a one-click copy of the setup command

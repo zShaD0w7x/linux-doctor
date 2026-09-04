@@ -23,6 +23,8 @@ async function renderTrend(currentScore) {
   const runs = await fetchHistory();
   const data = runs.filter((r) => typeof r.score === "number").slice(-12);
   const histEl = $("#history");
+  const ledger = $("#runledger");
+  if (ledger) ledger.innerHTML = "";
   if (data.length < 2) {
     /* First recorded run: a bare hidden section reads as "broken". Explain
        what will grow here instead, using the score we already have. */
@@ -39,6 +41,8 @@ async function renderTrend(currentScore) {
     return;
   }
   histEl.hidden = false;
+  renderHistoryLedger(data);
+  updateHistoryBadge(data.length);
 
   // Hero mini-sparkline: the score's recent direction, visible at a glance.
   const spark = $("#hero-spark");
@@ -72,4 +76,49 @@ async function renderTrend(currentScore) {
       el.addEventListener("click", () => { const idx = Number(el.dataset.idx || el.closest("[data-idx]")?.dataset.idx); if (Number.isFinite(idx)) showRun(idx); });
     });
   }, 80);
+}
+
+/* Run ledger: every recorded run as a row — date, score, delta vs the
+   previous run, severity counts. Newest first. Pure-ish (string building
+   only) so dashboard-state.test.js can pin the vocabulary. */
+function historyLedgerHtml(runs) {
+  const rows = (runs || []).filter((r) => typeof r.score === "number").slice(-12);
+  if (rows.length < 2) return "";
+  let html = '<div class="ledger-head">Past runs <span class="ledger-sub">newest first</span></div><div class="ledger">';
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const r = rows[i];
+    const prev = i > 0 ? rows[i - 1] : null;
+    const d = prev ? r.score - prev.score : null;
+    const dCls = d === null ? "" : d > 0 ? "up" : d < 0 ? "down" : "flat";
+    const dTxt = d === null ? "—" : (d > 0 ? "+" + d : String(d));
+    const c = r.counts || {};
+    html += '<div class="ledger-row"><span class="ledger-when">' + esc(fmtWhen(r.at) || "—") + "</span>" +
+      '<span class="ledger-score">' + r.score + "/100</span>" +
+      '<span class="ledger-delta ' + dCls + '">' + dTxt + "</span>" +
+      '<span class="ledger-counts">' + (c.high || 0) + " high · " + (c.medium || 0) + " med · " + (c.info || 0) + " info</span></div>";
+  }
+  return html + "</div>";
+}
+
+function renderHistoryLedger(runs) {
+  const box = $("#runledger");
+  if (!box) return;
+  box.innerHTML = historyLedgerHtml(runs);
+}
+
+function setTabBadge(id, text) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  if (text) { b.textContent = text; b.hidden = false; }
+  else { b.textContent = ""; b.hidden = true; }
+}
+
+function updateHistoryBadge(n) {
+  setTabBadge("tabbadge-history", n >= 2 ? String(n) : "");
+}
+
+/* Checks-tab badge: findings with a problem (high/medium) on this report. */
+function updateChecksBadge(data) {
+  const n = (data.findings || []).filter((f) => f.severity === "high" || f.severity === "medium").length;
+  setTabBadge("tabbadge-checks", n > 0 ? String(n) : "");
 }
