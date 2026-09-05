@@ -58,6 +58,12 @@ bumpText("src-tauri/Cargo.toml", (s) =>
   s.replace(/^version = ".*"/m, `version = "${version}"`)
 );
 
+// 3b. src-tauri/Cargo.lock — `cargo --locked` (CI clippy/build) fails if the
+// package's own recorded version drifts from Cargo.toml.
+bumpText("src-tauri/Cargo.lock", (s) =>
+  s.replace(/(name = "linux-doctor"\r?\nversion = ")[^"]*(")/, `$1${version}$2`)
+);
+
 // 4. src-tauri/tauri.conf.json
 bumpJson("src-tauri/tauri.conf.json", (j) => { j.version = version; });
 
