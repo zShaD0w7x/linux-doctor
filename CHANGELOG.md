@@ -4,11 +4,9 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.5.0] — 2026-09-05
 
-### Fixed
-
-- **AppImage runtime mounts no longer report as full disks.** FUSE mounts at `/tmp/.mount_*` (device `*.AppImage`) always read 100% because they are fixed-size images, not filling disks — same false-positive class as the excluded squashfs layers. Skipped by mount shape in the disk *and* inode checks.
+> **Highlights:** 8 new server checks (TLS certs, exposed ports, fd pressure, RAID, containers, service restart loops, GPU memory, stale backups) — the catalog grows to **49 checks / 161 codes**; `--init` guided first-run setup; `--heartbeat <url>` dead-man's switch [Pro]; `--ai-local` private offline AI summaries; the dashboard becomes a five-view app (Overview / History / Checks / System / Schedule) with a Terminal theme and a machine wiki. No breaking changes — the JSON schema stays v1.
 
 ### Added
 
@@ -21,7 +19,7 @@ All notable changes to Linux Doctor are documented here. The format follows
 - **`--init` — guided first-run setup (Free).** Detects the environment (profile, systemd, node), then offers the three steps that turn a one-off run into set-and-forget monitoring: a starter config, the daily systemd timer, and a desktop-notification test. Every mutating step asks first; without a TTY it prints the same steps as copy-paste commands.
 - **`--heartbeat <url>` [Pro] — dead-man's switch.** Pings a heartbeat URL (Healthchecks.io, BetterStack) with a bare GET after every completed run, in one-off and `--daemon` mode. The ping carries no body — liveness only — and failures are warnings, never exit-code changes. Same Pro gate and URL validation as `--alert`.
 - **ntfy examples for `--alert` in docs/integrations.md.** Phone push via ntfy (self-hostable, no account) plus the `--heartbeat` complement, so scheduled runs reach a human without a fleet server.
-- **4 new server checks (49 checks / 161 codes total):**
+- **4 new server checks — the catalog grows to 49 checks / 161 codes:**
   - `certs` — TLS certificate expiry, the classic silent outage: reads certbot state (`/etc/letsencrypt/live/*/cert.pem`) *and* the actually-deployed cert via `s_client` against locally-listening TLS ports (catches "renewed on disk but never reloaded"). Expired or <7 days → **high**, <30 days → **medium**. Tunable `certWarnDays` / `certCritDays`.
   - `ports` — risky services (MySQL, PostgreSQL, Redis, MongoDB, FTP/Telnet…) listening on non-loopback interfaces, cross-checked against the firewall (same signals as the security check). Exposed with no firewall → **medium**; firewalled or clean → informational.
   - `fds` — file-descriptor pressure from `/proc/sys/fs/file-nr`: the "server dies mysteriously with no metric spiking" cause. ≥95% of the kernel limit → **high**, ≥90% → **medium**, healthy stays silent.
@@ -33,11 +31,15 @@ All notable changes to Linux Doctor are documented here. The format follows
   endpoint (no report-schema change); hidden for static `--html` exports.
 
 - **New `--ai-local` flag — private, offline AI summaries.** Points the existing AI summary at a local Ollama instance (`http://localhost:11434/v1`, model `llama3.2`, any key) so the plain-English explanation runs entirely on your machine with no cloud and no `LLM_API_KEY` to a third party. Finding text is still redacted with the same `scrub()` before it ever leaves the box.
-- **New `gpu-usage` check (46 checks / 154 codes total):** GPU memory pressure for AI/homelab rigs — reads VRAM used/total for NVIDIA (`nvidia-smi`) and AMD (`amdgpu` sysfs, no tool needed). Stays silent on an idle card, reports usage as informational when the GPU is working (≥50%), and flags VRAM nearly full (≥90%) as **medium** — the OOM risk when you try to load a bigger model. Complements the existing `gpu` driver-health check.
-- **3 new server checks (45 checks / 152 codes total):**
+- **New `gpu-usage` check:** GPU memory pressure for AI/homelab rigs — reads VRAM used/total for NVIDIA (`nvidia-smi`) and AMD (`amdgpu` sysfs, no tool needed). Stays silent on an idle card, reports usage as informational when the GPU is working (≥50%), and flags VRAM nearly full (≥90%) as **medium** — the OOM risk when you try to load a bigger model. Complements the existing `gpu` driver-health check.
+- **3 new server checks:**
   - `raid` — software RAID health: a degraded mdadm array (parsed from `/proc/mdstat`, no binary needed) or a `DEGRADED` ZFS pool is flagged **high** (data-loss risk), a resyncing/scrubbing array is **medium**, healthy arrays get an informational line. Server-scoped (pass `--check=raid` to force it anywhere).
   - `containers/dead` + `containers/oom` + `containers/restarting` — extend the container check: a container that exited non-zero is **medium**, one killed by the OOM killer (exit 137) is **high**, and one stuck in a restart loop is **medium**. Read-only via `podman ps -a` / `docker ps -a`.
   - `services/restart-loop` — extend the services check: a unit in `auto-restart` substate is "active" but never actually stays up, so it hides behind a green status; flagged **high** with its `NRestarts` count.
+
+### Fixed
+
+- **AppImage runtime mounts no longer report as full disks.** FUSE mounts at `/tmp/.mount_*` (device `*.AppImage`) always read 100% because they are fixed-size images, not filling disks — same false-positive class as the excluded squashfs layers. Skipped by mount shape in the disk *and* inode checks.
 
 ## [0.4.0] — 2026-08-28
 

@@ -10,7 +10,7 @@
 #   curl -sLO https://github.com/zShaD0w7x/linux-doctor/archive/refs/tags/v$pkgver.tar.gz
 #   sha256sum v$pkgver.tar.gz
 pkgname=linux-doctor
-pkgver=0.4.0
+pkgver=0.5.0
 pkgrel=1
 pkgdesc="Read-only health checks for your Linux system — finds real problems, explains them, and tells you how to fix them"
 arch=('any')
@@ -18,7 +18,7 @@ url="https://github.com/zShaD0w7x/linux-doctor"
 license=('GPL-3.0-or-later')
 depends=('nodejs>=20')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/zShaD0w7x/linux-doctor/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('40663190964c406723486ae25b7520bf8e8f35b7a81db3d9224026f89d069011')
+sha256sums=('SKIP')
 
 package() {
   # GitHub tag tarballs extract to $srcdir/linux-doctor-$pkgver/; an npm

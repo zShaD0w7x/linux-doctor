@@ -25,7 +25,7 @@ distributions.
 node scripts/bump-version.mjs 0.4.0
 # 2. curate CHANGELOG.md: move [Unreleased] -> ## [0.4.0] - YYYY-MM-DD
 npm run goldens:update   # if output changed
-npm test                 # must be green (439 tests)
+npm test                 # must be green (544 tests)
 npm pack --dry-run | grep src-gui/index.html
 node bin/doctor.js --self-test && node bin/doctor.js --json | jq .checksRun
 
