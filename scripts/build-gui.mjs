@@ -47,6 +47,7 @@ const JS_ORDER = [
   "ui-sidebar.js",     // overview sidebar: breakdown bars + nav counts
   "ui-views.js",       // Overview / History / Checks app views
   "ui-wide.js",        // wide-desktop mode (>=1440px): html.wide + open groups
+  "ui-detailpane.js",  // wide master-detail: findings list + pinned detail pane
   "ui-checks.js",      // all-checks matrix modal + jump-to-finding
   "export.js",
   "render-charts.js",
@@ -171,9 +172,12 @@ ${css}
           <div id="schedstrip" class="sched" hidden></div>
           <div id="security-posture" hidden></div>
         </div>
-        <div id="drillhint" class="empty" hidden></div>
-        <div id="report"><div class="empty">Reading your system…</div></div>
-        <div id="nomatch" class="empty" hidden></div>
+        <div class="reportgrid">
+          <div id="drillhint" class="empty" hidden></div>
+          <div id="report"><div class="empty">Reading your system…</div></div>
+          <div id="nomatch" class="empty" hidden></div>
+          <aside id="detailpane" class="detailpane" hidden aria-live="polite" aria-label="Finding detail"></aside>
+        </div>
         <details id="fixed" class="group" hidden>
           <summary>Fixed since last check · <b id="fixed-count"></b><span class="chev">▸</span></summary>
           <div class="group-body" id="fixed-body"></div>

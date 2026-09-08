@@ -71,6 +71,12 @@ function applyFiltersNow() {
   const nomatch = $("#nomatch");
   nomatch.hidden = !(activeFilter && qRaw && visible === 0);
   if (!nomatch.hidden) nomatch.textContent = 'No findings match "' + qRaw + '".';
+  // Wide: if the pane's selection was filtered out, pick the next visible
+  // one; while it stays visible the pane is left alone (no scroll churn).
+  if (typeof wideModeOn === "function" && wideModeOn()) {
+    const sel = document.querySelector("#report details.card.selected");
+    if (!sel || sel.style.display === "none") autoSelectFinding();
+  }
   syncClear();
   syncAutoPausedUI();
 }

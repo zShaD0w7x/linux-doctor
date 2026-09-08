@@ -53,6 +53,13 @@ function setupKeyboard() {
       cards[idx].scrollIntoView({ block: "nearest" });
     } else if ((e.key === "Enter" || e.key === " ") && document.activeElement && (document.activeElement.classList.contains("card") || document.activeElement.classList.contains("crow"))) {
       const el = document.activeElement;
+      // Wide desktop: Enter selects into the detail pane instead of
+      // expanding inline — same key, the pane is the expansion.
+      if (wideModeOn() && el.classList.contains("card") && el.closest("#report")) {
+        e.preventDefault();
+        selectFinding(el);
+        return;
+      }
       if (el.open) el.removeAttribute("open");
       else el.setAttribute("open", "");
       e.preventDefault();

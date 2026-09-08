@@ -36,4 +36,42 @@
   html.wide #report details.crow { content-visibility: auto; contain-intrinsic-size: auto 34px; }
   html.wide .fix { padding-top: 10px; }
   html.wide .fix .fixtext { padding: 8px 10px; font-size: 12px; }
+
+  /* === Master-detail (phase 2) ===
+     The findings list stays on the left; the selected finding's full body
+     renders in a sticky pane on the right. Below 1440 .reportgrid is a
+     plain block and the pane stays hidden — mobile behavior untouched. */
+  html.wide .reportgrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 30vw, 460px);
+    gap: 0 24px;
+    align-items: start;
+  }
+  html.wide .detailpane {
+    position: sticky; top: 76px;
+    max-height: calc(100vh - 100px); overflow: auto;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px 16px;
+  }
+  html.wide .detailpane::-webkit-scrollbar { width: 8px; }
+  html.wide .detailpane::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  html.wide .dp-kicker {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted2);
+  }
+  html.wide .dp-tag {
+    background: color-mix(in srgb, var(--green) 16%, transparent);
+    color: var(--green); border-radius: 5px; padding: 2px 7px;
+  }
+  html.wide .dp-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  html.wide .dp-head h3 { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; flex: 1; min-width: 200px; }
+  html.wide .dp-body .detail { padding: 10px 0 12px; border-top: 1px solid var(--border); margin-top: 10px; }
+  html.wide .dp-lowconf { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted2); margin-top: 6px; }
+  html.wide .dp-evrow { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
+  html.wide .dp-body .fix { padding-top: 12px; }
+  html.wide #report details.card.selected {
+    background: var(--card);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    outline: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  }
 }

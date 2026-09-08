@@ -62,4 +62,5 @@ function render(data) {
   renderTrend(counts.score);
   renderSkipped();
   applyWideGroups();
+  syncDetailPane();
 }
