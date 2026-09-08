@@ -17,14 +17,13 @@ function wideModeOn() {
   return !!(el && el.classList && el.classList.contains("wide"));
 }
 
-/* Groups: all open at wide; at narrow, restore the syncGroupsOpen policy
-   (the specific filter's group, or High on "all"). */
+/* Groups: all open at wide (severity AND category — a workbench shows its
+   data); at narrow, restore the syncGroupsOpen policy. */
 function applyWideGroups() {
   const wide = wideModeOn();
   document.querySelectorAll("#report .group").forEach((g) => {
-    if (g.dataset.type !== "sev") return;
     if (wide) g.setAttribute("open", "");
-    else g.open = activeFilter === g.dataset.key || (activeFilter === "all" && g.dataset.key === "high");
+    else if (g.dataset.type === "sev") g.open = activeFilter === g.dataset.key || (activeFilter === "all" && g.dataset.key === "high");
   });
 }
 

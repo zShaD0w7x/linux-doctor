@@ -21,6 +21,10 @@ function syncUrlState() {
     const search = $("#search");
     const q = search ? search.value.trim() : "";
     if (q) p.set("q", q);
+    if (groupBy === "category") p.set("group", "category");
+    const th = typeof currentTheme === "function" ? currentTheme() : "auto";
+    if (th && th !== "auto") p.set("theme", th);
+    if (document.body && !document.body.classList.contains("compact")) p.set("d", "cozy");
     const s = p.toString();
     history.replaceState(null, "", s ? "?" + s : location.pathname);
   } catch {}
@@ -37,6 +41,12 @@ function readUrlState() {
     if (sev && ["all", "high", "medium", "info"].includes(sev)) out.sev = sev;
     const q = p.get("q");
     if (q) out.q = q.slice(0, 200);
+    const group = p.get("group");
+    if (group === "severity" || group === "category") out.group = group;
+    const theme = p.get("theme");
+    if (theme && typeof THEME_ORDER !== "undefined" && THEME_ORDER.includes(theme)) out.theme = theme;
+    const d = p.get("d");
+    if (d === "cozy" || d === "compact") out.d = d;
     return out;
   } catch { return null; }
 }
@@ -47,6 +57,20 @@ function applyUrlState() {
   if (st.view) activeView = st.view;
   if (st.sev !== undefined && typeof activeFilter !== "undefined") activeFilter = st.sev;
   if (st.q) { const s = $("#search"); if (s) s.value = st.q; }
+  if (st.group) {
+    groupBy = st.group;
+    try { localStorage.setItem("ld-groupby", st.group); } catch {}
+    document.querySelectorAll(".segbtn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.groupby === st.group));
+  }
+  if (st.theme) {
+    try { localStorage.setItem("ld-theme", st.theme); } catch {}
+    if (typeof applyTheme === "function") applyTheme();
+  }
+  if (st.d) {
+    try { localStorage.setItem("ld-density", st.d === "cozy" ? "comfortable" : "compact"); } catch {}
+    if (document.body) document.body.classList.toggle("compact", st.d === "compact");
+  }
 }
 
 function setupUrlSync() {
@@ -54,11 +78,14 @@ function setupUrlSync() {
   try {
     if (typeof window !== "undefined" && window.addEventListener) {
       window.addEventListener("popstate", () => {
+        const st = readUrlState();
         applyUrlState();
         switchView(activeView);
         document.querySelectorAll(".fpill").forEach((b) =>
           b.classList.toggle("active", b.dataset.sev === (activeFilter || "all")));
         if (typeof applyFilters === "function") applyFilters();
+        // applyUrlState set groupBy directly (no re-render) — repaint here.
+        if (st && st.group && typeof lastData !== "undefined" && lastData) render(lastData);
       });
     }
   } catch {}

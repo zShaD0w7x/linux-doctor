@@ -7,12 +7,17 @@ const THEME_ICON_SUN  = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hi
 
 const THEME_ICON_TERM = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 5l7 7-7 7M12 19h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="fb">&gt;_</span>';
 
+/* Browser chrome (mobile address bar, PWA titlebar) follows the theme. */
+const THEME_BG = { dark: "#080a11", light: "#f4f6fa", terminal: "#060906" };
+
 function applyTheme() {
   const t = currentTheme();
   const theme = t === "terminal" ? "terminal"
     : t === "dark" || (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark"
     : "light";
   document.documentElement.setAttribute("data-theme", theme);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", THEME_BG[theme] || THEME_BG.dark);
   const btn = $("#theme");
   if (btn) {
     btn.innerHTML = '<span class="ico" aria-hidden="true">' + (theme === "terminal" ? THEME_ICON_TERM : theme === "dark" ? THEME_ICON_MOON : THEME_ICON_SUN) + "</span>";

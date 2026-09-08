@@ -3,12 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080a11">
 <title>Linux Doctor</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 13h4l2.5-7 4 12 3-8 1.5 3H22' fill='none' stroke='%233ee29a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* ── base.css ── */
 /* === CSS Variables, Reset, Typography === */
 :root {
+  /* Native widgets (scrollbars, inputs) follow the dark chrome. */
+  color-scheme: dark;
   --bg: #080a11; --bg2: #0e121e; --card: #111625; --card2: #171d2e; --border: #1e2538;
   --text: #eef1f7; --muted: #8a93a6; --muted2: #7f8aa1;
   --red: #ff5a67; --yellow: #f0b429; --green: #2ed69a; --blue: #5b9cf6; --purple: #a78bfa;
@@ -21,6 +24,7 @@
   --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #f4f6fa; --bg2: #eef1f6; --card: #ffffff; --card2: #f5f7fb; --border: #e2e7f0;
   --text: #1a1f2b; --muted: #5e6878; --muted2: #667080;
   --red: #e0464f; --yellow: #b07d00; --green: #0e9c5a; --blue: #2f6ad6; --purple: #843fe0;
@@ -42,6 +46,7 @@
   --sans: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+h1, h2, h3, h4 { text-wrap: balance; }
 html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior: smooth; }
 body {
   background: var(--bg);
@@ -1367,12 +1372,17 @@ const THEME_ICON_SUN  = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hi
 
 const THEME_ICON_TERM = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 5l7 7-7 7M12 19h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="fb">&gt;_</span>';
 
+/* Browser chrome (mobile address bar, PWA titlebar) follows the theme. */
+const THEME_BG = { dark: "#080a11", light: "#f4f6fa", terminal: "#060906" };
+
 function applyTheme() {
   const t = currentTheme();
   const theme = t === "terminal" ? "terminal"
     : t === "dark" || (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark"
     : "light";
   document.documentElement.setAttribute("data-theme", theme);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", THEME_BG[theme] || THEME_BG.dark);
   const btn = $("#theme");
   if (btn) {
     btn.innerHTML = '<span class="ico" aria-hidden="true">' + (theme === "terminal" ? THEME_ICON_TERM : theme === "dark" ? THEME_ICON_MOON : THEME_ICON_SUN) + "</span>";
@@ -1603,9 +1613,7 @@ function syncGroupsOpen() {
   // from ui-wide.js; guarded for the headless sandbox.)
   const wideEl = typeof document !== "undefined" ? document.documentElement : null;
   if (wideEl && wideEl.classList && wideEl.classList.contains("wide")) {
-    document.querySelectorAll("#report .group").forEach((g) => {
-      if (g.dataset.type === "sev") g.setAttribute("open", "");
-    });
+    document.querySelectorAll("#report .group").forEach((g) => g.setAttribute("open", ""));
     syncAutoPausedUI();
     return;
   }
@@ -2221,6 +2229,10 @@ function syncUrlState() {
     const search = $("#search");
     const q = search ? search.value.trim() : "";
     if (q) p.set("q", q);
+    if (groupBy === "category") p.set("group", "category");
+    const th = typeof currentTheme === "function" ? currentTheme() : "auto";
+    if (th && th !== "auto") p.set("theme", th);
+    if (document.body && !document.body.classList.contains("compact")) p.set("d", "cozy");
     const s = p.toString();
     history.replaceState(null, "", s ? "?" + s : location.pathname);
   } catch {}
@@ -2237,6 +2249,12 @@ function readUrlState() {
     if (sev && ["all", "high", "medium", "info"].includes(sev)) out.sev = sev;
     const q = p.get("q");
     if (q) out.q = q.slice(0, 200);
+    const group = p.get("group");
+    if (group === "severity" || group === "category") out.group = group;
+    const theme = p.get("theme");
+    if (theme && typeof THEME_ORDER !== "undefined" && THEME_ORDER.includes(theme)) out.theme = theme;
+    const d = p.get("d");
+    if (d === "cozy" || d === "compact") out.d = d;
     return out;
   } catch { return null; }
 }
@@ -2247,6 +2265,20 @@ function applyUrlState() {
   if (st.view) activeView = st.view;
   if (st.sev !== undefined && typeof activeFilter !== "undefined") activeFilter = st.sev;
   if (st.q) { const s = $("#search"); if (s) s.value = st.q; }
+  if (st.group) {
+    groupBy = st.group;
+    try { localStorage.setItem("ld-groupby", st.group); } catch {}
+    document.querySelectorAll(".segbtn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.groupby === st.group));
+  }
+  if (st.theme) {
+    try { localStorage.setItem("ld-theme", st.theme); } catch {}
+    if (typeof applyTheme === "function") applyTheme();
+  }
+  if (st.d) {
+    try { localStorage.setItem("ld-density", st.d === "cozy" ? "comfortable" : "compact"); } catch {}
+    if (document.body) document.body.classList.toggle("compact", st.d === "compact");
+  }
 }
 
 function setupUrlSync() {
@@ -2254,11 +2286,14 @@ function setupUrlSync() {
   try {
     if (typeof window !== "undefined" && window.addEventListener) {
       window.addEventListener("popstate", () => {
+        const st = readUrlState();
         applyUrlState();
         switchView(activeView);
         document.querySelectorAll(".fpill").forEach((b) =>
           b.classList.toggle("active", b.dataset.sev === (activeFilter || "all")));
         if (typeof applyFilters === "function") applyFilters();
+        // applyUrlState set groupBy directly (no re-render) — repaint here.
+        if (st && st.group && typeof lastData !== "undefined" && lastData) render(lastData);
       });
     }
   } catch {}
@@ -2376,14 +2411,13 @@ function wideModeOn() {
   return !!(el && el.classList && el.classList.contains("wide"));
 }
 
-/* Groups: all open at wide; at narrow, restore the syncGroupsOpen policy
-   (the specific filter's group, or High on "all"). */
+/* Groups: all open at wide (severity AND category — a workbench shows its
+   data); at narrow, restore the syncGroupsOpen policy. */
 function applyWideGroups() {
   const wide = wideModeOn();
   document.querySelectorAll("#report .group").forEach((g) => {
-    if (g.dataset.type !== "sev") return;
     if (wide) g.setAttribute("open", "");
-    else g.open = activeFilter === g.dataset.key || (activeFilter === "all" && g.dataset.key === "high");
+    else if (g.dataset.type === "sev") g.open = activeFilter === g.dataset.key || (activeFilter === "all" && g.dataset.key === "high");
   });
 }
 

@@ -134,9 +134,7 @@ function syncGroupsOpen() {
   // from ui-wide.js; guarded for the headless sandbox.)
   const wideEl = typeof document !== "undefined" ? document.documentElement : null;
   if (wideEl && wideEl.classList && wideEl.classList.contains("wide")) {
-    document.querySelectorAll("#report .group").forEach((g) => {
-      if (g.dataset.type === "sev") g.setAttribute("open", "");
-    });
+    document.querySelectorAll("#report .group").forEach((g) => g.setAttribute("open", ""));
     syncAutoPausedUI();
     return;
   }
