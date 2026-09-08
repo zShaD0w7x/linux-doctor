@@ -879,6 +879,20 @@ body.compact #report { gap: 14px; }
      the gauge stays 84px, which is already desktop-appropriate. */
   .status { padding: 16px 22px; margin-bottom: 16px; }
   .status-score-row > div:first-child { font-size: 32px !important; }
+
+  /* === Desktop density (phase 3) ===
+     The cards are already compact by default; what was airy at width is
+     the chrome around them. Tighter rows, denser groups, and rendering
+     skips for long collapsed info lists. */
+  html.wide .card summary { padding: 9px 12px; }
+  html.wide .card summary h3 { font-size: 13px; }
+  html.wide .card.crow summary { padding: 7px 10px; }
+  html.wide .group > summary { padding: 8px 4px; }
+  html.wide .group-body { gap: 6px; padding: 8px 0 6px; }
+  html.wide #report { gap: 12px; }
+  html.wide #report details.crow { content-visibility: auto; contain-intrinsic-size: auto 34px; }
+  html.wide .fix { padding-top: 10px; }
+  html.wide .fix .fixtext { padding: 8px 10px; font-size: 12px; }
 }
 
 
@@ -1501,6 +1515,17 @@ function highlightMatches(card, q) {
 }
 
 function syncGroupsOpen() {
+  // Wide mode is a workbench: every group stays open, filtering never
+  // collapses data the user can see at a glance. (wideModeOn is hoisted
+  // from ui-wide.js; guarded for the headless sandbox.)
+  const wideEl = typeof document !== "undefined" ? document.documentElement : null;
+  if (wideEl && wideEl.classList && wideEl.classList.contains("wide")) {
+    document.querySelectorAll("#report .group").forEach((g) => {
+      if (g.dataset.type === "sev") g.setAttribute("open", "");
+    });
+    syncAutoPausedUI();
+    return;
+  }
   // Severity mode: filtering reveals the group — open it so findings are
   // visible right away. On "All", only High opens (progressive disclosure:
   // Informational can hold dozens of items); a specific severity opens its
@@ -2176,6 +2201,55 @@ function setupViews() {
     switchView(tabs[i].dataset.view);
   });
   if (activeView !== "overview") switchView(activeView);
+}
+
+
+/* ── ui-wide.js ── */
+/* === Wide-desktop mode (>=1440px) ===
+   A PC canvas gets desktop behavior: the shell uncaps (wide.css) and the
+   findings groups open — a workbench shows its data, an accordion hides
+   it. Below 1440px nothing changes. Guarded so environments without
+   matchMedia (headless test sandboxes) keep the narrow behavior. */
+const WIDE_QUERY = "(min-width: 1440px)";
+
+function isWide() {
+  try { return typeof matchMedia === "function" && matchMedia(WIDE_QUERY).matches; }
+  catch { return false; }
+}
+
+/* The wide class is the single source of truth for CSS; the query drives
+   it. Guarded: the headless test sandbox has no documentElement. */
+function wideModeOn() {
+  const el = document.documentElement;
+  return !!(el && el.classList && el.classList.contains("wide"));
+}
+
+/* Groups: all open at wide; at narrow, restore the syncGroupsOpen policy
+   (the specific filter's group, or High on "all"). */
+function applyWideGroups() {
+  const wide = wideModeOn();
+  document.querySelectorAll("#report .group").forEach((g) => {
+    if (g.dataset.type !== "sev") return;
+    if (wide) g.setAttribute("open", "");
+    else g.open = activeFilter === g.dataset.key || (activeFilter === "all" && g.dataset.key === "high");
+  });
+}
+
+/* Hook for the master-detail pane (phase 2): a real syncDetailPane()
+   declared later in the bundle replaces this no-op by hoisting. */
+function syncDetailPane() {}
+
+function setupWideMode() {
+  let mq = null;
+  try { mq = typeof matchMedia === "function" ? matchMedia(WIDE_QUERY) : null; } catch { mq = null; }
+  if (!mq) return;
+  const apply = () => {
+    document.documentElement.classList.toggle("wide", !!mq.matches);
+    applyWideGroups();
+    syncDetailPane();
+  };
+  mq.addEventListener("change", apply);
+  apply();
 }
 
 
@@ -3056,6 +3130,7 @@ function render(data) {
   maybeNotify(data);
   renderTrend(counts.score);
   renderSkipped();
+  applyWideGroups();
 }
 
 
@@ -3368,6 +3443,7 @@ if (densityBtn) {
 }
 
 // Initial load
+setupWideMode();
 if (STATIC_DATA) {
   render(STATIC_DATA);
   const rerun = $("#rerun");

@@ -122,6 +122,17 @@ function highlightMatches(card, q) {
 }
 
 function syncGroupsOpen() {
+  // Wide mode is a workbench: every group stays open, filtering never
+  // collapses data the user can see at a glance. (wideModeOn is hoisted
+  // from ui-wide.js; guarded for the headless sandbox.)
+  const wideEl = typeof document !== "undefined" ? document.documentElement : null;
+  if (wideEl && wideEl.classList && wideEl.classList.contains("wide")) {
+    document.querySelectorAll("#report .group").forEach((g) => {
+      if (g.dataset.type === "sev") g.setAttribute("open", "");
+    });
+    syncAutoPausedUI();
+    return;
+  }
   // Severity mode: filtering reveals the group — open it so findings are
   // visible right away. On "All", only High opens (progressive disclosure:
   // Informational can hold dozens of items); a specific severity opens its

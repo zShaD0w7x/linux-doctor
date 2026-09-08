@@ -306,6 +306,7 @@ if (densityBtn) {
 }
 
 // Initial load
+setupWideMode();
 if (STATIC_DATA) {
   render(STATIC_DATA);
   const rerun = $("#rerun");

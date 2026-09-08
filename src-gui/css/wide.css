@@ -22,4 +22,18 @@
      the gauge stays 84px, which is already desktop-appropriate. */
   .status { padding: 16px 22px; margin-bottom: 16px; }
   .status-score-row > div:first-child { font-size: 32px !important; }
+
+  /* === Desktop density (phase 3) ===
+     The cards are already compact by default; what was airy at width is
+     the chrome around them. Tighter rows, denser groups, and rendering
+     skips for long collapsed info lists. */
+  html.wide .card summary { padding: 9px 12px; }
+  html.wide .card summary h3 { font-size: 13px; }
+  html.wide .card.crow summary { padding: 7px 10px; }
+  html.wide .group > summary { padding: 8px 4px; }
+  html.wide .group-body { gap: 6px; padding: 8px 0 6px; }
+  html.wide #report { gap: 12px; }
+  html.wide #report details.crow { content-visibility: auto; contain-intrinsic-size: auto 34px; }
+  html.wide .fix { padding-top: 10px; }
+  html.wide .fix .fixtext { padding: 8px 10px; font-size: 12px; }
 }

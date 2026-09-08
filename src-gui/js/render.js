@@ -61,4 +61,5 @@ function render(data) {
   maybeNotify(data);
   renderTrend(counts.score);
   renderSkipped();
+  applyWideGroups();
 }
