@@ -25,6 +25,7 @@ const CSS_ORDER = [
   "cards.css",       // finding cards, evidence, fix
   "components.css",  // toast, thresholds, history, charts, start-here
   "responsive.css",  // mobile breakpoints
+  "wide.css",        // ≥1440px: fluid desktop shell (uncapped, dense hero)
   "print.css",       // print styles
 ];
 

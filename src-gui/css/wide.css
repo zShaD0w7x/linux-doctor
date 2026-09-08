@@ -1,0 +1,25 @@
+/* === Wide desktop shell (≥1440px) ===
+   Uncaps the phone-first column and puts the monitor to work: fixed rail +
+   fluid main, components stretched over the grid, instrument-scale hero.
+   Below 1440 nothing changes — mobile and the 1100px sidebar rail keep
+   their exact behavior. Variables only, so all four themes hold. */
+@media (min-width: 1440px) {
+  body { padding: 20px 24px 56px; }
+
+  .wrap { max-width: none; }
+  .content, #report { max-width: none; }
+  .layout { gap: 40px; }
+
+  /* Header stays full-bleed: negative margins must match the new gutters. */
+  header { margin: -12px -24px 24px; padding: 12px 24px; }
+
+  /* Components capped to the old 1040px column now live on the grid.
+     The modal keeps its 740px measure on purpose (readable line length). */
+  #nexthep, .security-posture, .thresh-panel, .history, #trend { max-width: none; }
+
+  /* Hero drops from landing-page scale to instrument scale. The 42px
+     numeral is inline-styled by the renderer, hence the first-child rule;
+     the gauge stays 84px, which is already desktop-appropriate. */
+  .status { padding: 16px 22px; margin-bottom: 16px; }
+  .status-score-row > div:first-child { font-size: 32px !important; }
+}
