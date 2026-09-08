@@ -208,6 +208,9 @@ html.no-svg .ico .fb { display: inline !important; }
 
 /* === Footer === */
 footer { margin-top: 56px; color: var(--muted2); font-size: 11.5px; text-align: center; line-height: 1.6; }
+/* Status-bar spans exist only for the wide desktop chrome (wide.css);
+   on narrow screens the footer keeps its original single note + hints. */
+footer .sbar-view, footer .sbar-check { display: none; }
 
 /* === Two-column layout === */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }

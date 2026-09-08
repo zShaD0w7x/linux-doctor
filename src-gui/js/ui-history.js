@@ -19,6 +19,7 @@ function setStatus(generatedAt) {
   const sbar = document.getElementById("sbar-check");
   if (sbar) {
     sbar.textContent = label;
+    sbar.hidden = false;
     sbar.classList.toggle("stale", secs >= 3600);
   }
 }

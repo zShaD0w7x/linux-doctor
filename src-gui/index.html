@@ -285,6 +285,9 @@ html.no-svg .ico .fb { display: inline !important; }
 
 /* === Footer === */
 footer { margin-top: 56px; color: var(--muted2); font-size: 11.5px; text-align: center; line-height: 1.6; }
+/* Status-bar spans exist only for the wide desktop chrome (wide.css);
+   on narrow screens the footer keeps its original single note + hints. */
+footer .sbar-view, footer .sbar-check { display: none; }
 
 /* === Two-column layout === */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -945,9 +948,10 @@ body.compact #report { gap: 14px; }
     border-top: 1px solid var(--border);
     text-align: left; line-height: 1.4;
   }
-  html.wide footer .sbar-view { font-weight: 650; color: var(--muted); flex-shrink: 0; }
-  html.wide footer .sbar-check { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+  html.wide footer .sbar-view { display: inline; font-weight: 650; color: var(--muted); flex-shrink: 0; }
+  html.wide footer .sbar-check { display: inline; font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
   html.wide footer .sbar-check.stale { color: var(--yellow); }
+  html.wide footer .sbar-check[hidden] { display: none; }
   html.wide footer .sbar-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   html.wide footer .sbar-hints { margin-left: auto; flex-shrink: 0; white-space: nowrap; }
 }
@@ -1944,6 +1948,7 @@ function setStatus(generatedAt) {
   const sbar = document.getElementById("sbar-check");
   if (sbar) {
     sbar.textContent = label;
+    sbar.hidden = false;
     sbar.classList.toggle("stale", secs >= 3600);
   }
 }
