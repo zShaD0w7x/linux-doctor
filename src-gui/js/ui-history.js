@@ -15,6 +15,12 @@ function setStatus(generatedAt) {
   else label = "checked " + Math.floor(secs / 86400) + "d ago";
   txt.textContent = label;
   dot.className = "dot" + (secs >= 3600 ? " stale" : "");
+  // Status bar (wide desktop chrome) mirrors the hero's freshness line.
+  const sbar = document.getElementById("sbar-check");
+  if (sbar) {
+    sbar.textContent = label;
+    sbar.classList.toggle("stale", secs >= 3600);
+  }
 }
 
 async function renderTrend(currentScore) {

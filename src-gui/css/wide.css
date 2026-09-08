@@ -74,4 +74,23 @@
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
     outline: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   }
+
+  /* === Status bar (phase 4) ===
+     The footer becomes persistent desktop chrome: view, freshness, the
+     read-only promise, and the keyboard map — always on screen. */
+  html.wide body { padding-bottom: 16px; }
+  html.wide footer {
+    position: sticky; bottom: 0; z-index: 18;
+    display: flex; align-items: center; gap: 16px;
+    margin: 24px -24px -16px; padding: 7px 24px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    text-align: left; line-height: 1.4;
+  }
+  html.wide footer .sbar-view { font-weight: 650; color: var(--muted); flex-shrink: 0; }
+  html.wide footer .sbar-check { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+  html.wide footer .sbar-check.stale { color: var(--yellow); }
+  html.wide footer .sbar-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html.wide footer .sbar-hints { margin-left: auto; flex-shrink: 0; white-space: nowrap; }
 }

@@ -216,7 +216,12 @@ ${css}
   </div>
     </div>
   </div>
-  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>1</kbd>–<kbd>5</kbd> views · <kbd>Esc</kbd> clear</footer>
+  <footer>
+    <span id="sbar-view" class="sbar-view">Overview</span>
+    <span id="sbar-check" class="sbar-check" hidden></span>
+    <span class="sbar-note">Linux Doctor only reads system information — it never modifies anything.</span>
+    <span class="sbar-hints"><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>1</kbd>–<kbd>5</kbd> views · <kbd>Esc</kbd> clear</span>
+  </footer>
 </div>
 <div id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Details">

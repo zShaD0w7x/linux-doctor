@@ -79,6 +79,7 @@ function applyFiltersNow() {
   }
   syncClear();
   syncAutoPausedUI();
+  syncUrlState();
 }
 
 function syncClear() {

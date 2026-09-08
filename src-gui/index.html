@@ -931,6 +931,25 @@ body.compact #report { gap: 14px; }
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
     outline: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   }
+
+  /* === Status bar (phase 4) ===
+     The footer becomes persistent desktop chrome: view, freshness, the
+     read-only promise, and the keyboard map — always on screen. */
+  html.wide body { padding-bottom: 16px; }
+  html.wide footer {
+    position: sticky; bottom: 0; z-index: 18;
+    display: flex; align-items: center; gap: 16px;
+    margin: 24px -24px -16px; padding: 7px 24px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    text-align: left; line-height: 1.4;
+  }
+  html.wide footer .sbar-view { font-weight: 650; color: var(--muted); flex-shrink: 0; }
+  html.wide footer .sbar-check { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+  html.wide footer .sbar-check.stale { color: var(--yellow); }
+  html.wide footer .sbar-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html.wide footer .sbar-hints { margin-left: auto; flex-shrink: 0; white-space: nowrap; }
 }
 
 
@@ -1083,7 +1102,12 @@ body.compact #report { gap: 14px; }
   </div>
     </div>
   </div>
-  <footer>Linux Doctor only reads system information — it never modifies anything.<br><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>1</kbd>–<kbd>5</kbd> views · <kbd>Esc</kbd> clear</footer>
+  <footer>
+    <span id="sbar-view" class="sbar-view">Overview</span>
+    <span id="sbar-check" class="sbar-check" hidden></span>
+    <span class="sbar-note">Linux Doctor only reads system information — it never modifies anything.</span>
+    <span class="sbar-hints"><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> open/close · <kbd>/</kbd> search · <kbd>1</kbd>–<kbd>5</kbd> views · <kbd>Esc</kbd> clear</span>
+  </footer>
 </div>
 <div id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Details">
@@ -1520,6 +1544,7 @@ function applyFiltersNow() {
   }
   syncClear();
   syncAutoPausedUI();
+  syncUrlState();
 }
 
 function syncClear() {
@@ -1915,6 +1940,12 @@ function setStatus(generatedAt) {
   else label = "checked " + Math.floor(secs / 86400) + "d ago";
   txt.textContent = label;
   dot.className = "dot" + (secs >= 3600 ? " stale" : "");
+  // Status bar (wide desktop chrome) mirrors the hero's freshness line.
+  const sbar = document.getElementById("sbar-check");
+  if (sbar) {
+    sbar.textContent = label;
+    sbar.classList.toggle("stale", secs >= 3600);
+  }
 }
 
 async function renderTrend(currentScore) {
@@ -2172,6 +2203,64 @@ function scrollToGroup(type, key) {
 const VIEWS = ["overview", "history", "checks", "system", "schedule"];
 let activeView = "overview";
 
+/* === URL state (deep-linkable desktop state) ===
+   view / severity filter / search travel in the query string, so a refresh,
+   a bookmark, or a pasted link restores the exact workbench. replaceState
+   only — no history spam while typing. localStorage stays the fallback. */
+function syncUrlState() {
+  try {
+    if (typeof history === "undefined" || !history.replaceState) return;
+    const p = new URLSearchParams();
+    if (activeView !== "overview") p.set("view", activeView);
+    if (typeof activeFilter !== "undefined" && activeFilter && activeFilter !== "all") p.set("sev", activeFilter);
+    const search = $("#search");
+    const q = search ? search.value.trim() : "";
+    if (q) p.set("q", q);
+    const s = p.toString();
+    history.replaceState(null, "", s ? "?" + s : location.pathname);
+  } catch {}
+}
+
+function readUrlState() {
+  try {
+    if (typeof location === "undefined" || !location.search) return null;
+    const p = new URLSearchParams(location.search);
+    const out = {};
+    const view = p.get("view");
+    if (view && VIEWS.includes(view)) out.view = view;
+    const sev = p.get("sev");
+    if (sev && ["all", "high", "medium", "info"].includes(sev)) out.sev = sev;
+    const q = p.get("q");
+    if (q) out.q = q.slice(0, 200);
+    return out;
+  } catch { return null; }
+}
+
+function applyUrlState() {
+  const st = readUrlState();
+  if (!st) return;
+  if (st.view) activeView = st.view;
+  if (st.sev !== undefined && typeof activeFilter !== "undefined") activeFilter = st.sev;
+  if (st.q) { const s = $("#search"); if (s) s.value = st.q; }
+}
+
+function setupUrlSync() {
+  applyUrlState();
+  try {
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("popstate", () => {
+        applyUrlState();
+        switchView(activeView);
+        document.querySelectorAll(".fpill").forEach((b) =>
+          b.classList.toggle("active", b.dataset.sev === (activeFilter || "all")));
+        if (typeof applyFilters === "function") applyFilters();
+      });
+    }
+  } catch {}
+}
+
+const VIEW_LABELS = { overview: "Overview", history: "History", checks: "Checks", system: "System", schedule: "Schedule" };
+
 function viewTabs() {
   return [...document.querySelectorAll("#viewtabs .viewtab")];
 }
@@ -2196,6 +2285,9 @@ function switchView(name, { focusTab = false } = {}) {
     b.tabIndex = on ? 0 : -1;
     if (on && focusTab) b.focus();
   });
+  // Status bar (wide desktop chrome) mirrors the active view.
+  const sbarView = document.getElementById("sbar-view");
+  if (sbarView) sbarView.textContent = VIEW_LABELS[name] || name;
   if (name === "checks") renderChecksView();
   if (name === "schedule") renderScheduleView();
   if (name === "overview") {
@@ -2203,6 +2295,7 @@ function switchView(name, { focusTab = false } = {}) {
     syncGroupsOpen();
     applyFilters();
   }
+  syncUrlState();
   syncAutoPausedUI();
 }
 
@@ -3575,6 +3668,7 @@ setupSidebar();
 setupModal();
 setupChecksMatrix();
 setupChecksView();
+setupUrlSync();
 setupViews();
 setupBrand();
 

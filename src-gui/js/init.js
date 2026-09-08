@@ -267,6 +267,7 @@ setupSidebar();
 setupModal();
 setupChecksMatrix();
 setupChecksView();
+setupUrlSync();
 setupViews();
 setupBrand();
 
@@ -307,6 +308,7 @@ if (densityBtn) {
 
 // Initial load
 setupWideMode();
+setupDetailPane();
 if (STATIC_DATA) {
   render(STATIC_DATA);
   const rerun = $("#rerun");
