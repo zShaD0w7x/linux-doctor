@@ -1,6 +1,7 @@
 # Research: interfață de PC — cum arată desktopul real și cum îl aducem în Linux Doctor
 
 > Data: 2026-09-08 · Intrare: [audit-ui-dashboard-0.5.0.md](audit-ui-dashboard-0.5.0.md). Ieșire: plan de implementare în 4 faze, compatibil cu filosofia repo-ului (no libs, calm layer, 5 views, vocabular pin-uit de teste). Surse la §7.
+> **Status: IMPLEMENTAT în totalitate** — Faza 1 (`a866ee1` shell fluid), Faza 3 (`65f5beb` densitate + wide-mode), Faza 2 (`355a479` master-detail), Faza 4 (`ad5570f` + fix status bar pe mobil). Dovezi after: `docs/screenshots/audit-2026/after-{1440,1920,390}.png`; 544/544 teste verzi pe fiecare fază; comportamentul <1440px rămâne identic (inclusiv exportul static `--html`).
 
 ## 1. Ce înseamnă „interfață de PC" (convenții, nu gusturi)
 

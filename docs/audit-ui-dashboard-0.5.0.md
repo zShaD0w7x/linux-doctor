@@ -1,6 +1,7 @@
 # UI Audit: desktop feel of the dashboard — linux-doctor 0.5.0
 
 > Date: 2026-09-08 · Question: *"does the dashboard read as a PC/laptop interface, or as a phone app?"* · Method: live screenshots at 390 / 1440 / 1920 (evidence in `docs/screenshots/audit-2026/`), CSS/media-query audit, Vercel Web Interface Guidelines ruleset. Companion plan: [research-desktop-ui-2026.md](research-desktop-ui-2026.md). Regenerate evidence with `node /tmp-opencode-style script` — see §Method.
+> **Outcome:** all three findings were fixed the same day — fluid shell ≥1440 (`a866ee1`), master-detail + density (`355a479`, `65f5beb`), status bar + URL state (`ad5570f`). Compare `before-1920.png` (centered column, ~60% void) with `after-1920.png` (full-canvas workbench with a pinned detail pane). The 390px capture is unchanged by design.
 
 ## Executive verdict
 
