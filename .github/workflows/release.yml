@@ -85,6 +85,12 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      # Ship a Node runtime inside the packages so end users need nothing
+      # on their PATH (lib.rs resolves <resources>/runtime/node first).
+      # Pinned LTS 22.x, hash-checked by the shared script (same command a
+      # local `tauri build` uses — see docs/RELEASING.md).
+      - name: Bundle the Node runtime into the packages
+        run: node scripts/fetch-node-runtime.mjs
       - name: Build Tauri bundles (appimage, deb, rpm)
         run: npx tauri build --bundles appimage,deb,rpm
         env:

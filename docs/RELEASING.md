@@ -71,10 +71,11 @@ Two gotchas learned the hard way:
 
 The desktop shell runs the Node CLI under the hood. It picks the interpreter
 in this order: `$LINUX_DOCTOR_NODE`, `<resources>/runtime/node` (a runtime
-dropped into the package by future release packaging), then `node` from
-PATH. Today the app therefore needs Node.js ≥ 20 installed — bundling a
-runtime into `.deb`/`.AppImage` is the planned follow-up so end users need
-nothing on their PATH.
+bundled into the packages by `node scripts/fetch-node-runtime.mjs` — run
+before every `tauri build`; release.yml does it automatically), then `node`
+from PATH. Since 0.5.x the .deb/.AppImage/.rpm ship the Node 22 LTS binary,
+so end users need nothing on their PATH; the runtime dir is gitignored and
+must be refetched after a clean checkout.
 
 ## Asset naming convention
 

@@ -11,3 +11,4 @@ pro/
 docs/research-user-needs.md
 docs/research-gtm-strategy.md
 launch/
+src-tauri/runtime/

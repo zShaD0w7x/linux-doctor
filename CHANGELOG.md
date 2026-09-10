@@ -4,6 +4,18 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **The desktop app now bundles its own Node runtime.** The .deb/.AppImage/.rpm
+  packages ship a pinned Node 22 LTS binary under `<resources>/runtime/node`,
+  hash-checked against the official SHASUMS256.txt at build time
+  (`scripts/fetch-node-runtime.mjs`). The app no longer requires Node.js
+  installed on the user's machine — the first thing an installed app checks
+  is its own runtime. `LINUX_DOCTOR_NODE` and PATH keep working as
+  overrides/fallbacks.
+
 ## [0.5.0] — 2026-09-05
 
 > **Highlights:** 8 new server checks (TLS certs, exposed ports, fd pressure, RAID, containers, service restart loops, GPU memory, stale backups) — the catalog grows to **49 checks / 161 codes**; `--init` guided first-run setup; `--heartbeat <url>` dead-man's switch [Pro]; `--ai-local` private offline AI summaries; the dashboard becomes a five-view app (Overview / History / Checks / System / Schedule) with a Terminal theme and a machine wiki. No breaking changes — the JSON schema stays v1.

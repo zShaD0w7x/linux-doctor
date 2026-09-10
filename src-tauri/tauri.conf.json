@@ -42,7 +42,8 @@
       "../src/*.js": "src/",
       "../src/checks/*.js": "src/checks/",
       "../src-gui/index.html": "src-gui/index.html",
-      "../package.json": "package.json"
+      "../package.json": "package.json",
+      "runtime/node": "runtime/node"
     }
   }
 }
