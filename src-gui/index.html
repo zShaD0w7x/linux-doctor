@@ -898,9 +898,16 @@ body.compact #report { gap: 14px; }
   html.wide .group > summary { padding: 8px 4px; }
   html.wide .group-body { gap: 6px; padding: 8px 0 6px; }
   html.wide #report { gap: 12px; }
-  html.wide #report details.crow { content-visibility: auto; contain-intrinsic-size: auto 34px; }
   html.wide .fix { padding-top: 10px; }
   html.wide .fix .fixtext { padding: 8px 10px; font-size: 12px; }
+
+  /* Sticky chrome must be opaque: the toolbar sticks under the header, so
+     without a background the scrolling findings show through it (classic
+     overlap artifact — very visible in the desktop webview). */
+  html.wide .toolbar { background: var(--bg); padding: 8px 0; margin-bottom: 12px; }
+  html.wide .toolbar.scrolled { background: var(--bg); }
+  html.wide header.scrolled { background: var(--bg); }
+  html.wide footer { background: var(--bg); }
 
   /* === Master-detail (phase 2) ===
      The findings list stays on the left; the selected finding's full body
@@ -913,8 +920,8 @@ body.compact #report { gap: 14px; }
     align-items: start;
   }
   html.wide .detailpane {
-    position: sticky; top: 76px;
-    max-height: calc(100vh - 100px); overflow: auto;
+    position: sticky; top: 124px;
+    max-height: calc(100vh - 176px); overflow: auto;
     background: var(--card); border: 1px solid var(--border);
     border-radius: 12px; padding: 14px 16px 16px;
   }

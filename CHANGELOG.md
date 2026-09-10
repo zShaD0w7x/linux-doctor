@@ -16,6 +16,13 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Wide desktop: scrolling looked broken (overlapping text).** The sticky
+  toolbar — and the scrolled header/status bar — were transparent, so the
+  findings showed through the chrome as they passed underneath; the sticky
+  detail pane also tucked under the toolbar. All sticky chrome is now
+  opaque at ≥1440px, the pane sticks below the toolbar, and the row-level
+  `content-visibility` optimization was dropped (it renders as artifacts in
+  the desktop app's WebKitGTK engine).
 - **Desktop app: the dashboard could never parse a report.** The loopback
   report server wrote an extra CRLF after the CORS block, ending the HTTP
   headers early and leaking `Content-Length`/`Connection` into the JSON body
