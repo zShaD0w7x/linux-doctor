@@ -118,7 +118,9 @@ async function load() {
     // Category grouping needs the check→category map; fetch it once before
     // the first render. Never fatal — grouping falls back to "Other".
     await loadCategoryMap();
-    render(await fetchReport());
+    // Explicit load (first paint / Re-run) asks for a fresh scan; background
+    // polling uses the server's short cache instead of forcing work.
+    render(await fetchReport({ refresh: true }));
   } catch (err) {
     status.className = "status warn";
     status.innerHTML = "";

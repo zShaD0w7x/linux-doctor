@@ -225,3 +225,24 @@ test("web /api/schedule defaults to the real timer probe with a stable shape", a
     server.close();
   }
 });
+
+test("web: /api/report is cached; ?refresh=1 bypasses the TTL", async () => {
+  let calls = 0;
+  const collect = async () => {
+    calls += 1;
+    return { generatedAt: new Date().toISOString(), system: {}, findings: [{ severity: "info", title: `run ${calls}` }] };
+  };
+  const server = await startWeb({ collect, open: false, port: 0, quiet: true });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const a = await (await fetch(base + "/api/report")).json();
+    const b = await (await fetch(base + "/api/report")).json();
+    assert.equal(calls, 1, "a second request within the TTL must hit the cache");
+    assert.equal(a.findings[0].title, b.findings[0].title);
+    const c = await (await fetch(base + "/api/report?refresh=1")).json();
+    assert.equal(calls, 2, "?refresh=1 must force a fresh scan");
+    assert.equal(c.findings[0].title, "run 2");
+  } finally {
+    server.close();
+  }
+});

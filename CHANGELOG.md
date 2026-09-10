@@ -8,6 +8,17 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Security
 
+- **Loopback report endpoints are cached, single-flight, and bounded.** The
+  desktop's `GET /report` and the web dashboard's `/api/report` serve a 10s
+  cached report; concurrent requests share one scan, so a drive-by page
+  (`<img src="127.0.0.1:…">`) can no longer trigger a scan storm. The tray
+  "Run checks now" coalesces repeat clicks, and connections get a read
+  timeout (slowloris). Explicit reloads — first paint and "Re-run checks" —
+  send `?refresh=1` to bypass the cache.
+- **Dashboard polls no longer write history.** The desktop `/report` runs the
+  CLI with `LINUX_DOCTOR_NO_SAVE=1`: the 20s poll still reads history (the
+  new/fixed diff stays honest) but never appends a run, so polls cannot
+  churn the trend.
 - **Egress endpoints are checked by destination, not just scheme.**
   `--push`, `--alert`, `--heartbeat` and `--ai` now refuse private/LAN
   address literals (RFC1918, link-local including the cloud metadata

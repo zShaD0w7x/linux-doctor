@@ -53,6 +53,13 @@ function isLoopbackOrigin(origin) {
 }
 
 export async function startWeb({ collect, history = () => [], checkList = async () => [], schedule = () => timerStatus(), port = 43901, open = true, quiet = false, render = (d) => d }) {
+  // A short report cache with single-flight. GETs need no Origin, so without
+  // this any web page could <img src="127.0.0.1:43901/api/report"> and force
+  // a full scan per request. Concurrent/repeated hits share one scan; the
+  // dashboard's explicit "Re-run" sends ?refresh=1 to bypass the TTL.
+  const REPORT_TTL_MS = 10000;
+  let reportCache = { at: 0, body: null };
+  let reportInflight = null;
   const server = http.createServer(async (req, res) => {
     if (!isLoopbackHost(req.headers.host)) {
       res.writeHead(403, { "Content-Type": "text/plain" });
@@ -67,13 +74,24 @@ export async function startWeb({ collect, history = () => [], checkList = async 
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/report") {
       try {
-        const data = await collect();
+        const refresh = url.searchParams.get("refresh") === "1";
+        const fresh = reportCache.body !== null && Date.now() - reportCache.at < REPORT_TTL_MS;
+        let body;
+        if (!refresh && fresh) {
+          body = reportCache.body;
+        } else {
+          if (!reportInflight) {
+            reportInflight = (async () => {
+              const data = await collect();
+              const out = render(data);
+              return typeof out === "string" ? out : JSON.stringify(out);
+            })().finally(() => { reportInflight = null; });
+          }
+          body = await reportInflight;
+          reportCache = { at: Date.now(), body };
+        }
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-        // render lets the caller serve the same versioned envelope as --json
-        // (schemaVersion, tool, version) instead of the raw internal shape.
-        // renderJson returns a string, so pass it through as-is.
-        const out = render(data);
-        res.end(typeof out === "string" ? out : JSON.stringify(out));
+        res.end(body);
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

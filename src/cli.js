@@ -707,7 +707,11 @@ function printIgnoreLists(titles, codes) {
 
     const diff = diffSinceLast(data.findings, runs);
     const prevAt = runs.length ? runs[runs.length - 1].at : null;
-    if (save) {
+    // LINUX_DOCTOR_NO_SAVE is set by the desktop shell: its dashboard polls
+    // /report every 20s, and every poll recording a history entry would churn
+    // the new/fixed story. Polls still READ history (the diff stays honest),
+    // they just never advance it — same as the --web dashboard.
+    if (save && !process.env.LINUX_DOCTOR_NO_SAVE) {
       saveRun({
         at: new Date().toISOString(),
         score: sc,

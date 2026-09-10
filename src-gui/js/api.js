@@ -2,15 +2,18 @@
 const isDesktop = () => typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 const STATIC_DATA = typeof window !== "undefined" && window.__DATA__ ? window.__DATA__ : null;
 
-async function fetchReport() {
+/* refresh=true forces a fresh scan; the servers otherwise serve a short
+   cached report (a drive-by page cannot trigger a scan storm). */
+async function fetchReport({ refresh = false } = {}) {
   if (STATIC_DATA) return STATIC_DATA;
+  const q = refresh ? "?refresh=1" : "";
   if (isDesktop()) {
     try {
-      const res = await fetch("http://127.0.0.1:17321/report", { cache: "no-store" });
+      const res = await fetch("http://127.0.0.1:17321/report" + q, { cache: "no-store" });
       if (res.ok) return res.json();
     } catch {}
   }
-  const res = await fetch("/api/report", { cache: "no-store" });
+  const res = await fetch("/api/report" + q, { cache: "no-store" });
   if (!res.ok) throw new Error("HTTP " + res.status);
   return res.json();
 }

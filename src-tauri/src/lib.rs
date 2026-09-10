@@ -22,7 +22,12 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
@@ -30,6 +35,36 @@ use tauri_plugin_autostart::ManagerExt;
 /// Loopback port the report server listens on. Fixed so the frontend can find
 /// it without any IPC. Must match the URL in `src-gui/index.html`.
 const REPORT_PORT: u16 = 17321;
+
+/// A report may be served from cache for this long unless `?refresh=1`.
+const REPORT_TTL: Duration = Duration::from_secs(10);
+/// Check metadata is static; cache it far longer.
+const CHECKS_TTL: Duration = Duration::from_secs(300);
+
+type Cache = Arc<Mutex<Option<(Instant, Vec<u8>)>>>;
+
+/// TTL cache with single-flight: the mutex is held for the entire collection,
+/// so a burst of requests (a drive-by page, repeated polls) triggers exactly
+/// one scan — the others wait and then read the fresh cache. `refresh`
+/// bypasses a still-fresh entry for an explicit "Re-run checks".
+fn cached_collect(
+    slot: &Cache,
+    ttl: Duration,
+    refresh: bool,
+    collect: impl FnOnce() -> Result<Vec<u8>, String>,
+) -> Result<Vec<u8>, String> {
+    let mut guard = slot.lock().unwrap_or_else(|e| e.into_inner());
+    if !refresh {
+        if let Some((at, data)) = guard.as_ref() {
+            if at.elapsed() < ttl {
+                return Ok(data.clone());
+            }
+        }
+    }
+    let data = collect()?;
+    *guard = Some((Instant::now(), data.clone()));
+    Ok(data)
+}
 
 /// Where the linux-doctor Node CLI lives, in priority order:
 /// 1. `$LINUX_DOCTOR_ROOT` — explicit override.
@@ -122,6 +157,10 @@ fn collect_report(root: &PathBuf, node: &PathBuf) -> Result<Vec<u8>, String> {
         .env_remove("LD_PRELOAD")
         .env_remove("NODE_OPTIONS")
         .env_remove("NODE_PATH")
+        // The dashboard polls this endpoint; without this every poll would
+        // append a history run and churn the new/fixed story. Polls still read
+        // history, they just never advance it.
+        .env("LINUX_DOCTOR_NO_SAVE", "1")
         .output()
         .map_err(|e| {
             format!(
@@ -211,10 +250,14 @@ fn serve_report(root: PathBuf, node: PathBuf) {
             }
         };
         eprintln!("🩺 Linux Doctor report server: http://127.0.0.1:{REPORT_PORT}/report");
+        let report_cache: Cache = Arc::new(Mutex::new(None));
+        let checks_cache: Cache = Arc::new(Mutex::new(None));
         for stream in listener.incoming().flatten() {
             let root = root.clone();
             let node = node.clone();
-            thread::spawn(move || handle_client(stream, &root, &node));
+            let rc = report_cache.clone();
+            let cc = checks_cache.clone();
+            thread::spawn(move || handle_client(stream, &root, &node, &rc, &cc));
         }
     });
 }
@@ -309,7 +352,10 @@ fn response_head(status: &str, cors: &str, body_len: usize) -> String {
     )
 }
 
-fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
+fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf, report_cache: &Cache, checks_cache: &Cache) {
+    // A client that opens a socket and never finishes its request must not
+    // pin a thread forever (slowloris).
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(15)));
     // Read the full request head, then any POST body (the config-writing
     // endpoints carry small JSON payloads). Capped well below any sane size.
     let mut data: Vec<u8> = Vec::with_capacity(4096);
@@ -395,22 +441,33 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
         }
     };
 
-    let (status, body) = match (method.as_str(), path.as_str()) {
+    // Split the query string off the route so ?refresh=1 can bypass the cache.
+    let (route, query) = match path.split_once('?') {
+        Some((r, q)) => (r, q),
+        None => (path.as_str(), ""),
+    };
+    let refresh = query.split('&').any(|kv| kv == "refresh=1");
+
+    let (status, body) = match (method.as_str(), route) {
         ("OPTIONS", _) => ("204 No Content", Vec::new()),
-        ("GET", "/report") | ("GET", "/report/") => match collect_report(root, node) {
-            Ok(bytes) => ("200 OK", bytes),
-            Err(msg) => (
-                "500 Internal Server Error",
-                serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
-            ),
-        },
-        ("GET", "/checks") | ("GET", "/checks/") => match collect_checks(root, node) {
-            Ok(bytes) => ("200 OK", bytes),
-            Err(msg) => (
-                "500 Internal Server Error",
-                serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
-            ),
-        },
+        ("GET", "/report") | ("GET", "/report/") => {
+            match cached_collect(report_cache, REPORT_TTL, refresh, || collect_report(root, node)) {
+                Ok(bytes) => ("200 OK", bytes),
+                Err(msg) => (
+                    "500 Internal Server Error",
+                    serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
+                ),
+            }
+        }
+        ("GET", "/checks") | ("GET", "/checks/") => {
+            match cached_collect(checks_cache, CHECKS_TTL, false, || collect_checks(root, node)) {
+                Ok(bytes) => ("200 OK", bytes),
+                Err(msg) => (
+                    "500 Internal Server Error",
+                    serde_json::to_vec(&serde_json::json!({ "error": msg })).unwrap_or_default(),
+                ),
+            }
+        }
         ("GET", "/history") | ("GET", "/history/") => {
             cli_json(&["bin/doctor.js", "--history-json"])
         }
@@ -550,15 +607,24 @@ fn build_tray(app: &tauri::App, root: &PathBuf, node: &PathBuf) -> Result<(), Bo
         match event.id().as_ref() {
             "open" => focus_main(app_handle),
             "runnow" => {
-                // Same discipline as the report server's children: no env
-                // leakage, daemon-style one-shot with the desktop
-                // notification path; the dashboard picks the fresh report
-                // up on its next poll. Run off the main thread.
-                let root = root.clone();
-                let node = node.clone();
-                thread::spawn(move || {
-                    let (_code, _out, _err) = run_cli(&root, &node, &["bin/doctor.js", "--notify"]);
-                });
+                // One run at a time: each scan spawns four parallel checks and
+                // dozens of subprocesses, so an impatient double-click must
+                // coalesce, not stack.
+                static RUN_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+                if RUN_IN_FLIGHT.swap(true, Ordering::SeqCst) {
+                    eprintln!("linux-doctor: a check run is already in flight — ignoring the click");
+                } else {
+                    // Same discipline as the report server's children: no env
+                    // leakage, daemon-style one-shot with the desktop
+                    // notification path; the dashboard picks the fresh report
+                    // up on its next poll. Run off the main thread.
+                    let root = root.clone();
+                    let node = node.clone();
+                    thread::spawn(move || {
+                        let (_code, _out, _err) = run_cli(&root, &node, &["bin/doctor.js", "--notify"]);
+                        RUN_IN_FLIGHT.store(false, Ordering::SeqCst);
+                    });
+                }
             }
             "autostart" => {
                 // Truthful toggle: attempt the change, then re-read the real
@@ -734,5 +800,21 @@ mod tests {
         assert_eq!(request_header(head, "accept"), None);
         // The request line must never be mistaken for a header.
         assert_eq!(request_header(head, "post /thresholds http/1.1"), None);
+    }
+
+    #[test]
+    fn report_cache_serves_within_ttl_and_refresh_bypasses_it() {
+        use std::sync::atomic::{AtomicUsize, Ordering as O};
+        let slot: Cache = Arc::new(Mutex::new(None));
+        let calls = AtomicUsize::new(0);
+        let run = || {
+            calls.fetch_add(1, O::SeqCst);
+            Ok::<Vec<u8>, String>(vec![7])
+        };
+        assert_eq!(cached_collect(&slot, Duration::from_secs(60), false, &run).unwrap(), vec![7]);
+        assert_eq!(cached_collect(&slot, Duration::from_secs(60), false, &run).unwrap(), vec![7]);
+        assert_eq!(calls.load(O::SeqCst), 1, "a second call within the TTL must hit the cache");
+        assert_eq!(cached_collect(&slot, Duration::from_secs(60), true, &run).unwrap(), vec![7]);
+        assert_eq!(calls.load(O::SeqCst), 2, "refresh must bypass a fresh cache entry");
     }
 }
