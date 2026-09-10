@@ -6,6 +6,14 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The desktop window now fits the screen instead of a fixed 1500×950.**
+  It opens centered at up to 1500×950 (the full wide workbench), clamped to
+  the monitor minus a margin and never below 900×640 — a 1366×768 laptop
+  gets ~1286×688, a large monitor gets the full workbench. The window is
+  shown only after sizing, so there is no resize flash on launch.
+
 ### Fixed
 
 - **Desktop app: the dashboard could never parse a report.** The loopback

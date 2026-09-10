@@ -498,6 +498,7 @@ pub fn run() {
                 Ok(Err(e)) => eprintln!("⚠️  linux-doctor: tray unavailable ({e}) — continuing without it"),
                 Err(_) => eprintln!("⚠️  linux-doctor: no system tray library — continuing without it"),
             }
+            fit_window(app);
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -573,6 +574,26 @@ fn build_tray(app: &tauri::App, root: &PathBuf, node: &PathBuf) -> Result<(), Bo
         }
     });
     Ok(())
+}
+
+/// Sizes the window to the screen instead of a fixed default: up to
+/// 1500×950 (the full wide-desktop workbench) but never larger than the
+/// monitor minus a margin, never smaller than 900×640. A 1366×768 laptop
+/// therefore gets a comfortable ~1286×688 window, a 4K monitor gets the
+/// 1500×950 workbench, and nothing ever opens larger than the display.
+fn fit_window(app: &tauri::App) {
+    let Some(win) = app.get_webview_window("main") else { return };
+    if let Ok(Some(monitor)) = win.current_monitor() {
+        let logical = monitor.size().to_logical::<f64>(monitor.scale_factor());
+        let w = (logical.width - 80.0).clamp(900.0, 1500.0);
+        let h = (logical.height - 80.0).clamp(640.0, 950.0);
+        let _ = win.set_size(tauri::LogicalSize::new(w, h));
+        let _ = win.center();
+    }
+    // The window starts hidden (tauri.conf.json) so the user never sees the
+    // default-size flash; show it once the geometry above is applied. This
+    // also guarantees it becomes visible even if the monitor query failed.
+    let _ = win.show();
 }
 
 /// Shows and focuses the main window (tray "Open" and second-launch paths).
