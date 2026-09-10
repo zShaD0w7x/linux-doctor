@@ -69,8 +69,8 @@ function renderStatus(data) {
   const { findings = [], system = {} } = data;
   const ver = (data.version || "").replace(/^v/, "");
   $(".sysinfo").innerHTML =
-    [system.distro, system.kernel, (system.cores || "?") + " core(s)", "up " + system.uptime].filter(Boolean).join(" · ") +
-    (ver ? ' · <span class="ver">v' + ver + "</span>" : "");
+    [esc(system.distro), esc(system.kernel), esc((system.cores || "?") + " core(s)"), "up " + esc(system.uptime)].filter(Boolean).join(" · ") +
+    (ver ? ' · <span class="ver">v' + esc(ver) + "</span>" : "");
 
   const high = findings.filter((f) => f.severity === "high").length;
   const med = findings.filter((f) => f.severity === "medium").length;

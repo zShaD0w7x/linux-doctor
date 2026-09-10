@@ -106,3 +106,24 @@ test("supportMessage: tells the user what to do with the file", () => {
   assert.ok(m.includes("/tmp/b.json"));
   assert.ok(/forum|issue|support/i.test(m));
 });
+
+test("scrub: linear-time on colon runs (ReDoS regression)", () => {
+  const input = "x".repeat(16) + ":".repeat(100_000) + " ";
+  const t0 = performance.now();
+  scrub(input);
+  const ms = performance.now() - t0;
+  assert.ok(ms < 500, `scrub() took ${Math.round(ms)}ms on a 100k colon run (must stay linear)`);
+});
+
+test("scrub: IPv6 forms redacted, times and code kept", () => {
+  assert.equal(scrub("time 12:34:56"), "time 12:34:56");
+  assert.equal(scrub("2026-09-10T12:34:56Z"), "2026-09-10T12:34:56Z");
+  assert.equal(scrub("fe80::1"), "<ip-redacted>");
+  assert.equal(scrub("2001:db8::1"), "<ip-redacted>");
+  assert.equal(scrub("aa:bb:cc:dd:ee:ff"), "<ip-redacted>");
+  assert.equal(scrub("::1"), "<ip-redacted>");
+  assert.equal(scrub("192.168.1.1/24"), "<ip-redacted>");
+  // Careful: the old pattern also redacted C++ scope chains.
+  assert.equal(scrub("std::vector"), "std::vector");
+  assert.equal(scrub("ports 443:8443"), "ports 443:8443");
+});

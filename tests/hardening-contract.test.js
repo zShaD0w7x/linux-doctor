@@ -86,3 +86,29 @@ test("the release gui job keeps a packaging smoke check for the runtime", () => 
   assert.match(src, /dpkg-deb[\s\S]*runtime\/node|runtime\/node[\s\S]*dpkg-deb/, "deb payload must be checked for runtime/node");
   assert.ok((src.match(/startsWith\(github\.ref, 'refs\/tags\/v'\)/g) || []).length >= 4, "publish/attest steps must be tag-gated");
 });
+
+test("both scrub copies use linear IPv6 patterns, not the quadratic one", () => {
+  for (const f of ["src/support.js", "src-gui/js/export.js"]) {
+    const src = read(f);
+    assert.ok(
+      !src.includes(".replace(/(?:[0-9A-Fa-f]{0,4}:){2,}"),
+      `${f}: the quadratic IPv6 replace must not return`,
+    );
+    assert.ok(
+      src.includes("(?:[0-9A-Fa-f]{1,4}:){1,6}:") && src.includes("(?:[0-9A-Fa-f]{1,4}:){2,}"),
+      `${f}: linear IPv6 patterns missing`,
+    );
+  }
+});
+
+test("the --html export escapes '<' before embedding the payload", () => {
+  assert.match(read("src/cli.js"), /jsonForInlineScript\(jsonPayload\)/, "export must use jsonForInlineScript");
+  assert.match(read("src/report.js"), /export function jsonForInlineScript/, "helper must stay exported");
+});
+
+test("the dashboard system header escapes every payload field", () => {
+  const src = read("src-gui/js/render-status.js");
+  assert.match(src, /esc\(system\.distro\)/);
+  assert.match(src, /esc\(system\.kernel\)/);
+  assert.match(src, /esc\(system\.uptime\)/);
+});

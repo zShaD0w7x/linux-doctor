@@ -1,9 +1,13 @@
-/* === Markdown export — scrubbed, share-ready === */
+/* === Markdown export — scrubbed, share-ready ===
+   Keep this in sync with src/support.js scrub(): linear IPv6 patterns only
+   (the old (?:[0-9A-Fa-f]{0,4}:){2,} shape backtracked quadratically). */
 function scrub(text) {
   if (!text) return text;
   return String(text)
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?\b/g, "<ip-redacted>")
-    .replace(/(?:[0-9A-Fa-f]{0,4}:){2,}[0-9A-Fa-f]{0,4}\b/g, (m) => /::|[A-Fa-f]/.test(m) ? "<ip-redacted>" : m)
+    .replace(/(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6}(?![0-9A-Fa-f:])/g, "<ip-redacted>")
+    .replace(/::[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6}(?![0-9A-Fa-f:])/g, "<ip-redacted>")
+    .replace(/(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f]{1,4}(?![0-9A-Fa-f:])/g, (m) => /[A-Fa-f]/.test(m) ? "<ip-redacted>" : m)
     .replace(/\bfe80::[0-9A-Fa-f:]*\b/gi, "<ip-redacted>")
     .replace(/::1\b/g, "<ip-redacted>")
     .replace(/\/(home|Users)\/[^\/\s]+/g, "/$1/<user-redacted>")

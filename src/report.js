@@ -309,3 +309,15 @@ export function renderJson(findings, system = null, extra = {}) {
   if (system) payload.system = system;
   return JSON.stringify(payload, null, 2);
 }
+
+/**
+ * JSON safe to embed inside an inline `<script>`. JSON.stringify leaves `<`
+ * untouched, so a finding field containing "</script>" (a crafted journal
+ * line, container or unit name) would close the tag early and turn the
+ * exported report into executable markup. Escaping `<` as \u003c keeps the
+ * data byte-identical after parsing — it is a valid JSON escape — while no
+ * "</script" sequence can survive in the file.
+ */
+export function jsonForInlineScript(json) {
+  return json.replace(/</g, "\\u003c");
+}

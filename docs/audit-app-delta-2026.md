@@ -19,9 +19,9 @@ The previous audit's 2 High + 1 Medium remain **open** (CLI-side, untouched here
 
 | ID | Finding | Status |
 |---|---|---|
-| H1 | `</script>` breakout in `--html` (`cli.js:1012`) | **Open** |
-| H2 | ReDoS in `scrub()` IPv6 (`support.js:35`) | **Open** |
-| M1 | Unescaped `distro/kernel/uptime` (`render-status.js:71-73`) | **Open** |
+| H1 | `</script>` breakout in `--html` (`cli.js:1012`) | **Fixed** — `jsonForInlineScript()` escapes `<`; e2e verified (no breakout, payload round-trips) |
+| H2 | ReDoS in `scrub()` IPv6 (`support.js:35`) | **Fixed** — linear patterns; 1M colons in ~6ms, regression test with a time budget |
+| M1 | Unescaped `distro/kernel/uptime` (`render-status.js:71-73`) | **Fixed** — all fields through `esc()` |
 | M2–M8, L1–L12 | Privacy parity, config perms, egress validation | Not re-audited (unchanged) |
 
 ## 2. New findings

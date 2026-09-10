@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderReport, renderPlain, countBySeverity, renderJson } from "../src/report.js";
+import { renderReport, renderPlain, countBySeverity, renderJson, jsonForInlineScript } from "../src/report.js";
 
 test("countBySeverity: counts per severity in canonical order", () => {
   const counts = countBySeverity([
@@ -95,4 +95,13 @@ test("renderJson: v1 schema with tool/version and caller metadata", () => {
 test("renderJson: generatedAt defaults to now when not provided", () => {
   const out = JSON.parse(renderJson([]));
   assert.match(out.generatedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("jsonForInlineScript: a </script> in a field cannot close the tag", () => {
+  const findings = [{ title: "</script><img src=x onerror=alert(1)>", severity: "high", code: "x/y" }];
+  const json = renderJson(findings, null, {});
+  const safe = jsonForInlineScript(json);
+  assert.ok(!safe.includes("</script"), "no closing script tag may survive");
+  assert.ok(!safe.includes("<"), "no raw '<' may survive");
+  assert.deepEqual(JSON.parse(safe), JSON.parse(json), "data must round-trip identically");
 });

@@ -29,10 +29,15 @@ export function scrub(text) {
   if (!text) return text;
   return String(text)
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?\b/g, "<ip-redacted>")
-    // Generic IPv6: 2+ colon groups. Guard against time strings like
-    // 12:34:56 (all digits, no ::, no hex) — those are not IPs. A real
-    // IPv6 has either :: or a hex letter a-f.
-    .replace(/(?:[0-9A-Fa-f]{0,4}:){2,}[0-9A-Fa-f]{0,4}\b/g, (m) => /::|[A-Fa-f]/.test(m) ? "<ip-redacted>" : m)
+    // IPv6, linear by construction. The old (?:[0-9A-Fa-f]{0,4}:){2,} shape
+    // allowed empty groups, so a colon run backtracked quadratically and a
+    // crafted log line could hang the run. Every repeat below consumes at
+    // least one hex digit, and the compressed form is anchored on "::" with
+    // bounded groups. Time strings like 12:34:56 stay intact (pure digits,
+    // no "::"), which the trailing post-filter enforces for the full form.
+    .replace(/(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6}(?![0-9A-Fa-f:])/g, "<ip-redacted>")
+    .replace(/::[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6}(?![0-9A-Fa-f:])/g, "<ip-redacted>")
+    .replace(/(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f]{1,4}(?![0-9A-Fa-f:])/g, (m) => /[A-Fa-f]/.test(m) ? "<ip-redacted>" : m)
     .replace(/\bfe80::[0-9A-Fa-f:]*\b/gi, "<ip-redacted>")
     .replace(/::1\b/g, "<ip-redacted>")
     // Home directories leak the account username ("/home/alice/.config/...").

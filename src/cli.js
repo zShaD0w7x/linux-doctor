@@ -8,7 +8,7 @@ import { isPro, proInfo } from "./license.js";
 import { loadProModule } from "./pro.js";
 import { shouldAlert, buildAlert, sendAlert } from "./alert.js";
 import { pingHeartbeat } from "./heartbeat.js";
-import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding } from "./report.js";
+import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding, jsonForInlineScript } from "./report.js";
 import { renderMarkdown } from "./markdown.js";
 import { aiSummary } from "./llm.js";
 import { pushReport, validatePushUrl } from "./fleet.js";
@@ -1009,7 +1009,9 @@ function printIgnoreLists(titles, codes) {
       // Embed the payload as window.__DATA__ (the dashboard prefers it over
       // the network) instead of overriding window.fetch — no monkey-patching
       // of browser globals, and POST buttons fail honestly in a static file.
-      const html = `<script>\nwindow.__DATA__ = ${jsonPayload};\n</script>\n${dashboard}`;
+      // jsonForInlineScript(): a "</script>" in any finding field must not
+      // close the tag (stored-XSS in a report users share).
+      const html = `<script>\nwindow.__DATA__ = ${jsonForInlineScript(jsonPayload)};\n</script>\n${dashboard}`;
       writeFileSync(args.htmlPath, html, "utf8");
       console.log(`Report saved to ${args.htmlPath}`);
     } catch (err) {

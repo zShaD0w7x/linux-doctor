@@ -8,6 +8,19 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Security
 
+- **`--html` exports can no longer be weaponized.** The report JSON is now
+  embedded through `jsonForInlineScript()`, which escapes `<` as `\u003c`:
+  a finding field containing `</script>` (a crafted journal line, container
+  or unit name) can no longer close the tag and execute markup in whoever
+  opens the file. The data still round-trips byte-identically.
+- **`scrub()` is now linear.** The IPv6 pattern allowed empty groups and
+  backtracked quadratically — a crafted colon run (100k chars) hung the
+  timer run, `--support`, `--md` and `--ai`. Rewritten with mandatory
+  consumption and a bounded compressed form: 1M colons now scrub in ~6ms.
+  Bonus: C++ scope chains like `std::vector` are no longer redacted.
+- **The dashboard system header escapes its payload fields.** `distro`,
+  `kernel` and `uptime` (root-controlled `/etc/os-release` on a compromised
+  image) now go through `esc()` like every other system-derived sink.
 - **Release workflow: least privilege and tag-gated publishing.** The default
   token is now `contents: read` (write scopes only on the two build jobs), a
   manual `workflow_dispatch` run can no longer publish or attest anything
