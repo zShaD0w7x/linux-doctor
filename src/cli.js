@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { atomicWrite } from "./fsx.js";
 import { run, runPool, lines } from "./utils.js";
 import { normalizeFindings, invalidFindings } from "./findings.js";
 import { checks as CHECKS } from "./checks/index.js";
@@ -498,8 +498,7 @@ export async function main(argv) {
   if (args.initConfig) {
     const file = configFile();
     try {
-      mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, starterConfig(), "utf8");
+      if (!atomicWrite(file, starterConfig())) throw new Error("could not write " + file);
       console.log(`Config written to ${file}`);
     } catch (err) {
       console.error(`linux-doctor: could not write config: ${err.message}`);
@@ -630,8 +629,7 @@ function printIgnoreLists(titles, codes) {
       }
       const next = { ...cfg, thresholds: clean };
       const file = configFile();
-      mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
+      if (!atomicWrite(file, JSON.stringify(next, null, 2) + "\n")) throw new Error("could not write " + file);
       console.log(JSON.stringify({ ok: true, thresholds: clean }));
       return 0;
     } catch (err) {

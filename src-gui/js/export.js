@@ -11,6 +11,7 @@ function scrub(text) {
     .replace(/\bfe80::[0-9A-Fa-f:]*\b/gi, "<ip-redacted>")
     .replace(/::1\b/g, "<ip-redacted>")
     .replace(/\/(home|Users)\/[^\/\s]+/g, "/$1/<user-redacted>")
+    .replace(/\/(run\/media|media)\/[^\/\s]+/g, "/$1/<user-redacted>")
     .replace(/\/run\/user\/\d+/g, "/run/user/<uid-redacted>");
 }
 function reportMarkdown(data) {

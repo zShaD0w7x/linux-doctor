@@ -35,9 +35,12 @@ chmod +x Linux.Doctor_*_amd64.AppImage
 
 Also attached to each release: `.deb` (Debian/Ubuntu) and the CLI tarball.
 AppImage runs on most distributions (glibc-based); on immutable systems
-(Fedora Silverblue, Bazzite) it works out of the box. The only runtime
-requirement: **Node.js ≥ 20 installed** (`node --version`) — the app runs
-the checks through it; everything else is bundled.
+(Fedora Silverblue, Bazzite) it works out of the box. **Nothing needs to be
+installed** — the desktop packages embed their own Node.js 22 runtime
+(`<resources>/runtime/node`), so the app's checks run even on a machine with
+no Node on `PATH`. `LINUX_DOCTOR_NODE=/path/to/node` still overrides it.
+
+> Installed size: the bundled runtime adds roughly 130 MB to the package.
 
 <details>
 <summary>AppImage graphics troubleshooting (very new Mesa, v0.3.2 and older)</summary>
@@ -57,10 +60,6 @@ or older, launch with:
 ```bash
 LIBGL_ALWAYS_SOFTWARE=1 ./Linux.Doctor_*_amd64.AppImage
 ```
-
-> The desktop app shells out to Node.js ≥ 20 for the checks themselves
-> (bundled-runtime builds are planned). Everything else — window, dashboard,
-> history — needs nothing.
 </details>
 
 ## Install & first run (CLI)

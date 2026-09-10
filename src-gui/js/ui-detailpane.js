@@ -20,7 +20,7 @@ function paneFindingHtml(f) {
     (f.code ? '<button class="codepill" data-copy="' + esc(f.code) + '" title="Copy ' + esc(f.code) + '">' + esc(f.code) + "</button>" : "") +
     (f.isNew ? '<span class="newbadge">NEW</span>' : "");
   const dur = durFor(f.check);
-  let html = '<div class="dp-head"><span class="sevicon" data-sev="' + sev + '" aria-hidden="true">' + (SEV_ICONS[sev] || "") + "</span>" +
+  let html = '<div class="dp-head"><span class="sevicon" data-sev="' + esc(sev) + '" aria-hidden="true">' + (SEV_ICONS[sev] || "") + "</span>" +
     "<h3>" + esc(f.title) + "</h3>" + badges + "</div>";
   html += '<div class="dp-body">';
   if (f.detail) {
@@ -34,7 +34,7 @@ function paneFindingHtml(f) {
     html += '<details class="ev" open><summary>Evidence</summary>' +
       '<div class="evidence" id="' + evId + '">' + esc(f.evidence) + "</div>" +
       '<div class="dp-evrow"><button class="ev-copy" data-evcopy="' + evId + '">Copy evidence</button>' +
-      (dur != null ? '<span class="durpill" style="display:inline-flex;margin-left:auto" title="Check time">' + dur + "ms</span>" : "") +
+      (dur != null ? '<span class="durpill" style="display:inline-flex;margin-left:auto" title="Check time">' + esc(String(dur)) + "ms</span>" : "") +
       "</div></details>";
   }
   html += '<div class="fix"><div class="fix-label">Recommended next step</div>' +

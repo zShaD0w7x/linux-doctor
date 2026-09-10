@@ -3,7 +3,8 @@
  * browser at 127.0.0.1. Zero dependencies: plain node:http + inline HTML/CSS/JS.
  */
 import http from "node:http";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { atomicWrite } from "./fsx.js";
 import { exec } from "node:child_process";
 import { dirname } from "node:path";
 import { addIgnore } from "./ignore.js";
@@ -149,8 +150,7 @@ export async function startWeb({ collect, history = () => [], checkList = async 
         }
         next.thresholds = clean;
         const file = configFile();
-        mkdirSync(dirname(file), { recursive: true });
-        writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
+        if (!atomicWrite(file, JSON.stringify(next, null, 2) + "\n")) throw new Error("could not write " + file);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, thresholds: clean }));
       } catch (err) {

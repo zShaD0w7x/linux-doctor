@@ -14,7 +14,8 @@
  * unit behind, mirroring history.js.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { atomicWrite } from "./fsx.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,9 +79,7 @@ export function renderTimer({ hours = 24 } = {}) {
 }
 
 function writeUnit(file, content) {
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, content, "utf8");
-  renameSync(tmp, file);
+  atomicWrite(file, content, { mode: 0o644, dirMode: 0o755 });
 }
 
 /**

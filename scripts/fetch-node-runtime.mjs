@@ -14,7 +14,7 @@
  * https://nodejs.org/dist/<version>/SHASUMS256.txt under the
  * linux-x64.tar.xz line.
  */
-import { mkdirSync, writeFileSync, chmodSync, rmSync, mkdtempSync } from "node:fs";
+import { mkdirSync, writeFileSync, chmodSync, rmSync, mkdtempSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -24,6 +24,18 @@ const NODE_VERSION = "v22.23.2";
 const NODE_SHA256 = "d60acfe00a2932254bb0ad20e01b0d74397a0875595de719654b214f4b03f307";
 const FILE = `node-${NODE_VERSION}-linux-x64.tar.xz`;
 const DEST = new URL("../src-tauri/runtime/node", import.meta.url).pathname;
+
+// Fast path: the right runtime is already there (dev/rebuild) — no download.
+if (existsSync(DEST)) {
+  try {
+    if (execFileSync(DEST, ["--version"]).toString().trim() === NODE_VERSION) {
+      console.log(`${NODE_VERSION} already present → ${DEST}`);
+      process.exit(0);
+    }
+  } catch {
+    /* wrong/broken binary — refetch below */
+  }
+}
 
 const work = mkdtempSync(join(tmpdir(), "linux-doctor-node-"));
 try {

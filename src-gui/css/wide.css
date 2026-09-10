@@ -53,6 +53,12 @@
     gap: 0 24px;
     align-items: start;
   }
+  /* Explicit placement: without it auto-flow drops the no-match message into
+     the pane column when the report happens to be hidden. */
+  html.wide .reportgrid > #drillhint,
+  html.wide .reportgrid > #report,
+  html.wide .reportgrid > #nomatch { grid-column: 1; }
+  html.wide .reportgrid > #detailpane { grid-column: 2; }
   html.wide .detailpane {
     position: sticky; top: 124px;
     max-height: calc(100vh - 176px); overflow: auto;

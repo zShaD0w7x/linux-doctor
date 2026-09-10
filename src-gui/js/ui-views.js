@@ -73,8 +73,11 @@ function applyUrlState() {
   if (st.group) {
     groupBy = st.group;
     try { localStorage.setItem("ld-groupby", st.group); } catch {}
-    document.querySelectorAll(".segbtn").forEach((b) =>
-      b.classList.toggle("active", b.dataset.groupby === st.group));
+    document.querySelectorAll(".segbtn").forEach((b) => {
+      const on = b.dataset.groupby === st.group;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
   }
   if (st.theme) {
     try { localStorage.setItem("ld-theme", st.theme); } catch {}

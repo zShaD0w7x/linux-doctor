@@ -22,7 +22,8 @@ The previous audit's 2 High + 1 Medium remain **open** (CLI-side, untouched here
 | H1 | `</script>` breakout in `--html` (`cli.js:1012`) | **Fixed** — `jsonForInlineScript()` escapes `<`; e2e verified (no breakout, payload round-trips) |
 | H2 | ReDoS in `scrub()` IPv6 (`support.js:35`) | **Fixed** — linear patterns; 1M colons in ~6ms, regression test with a time budget |
 | M1 | Unescaped `distro/kernel/uptime` (`render-status.js:71-73`) | **Fixed** — all fields through `esc()` |
-| M2–M8, L1–L12 | Privacy parity, config perms, egress validation | Not re-audited (unchanged) |
+| M3, M6, M8 | Atomic/private state writes, path scrubbing, corrupt-config warning | **Fixed** — `atomicWrite()` (0600/0700, O_EXCL, rename), `/run/media`+`/media` scrubbed, `loadConfig` warns |
+| M2, M4, M5, M7, L1–L12 | Export scrubbing parity, egress destination, webhook bodies, loopback GET caching, shell-guardrail/docs low-tier | Open (deferred) |
 
 ## 2. New findings
 

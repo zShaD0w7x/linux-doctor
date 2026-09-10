@@ -13,8 +13,10 @@
  * Zero dependencies: plain node:fs + the package version. Writing is atomic
  * (temp file + rename) so a crash mid-write never leaves a half-written bundle.
  */
-import { mkdirSync, renameSync, rmSync, writeFileSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+
+import { atomicWrite } from "./fsx.js";
+import { join } from "node:path";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -43,7 +45,10 @@ export function scrub(text) {
     // Home directories leak the account username ("/home/alice/.config/...").
     // Redact the user segment but keep the rest of the path so the context
     // (a dotfile, a log) stays useful for whoever reads the bundle.
+    // /var/home covers the atomic distros (Fedora Silverblue, Bazzite);
+    // /run/media and /media cover removable-media mount points.
     .replace(/\/(home|Users)\/[^\/\s]+/g, "/$1/<user-redacted>")
+    .replace(/\/(run\/media|media)\/[^\/\s]+/g, "/$1/<user-redacted>")
     // Per-user runtime dirs are keyed by numeric UID, not name — still redact.
     .replace(/\/run\/user\/\d+/g, "/run/user/<uid-redacted>");
 }
@@ -122,20 +127,7 @@ export function defaultBundlePath(dir = process.cwd()) {
  * null on failure so the CLI can print a friendly message instead.
  */
 export function writeSupportBundle(bundle, path = defaultBundlePath()) {
-  try {
-    mkdirSync(dirname(path), { recursive: true });
-    const tmp = `${path}.tmp`;
-    writeFileSync(tmp, JSON.stringify(bundle, null, 2) + "\n");
-    renameSync(tmp, path);
-    return path;
-  } catch {
-    try {
-      rmSync(`${path}.tmp`, { force: true });
-    } catch {
-      /* ignore cleanup failure */
-    }
-    return null;
-  }
+  return atomicWrite(path, JSON.stringify(bundle, null, 2) + "\n") ? path : null;
 }
 
 /** The message shown after a successful write — tells the user what to do next. */

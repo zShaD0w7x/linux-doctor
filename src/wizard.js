@@ -12,8 +12,8 @@
  * printed report). All side effects are injectable so tests never touch a
  * real session, config, or notification daemon.
  */
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync } from "node:fs";
+import { atomicWrite } from "./fsx.js";
 
 import { configFile } from "./config.js";
 import { systemdPresent, timerStatus, installTimer } from "./units.js";
@@ -41,8 +41,7 @@ async function confirm(ask, question, defYes = true) {
 
 function writeStarterConfig() {
   const file = configFile();
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, starterConfig(), "utf8");
+  atomicWrite(file, starterConfig());
   return file;
 }
 

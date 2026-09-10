@@ -918,6 +918,12 @@ body.compact #report { gap: 14px; }
     gap: 0 24px;
     align-items: start;
   }
+  /* Explicit placement: without it auto-flow drops the no-match message into
+     the pane column when the report happens to be hidden. */
+  html.wide .reportgrid > #drillhint,
+  html.wide .reportgrid > #report,
+  html.wide .reportgrid > #nomatch { grid-column: 1; }
+  html.wide .reportgrid > #detailpane { grid-column: 2; }
   html.wide .detailpane {
     position: sticky; top: 124px;
     max-height: calc(100vh - 176px); overflow: auto;
@@ -2286,8 +2292,11 @@ function applyUrlState() {
   if (st.group) {
     groupBy = st.group;
     try { localStorage.setItem("ld-groupby", st.group); } catch {}
-    document.querySelectorAll(".segbtn").forEach((b) =>
-      b.classList.toggle("active", b.dataset.groupby === st.group));
+    document.querySelectorAll(".segbtn").forEach((b) => {
+      const on = b.dataset.groupby === st.group;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
   }
   if (st.theme) {
     try { localStorage.setItem("ld-theme", st.theme); } catch {}
@@ -2485,7 +2494,7 @@ function paneFindingHtml(f) {
     (f.code ? '<button class="codepill" data-copy="' + esc(f.code) + '" title="Copy ' + esc(f.code) + '">' + esc(f.code) + "</button>" : "") +
     (f.isNew ? '<span class="newbadge">NEW</span>' : "");
   const dur = durFor(f.check);
-  let html = '<div class="dp-head"><span class="sevicon" data-sev="' + sev + '" aria-hidden="true">' + (SEV_ICONS[sev] || "") + "</span>" +
+  let html = '<div class="dp-head"><span class="sevicon" data-sev="' + esc(sev) + '" aria-hidden="true">' + (SEV_ICONS[sev] || "") + "</span>" +
     "<h3>" + esc(f.title) + "</h3>" + badges + "</div>";
   html += '<div class="dp-body">';
   if (f.detail) {
@@ -2499,7 +2508,7 @@ function paneFindingHtml(f) {
     html += '<details class="ev" open><summary>Evidence</summary>' +
       '<div class="evidence" id="' + evId + '">' + esc(f.evidence) + "</div>" +
       '<div class="dp-evrow"><button class="ev-copy" data-evcopy="' + evId + '">Copy evidence</button>' +
-      (dur != null ? '<span class="durpill" style="display:inline-flex;margin-left:auto" title="Check time">' + dur + "ms</span>" : "") +
+      (dur != null ? '<span class="durpill" style="display:inline-flex;margin-left:auto" title="Check time">' + esc(String(dur)) + "ms</span>" : "") +
       "</div></details>";
   }
   html += '<div class="fix"><div class="fix-label">Recommended next step</div>' +
@@ -2746,6 +2755,7 @@ function scrub(text) {
     .replace(/\bfe80::[0-9A-Fa-f:]*\b/gi, "<ip-redacted>")
     .replace(/::1\b/g, "<ip-redacted>")
     .replace(/\/(home|Users)\/[^\/\s]+/g, "/$1/<user-redacted>")
+    .replace(/\/(run\/media|media)\/[^\/\s]+/g, "/$1/<user-redacted>")
     .replace(/\/run\/user\/\d+/g, "/run/user/<uid-redacted>");
 }
 function reportMarkdown(data) {

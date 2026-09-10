@@ -7,9 +7,9 @@
  * time. History is a bonus, never a dependency: if the file cannot be read or
  * written, every function here fails silently.
  */
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { readFileSync, rmSync } from "node:fs";
 
+import { atomicWrite } from "./fsx.js";
 import { historyFile } from "./paths.js";
 import { SEV_PENALTY, SEV_ESCALATION, SEV_ESCALATE_FROM, SEV_ORDER } from "./severities.js";
 
@@ -113,16 +113,8 @@ export function saveRun(run, file = historyFile()) {
     const runs = loadHistory(file);
     runs.push(run);
     const trimmed = runs.slice(-HISTORY_LIMIT);
-    mkdirSync(dirname(file), { recursive: true });
-    const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ version: HISTORY_VERSION, runs: trimmed }, null, 2) + "\n");
-    renameSync(tmp, file); // atomic on POSIX: readers see old or new, never partial
+    atomicWrite(file, JSON.stringify({ version: HISTORY_VERSION, runs: trimmed }, null, 2) + "\n");
   } catch {
-    try {
-      rmSync(`${file}.tmp`, { force: true });
-    } catch {
-      /* ignore cleanup failures */
-    }
     /* history is optional — never fail a check run because of it */
   }
 }

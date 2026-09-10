@@ -11,15 +11,28 @@ import { configFile } from "./paths.js";
 
 export { configFile };
 
+let warnedCorrupt = false;
+
 /** Load the config file. Never throws; returns {} when missing or corrupt. */
 export function loadConfig(file = configFile()) {
+  let raw;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    raw = readFileSync(file, "utf8");
+  } catch {
+    return {}; // missing config — defaults apply, silently
+  }
+  try {
+    const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch {
-    /* missing or corrupt config — defaults apply */
+    // Corrupt config used to vanish into defaults without a word, taking the
+    // user's ignore list, thresholds and license key with it. Say so once.
+    if (!warnedCorrupt) {
+      warnedCorrupt = true;
+      console.error(`linux-doctor: ignoring corrupt config file (${file}) — fix or delete it`);
+    }
+    return {};
   }
-  return {};
 }
 
 /**

@@ -9,8 +9,7 @@
  * short fragment like "fw-fanctrl" works too. Config is a bonus, never a
  * dependency: if the file cannot be read, nothing is ignored.
  */
-import { writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { atomicWrite } from "./fsx.js";
 import { configFile, loadConfig } from "./config.js";
 
 export { configFile };
@@ -45,8 +44,7 @@ export function addIgnore(pattern, file = configFile()) {
       ? config.ignore.filter((p) => typeof p === "string" && p.trim() !== "")
       : [];
     if (!patterns.includes(pattern)) patterns.push(pattern);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ ...config, ignore: patterns }, null, 2) + "\n");
+    atomicWrite(file, JSON.stringify({ ...config, ignore: patterns }, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -62,8 +60,7 @@ export function addIgnoreCode(code, file = configFile()) {
       ? config.ignoreCodes.filter((c) => typeof c === "string" && c.trim() !== "")
       : [];
     if (!codes.includes(code)) codes.push(code);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ ...config, ignoreCodes: codes }, null, 2) + "\n");
+    atomicWrite(file, JSON.stringify({ ...config, ignoreCodes: codes }, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -89,8 +86,7 @@ export function removeIgnore(pattern, file = configFile()) {
       next.length = 0;
       next.push(...patterns.filter((p) => !ci.has(p)));
     }
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ ...config, ignore: next }, null, 2) + "\n");
+    atomicWrite(file, JSON.stringify({ ...config, ignore: next }, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -105,8 +101,7 @@ export function removeIgnoreCode(code, file = configFile()) {
     const codes = Array.isArray(config.ignoreCodes) ? config.ignoreCodes.filter((c) => typeof c === "string") : [];
     const next = codes.filter((c) => c !== code);
     if (next.length === codes.length) return false;
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ ...config, ignoreCodes: next }, null, 2) + "\n");
+    atomicWrite(file, JSON.stringify({ ...config, ignoreCodes: next }, null, 2) + "\n");
     return true;
   } catch {
     return false;

@@ -21,8 +21,8 @@
     "test": "node --test",
     "goldens:update": "node scripts/update-goldens.mjs",
     "build:gui": "node scripts/build-gui.mjs",
-    "gui:dev": "tauri dev",
-    "gui:build": "tauri build"
+    "gui:dev": "node scripts/fetch-node-runtime.mjs && tauri dev",
+    "gui:build": "node scripts/fetch-node-runtime.mjs && tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

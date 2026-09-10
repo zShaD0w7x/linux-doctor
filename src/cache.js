@@ -7,9 +7,10 @@
  * Each cache entry is { at: ISO timestamp, findings: [...] }. All env and
  * HOME reads happen at call time so tests can redirect the cache per run.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
+import { atomicWrite } from "./fsx.js";
 import { cacheDir } from "./paths.js";
 
 export { cacheDir };
@@ -33,12 +34,5 @@ export function readCache(key, maxAgeMs) {
 
 /** Persist findings under key. Returns false on any failure (never throws). */
 export function writeCache(key, findings) {
-  try {
-    const file = cacheFile(key);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), findings }));
-    return true;
-  } catch {
-    return false;
-  }
+  return atomicWrite(cacheFile(key), JSON.stringify({ at: new Date().toISOString(), findings }));
 }

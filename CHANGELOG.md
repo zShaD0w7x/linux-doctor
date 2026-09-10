@@ -8,6 +8,16 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Security
 
+- **State files are written atomically and privately.** `config.json` (which
+  may hold the Pro license key), history, cache, the support bundle and the
+  systemd units now go through one `atomicWrite()` helper: a unique temp
+  sibling opened `O_CREAT|O_EXCL` (a planted symlink fails instead of being
+  written through), `0600` files in `0700` directories, replaced by rename.
+- **A corrupt config is no longer silent.** `loadConfig()` warns once instead
+  of dropping the user's ignore list, thresholds and license key without a
+  word — the loss used to be invisible and sticky.
+- **Scrubber covers removable-media paths.** `/run/media/<user>` and
+  `/media/<user>` are redacted alongside `/home` and `/var/home`.
 - **`--html` exports can no longer be weaponized.** The report JSON is now
   embedded through `jsonForInlineScript()`, which escapes `<` as `\u003c`:
   a finding field containing `</script>` (a crafted journal line, container
@@ -41,6 +51,10 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **`npm run gui:build` / `gui:dev` fetch the bundled Node runtime first**
+  (a no-op when the right version is already present), so a local desktop
+  build can no longer package a stale or missing interpreter. The README now
+  says nothing needs installing and notes the ~130 MB the runtime adds.
 - **Releases smoke-check the packages before publishing.** The gui job now
   asserts the built `.deb`/`.rpm` actually contain `runtime/node` and runs the
   bundled interpreter (`--version`) — an absent or wrong runtime fails CI
@@ -53,6 +67,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Wide dashboard hygiene:** the detail pane escapes severity and duration
+  like every other field, `aria-pressed` follows grouping set from the URL,
+  and the "no findings match" message no longer lands in the pane column.
+- **Rust children also drop `NODE_OPTIONS`/`NODE_PATH`** alongside the
+  existing `LD_*` scrubbing, so a poisoned environment cannot inject a
+  preload module into the Node checks.
 - **Start-at-login no longer lies.** The tray toggle re-reads the real
   autostart state after enabling/disabling, reflects *that* in the checkbox,
   and logs the actual outcome — a failed `enable()` no longer reports success.
