@@ -7,20 +7,26 @@
 
 const VIEWS = ["overview", "history", "checks", "system", "schedule"];
 let activeView = "overview";
+// Set when the URL supplied ?view= — setupViews() must then not clobber the
+// deep link with the remembered view.
+let urlViewApplied = false;
 
 /* === URL state (deep-linkable desktop state) ===
-   view / severity filter / search travel in the query string, so a refresh,
-   a bookmark, or a pasted link restores the exact workbench. replaceState
-   only — no history spam while typing. localStorage stays the fallback. */
+   view / severity filter / group / theme / density travel in the query
+   string, so a refresh or a bookmark restores the workbench. replaceState
+   only — no history spam while typing.
+
+   The free-text search is deliberately NOT written here: #search holds
+   system-derived strings (hostnames, unit/container names, paths), and
+   baking those into the browser history conflicts with the tool's
+   local-only promise. ?q= is still READ (an explicitly crafted link can
+   pre-filter), it is just never produced automatically. */
 function syncUrlState() {
   try {
     if (typeof history === "undefined" || !history.replaceState) return;
     const p = new URLSearchParams();
     if (activeView !== "overview") p.set("view", activeView);
     if (typeof activeFilter !== "undefined" && activeFilter && activeFilter !== "all") p.set("sev", activeFilter);
-    const search = $("#search");
-    const q = search ? search.value.trim() : "";
-    if (q) p.set("q", q);
     if (groupBy === "category") p.set("group", "category");
     const th = typeof currentTheme === "function" ? currentTheme() : "auto";
     if (th && th !== "auto") p.set("theme", th);
@@ -54,8 +60,15 @@ function readUrlState() {
 function applyUrlState() {
   const st = readUrlState();
   if (!st) return;
-  if (st.view) activeView = st.view;
+  if (st.view) {
+    activeView = st.view;
+    urlViewApplied = true;
+    // Persist so the next plain load lands on the same view (URL wins and
+    // sticks, matching how group/theme already behave).
+    try { localStorage.setItem("ld-view", st.view); } catch {}
+  }
   if (st.sev !== undefined && typeof activeFilter !== "undefined") activeFilter = st.sev;
+  // Read-only: an explicit ?q= link pre-filters. syncUrlState never writes it.
   if (st.q) { const s = $("#search"); if (s) s.value = st.q; }
   if (st.group) {
     groupBy = st.group;
@@ -156,11 +169,14 @@ function setupBrand() {
 }
 
 function setupViews() {
-  // Restore the last view before first paint settles on Overview.
-  try {
-    const saved = localStorage.getItem("ld-view");
-    if (VIEWS.includes(saved)) activeView = saved;
-  } catch {}
+  // Restore the last view before first paint settles — unless the URL
+  // already named one (?view= wins over the remembered preference).
+  if (!urlViewApplied) {
+    try {
+      const saved = localStorage.getItem("ld-view");
+      if (VIEWS.includes(saved)) activeView = saved;
+    } catch {}
+  }
   const bar = document.getElementById("viewtabs");
   if (!bar) return;
   bar.addEventListener("click", (e) => {

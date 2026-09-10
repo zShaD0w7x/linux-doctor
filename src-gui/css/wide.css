@@ -42,7 +42,6 @@
   html.wide .toolbar { background: var(--bg); padding: 8px 0; margin-bottom: 12px; }
   html.wide .toolbar.scrolled { background: var(--bg); }
   html.wide header.scrolled { background: var(--bg); }
-  html.wide footer { background: var(--bg); }
 
   /* === Master-detail (phase 2) ===
      The findings list stays on the left; the selected finding's full body
@@ -90,8 +89,7 @@
     position: sticky; bottom: 0; z-index: 18;
     display: flex; align-items: center; gap: 16px;
     margin: 24px -24px -16px; padding: 7px 24px;
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    backdrop-filter: blur(10px);
+    background: var(--bg);
     border-top: 1px solid var(--border);
     text-align: left; line-height: 1.4;
   }

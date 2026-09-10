@@ -6,6 +6,21 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **Release pipeline hardened: every GitHub Action is pinned to a full commit
+  SHA** in `ci.yml` and `release.yml`. Previously the refs were mutable major
+  tags — and `dtolnay/rust-toolchain@stable` was a moving *branch* — inside
+  workflows that hold `contents: write` + `id-token: write`. A hijacked
+  action could previously change what the release jobs executed.
+- **Bundled Node runtime updated and hash-pinned.** `scripts/fetch-node-runtime.mjs`
+  now ships Node **v22.23.2** (was v22.14.0, missing four security releases)
+  and verifies the tarball against a **hardcoded sha256** rather than a
+  checksum fetched from the same origin — a compromised nodejs.org can no
+  longer substitute the binary that ends up in every package. The fetch also
+  uses a private `mkdtemp` workdir (no predictable `/tmp` paths) and cleans
+  up after itself.
+
 ### Changed
 
 - **The desktop window now fits the screen instead of a fixed 1500×950.**
@@ -16,10 +31,19 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **URL state: `?view=` deep links now win over the remembered view.** The
+  last-viewed preference no longer overwrites a view named in the URL, and
+  the URL's view is persisted so the next plain load lands on it.
+- **Search text is no longer written to the URL.** Full-text search terms
+  (hostnames, unit/container names, paths) were persisted into the browser
+  history on every keystroke; `?q=` is still read from an explicitly crafted
+  link, but never produced automatically — the tool's local-only promise now
+  holds in the address bar too.
 - **Wide desktop: scrolling looked broken (overlapping text).** The sticky
   toolbar — and the scrolled header/status bar — were transparent, so the
   findings showed through the chrome as they passed underneath; the sticky
-  detail pane also tucked under the toolbar. All sticky chrome is now
+  detail pane also tucked under the toolbar. All sticky chrome — including
+  the status bar, which a dead CSS rule had left translucent — is now
   opaque at ≥1440px, the pane sticks below the toolbar, and the row-level
   `content-visibility` optimization was dropped (it renders as artifacts in
   the desktop app's WebKitGTK engine).
