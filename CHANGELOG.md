@@ -6,6 +6,15 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Desktop app: the dashboard could never parse a report.** The loopback
+  report server wrote an extra CRLF after the CORS block, ending the HTTP
+  headers early and leaking `Content-Length`/`Connection` into the JSON body
+  — every `res.json()` in the app window failed, so it never rendered a
+  report. The response head is now built in one place with exactly one
+  header terminator, pinned by a regression test.
+
 ### Added
 
 - **The desktop app is a tray app.** It now handles a second launch by

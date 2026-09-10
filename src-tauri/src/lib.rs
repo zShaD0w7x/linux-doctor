@@ -294,6 +294,17 @@ fn origin_allowed(origin: &str) -> bool {
     host_name(&rest[..authority_end]).is_some_and(|n| ALLOWED_ORIGIN_HOSTS.contains(&n.as_str()))
 }
 
+/// Builds the HTTP response head. `cors` is either empty or a full block
+/// of CRLF-terminated CORS lines; either way, the blank line that ends the
+/// headers comes exactly once, after Connection — never in the middle
+/// (a stray CRLF once leaked Content-Length/Connection into the body and
+/// broke every JSON parse in the dashboard).
+fn response_head(status: &str, cors: &str, body_len: usize) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n{cors}Content-Length: {body_len}\r\nConnection: close\r\n\r\n"
+    )
+}
+
 fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
     // Read the full request head, then any POST body (the config-writing
     // endpoints carry small JSON payloads). Capped well below any sane size.
@@ -436,8 +447,8 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf) {
 
     let _ = write!(
         stream,
-        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n{cors}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
+        "{}",
+        response_head(status, &cors, body.len())
     );
     let _ = stream.write_all(&body);
 }
@@ -643,6 +654,23 @@ mod tests {
         assert!(!origin_allowed("ftp://localhost"));
         assert!(!origin_allowed("http://"));
         assert!(!origin_allowed("http://tauri.localhost.evil.example"));
+    }
+
+    #[test]
+    fn response_head_has_exactly_one_header_terminator() {
+        // Regression: a stray CRLF after the CORS block ended the headers
+        // early and leaked Content-Length/Connection into the JSON body,
+        // which broke every dashboard fetch in the desktop app.
+        let plain = response_head("200 OK", "", 42);
+        assert_eq!(plain.matches("\r\n\r\n").count(), 1, "plain: {plain:?}");
+        assert!(plain.ends_with("\r\n\r\n"));
+        assert!(plain.contains("\r\nContent-Length: 42\r\nConnection: close\r\n\r\n"));
+
+        let cors = "Access-Control-Allow-Origin: tauri://localhost\r\nVary: Origin\r\n";
+        let with_cors = response_head("200 OK", cors, 7);
+        assert_eq!(with_cors.matches("\r\n\r\n").count(), 1, "cors: {with_cors:?}");
+        assert!(with_cors.ends_with("\r\n\r\n"));
+        assert!(with_cors.contains("Vary: Origin\r\nContent-Length: 7\r\n"));
     }
 
     #[test]
