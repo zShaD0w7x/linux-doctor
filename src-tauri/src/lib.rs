@@ -25,6 +25,7 @@ use std::process::Command;
 use std::thread;
 
 use tauri::Manager;
+use tauri_plugin_autostart::ManagerExt;
 
 /// Loopback port the report server listens on. Fixed so the frontend can find
 /// it without any IPC. Must match the URL in `src-gui/index.html`.
@@ -454,14 +455,122 @@ fn respond_text(stream: &mut TcpStream, status: &str, message: &str) {
 pub fn run() {
     software_gl_fallback();
     tauri::Builder::default()
+        // Must be the first registered plugin: the callback runs when a
+        // second instance starts — instead of a second window (and a second
+        // report server that would lose the fixed port), the existing one
+        // surfaces.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             let root = repo_root(app.handle());
             let node = node_bin(app.handle());
-            serve_report(root, node);
+            serve_report(root.clone(), node.clone());
+            // Fail-soft on purpose: libappindicator loads dynamically and
+            // PANICS when the system has no tray library at all. A missing
+            // tray must never cost the user the app — log and continue.
+            // (Packages ship appindicator as a dependency; this is for
+            // minimal-shaped systems.)
+            let tray_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                build_tray(app, &root, &node)
+            }));
+            match tray_result {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => eprintln!("⚠️  linux-doctor: tray unavailable ({e}) — continuing without it"),
+                Err(_) => eprintln!("⚠️  linux-doctor: no system tray library — continuing without it"),
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running Linux Doctor");
+}
+
+/// Tray icon with the desktop-app actions (app-needs research P1-3/P1-4):
+/// presence with Open / Run checks now / Start at login / Quit. Everything
+/// is handled Rust-side — Tauri IPC does not work in this stack, so the
+/// menu never touches the webview.
+fn build_tray(app: &tauri::App, root: &PathBuf, node: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
+    use tauri::tray::TrayIconBuilder;
+
+    // Owned copies: the menu-event closure is 'static (registered for the
+    // app's lifetime), so borrowed parameters cannot outlive this call.
+    let root = root.clone();
+    let node = node.clone();
+
+    let open = MenuItemBuilder::with_id("open", "Open Linux Doctor").build(app)?;
+    let runnow = MenuItemBuilder::with_id("runnow", "Run checks now").build(app)?;
+    let autostart = CheckMenuItemBuilder::with_id("autostart", "Start at login")
+        .checked(app.autolaunch().is_enabled().unwrap_or(false))
+        .build(app)?;
+    let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    let menu = MenuBuilder::new(app)
+        .item(&open)
+        .item(&runnow)
+        .separator()
+        .item(&autostart)
+        .separator()
+        .item(&quit)
+        .build()?;
+
+    let mut tray = TrayIconBuilder::with_id("ld-tray")
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .tooltip("Linux Doctor — read-only health checks");
+    if let Some(icon) = app.default_window_icon().cloned() {
+        tray = tray.icon(icon);
+    }
+    tray.build(app)?;
+
+    app.on_menu_event(move |app_handle, event| {
+        match event.id().as_ref() {
+            "open" => focus_main(app_handle),
+            "runnow" => {
+                // Same discipline as the report server's children: no env
+                // leakage, daemon-style one-shot with the desktop
+                // notification path; the dashboard picks the fresh report
+                // up on its next poll. Run off the main thread.
+                let root = root.clone();
+                let node = node.clone();
+                thread::spawn(move || {
+                    let (_code, _out, _err) = run_cli(&root, &node, &["bin/doctor.js", "--notify"]);
+                });
+            }
+            "autostart" => {
+                let manager = app_handle.autolaunch();
+                let enabled = manager.is_enabled().unwrap_or(false);
+                if enabled {
+                    let _ = manager.disable();
+                } else {
+                    let _ = manager.enable();
+                }
+                eprintln!(
+                    "linux-doctor: start at login {}",
+                    if enabled { "disabled" } else { "enabled" }
+                );
+            }
+            "quit" => app_handle.exit(0),
+            _ => {}
+        }
+    });
+    Ok(())
+}
+
+/// Shows and focuses the main window (tray "Open" and second-launch paths).
+fn focus_main(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 }
 
 /// Inside the AppImage, the bundled WebKitGTK comes from an older LTS base

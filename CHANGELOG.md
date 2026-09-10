@@ -8,6 +8,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
+- **The desktop app is a tray app.** It now handles a second launch by
+  surfacing the existing window (single-instance, no second report server
+  losing the fixed port), a tray icon with Open / Run checks now /
+  Start at login (official autostart plugin) / Quit, all handled Rust-side
+  (Tauri IPC is not used in this stack). Missing-tray systems fail soft —
+  the app continues without the tray.
 - **The desktop app now bundles its own Node runtime.** The .deb/.AppImage/.rpm
   packages ship a pinned Node 22 LTS binary under `<resources>/runtime/node`,
   hash-checked against the official SHASUMS256.txt at build time
