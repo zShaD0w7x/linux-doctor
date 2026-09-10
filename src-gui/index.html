@@ -2451,7 +2451,9 @@ function setupWideMode() {
   try { mq = typeof matchMedia === "function" ? matchMedia(WIDE_QUERY) : null; } catch { mq = null; }
   if (!mq) return;
   const apply = () => {
-    document.documentElement.classList.toggle("wide", !!mq.matches);
+    const root = document.documentElement;
+    // Guarded like wideModeOn(): headless sandboxes have no documentElement.
+    if (root && root.classList) root.classList.toggle("wide", !!mq.matches);
     applyWideGroups();
     syncDetailPane();
   };

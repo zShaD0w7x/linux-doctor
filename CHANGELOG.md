@@ -8,6 +8,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Security
 
+- **Release workflow: least privilege and tag-gated publishing.** The default
+  token is now `contents: read` (write scopes only on the two build jobs), a
+  manual `workflow_dispatch` run can no longer publish or attest anything
+  (those steps are gated on `refs/tags/v`), and a `concurrency` group
+  serializes releases per ref.
 - **Release pipeline hardened: every GitHub Action is pinned to a full commit
   SHA** in `ci.yml` and `release.yml`. Previously the refs were mutable major
   tags — and `dtolnay/rust-toolchain@stable` was a moving *branch* — inside
@@ -23,6 +28,10 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **Releases smoke-check the packages before publishing.** The gui job now
+  asserts the built `.deb`/`.rpm` actually contain `runtime/node` and runs the
+  bundled interpreter (`--version`) — an absent or wrong runtime fails CI
+  before anything is attested or attached.
 - **The desktop window now fits the screen instead of a fixed 1500×950.**
   It opens centered at up to 1500×950 (the full wide workbench), clamped to
   the monitor minus a margin and never below 900×640 — a 1366×768 laptop
@@ -31,6 +40,10 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Start-at-login no longer lies.** The tray toggle re-reads the real
+  autostart state after enabling/disabling, reflects *that* in the checkbox,
+  and logs the actual outcome — a failed `enable()` no longer reports success.
+  The toggle is also panic-safe (it runs outside the tray's fail-soft guard).
 - **URL state: `?view=` deep links now win over the remembered view.** The
   last-viewed preference no longer overwrites a view named in the URL, and
   the URL's view is persisted so the next plain load lands on it.

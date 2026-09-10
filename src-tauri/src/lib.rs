@@ -557,17 +557,35 @@ fn build_tray(app: &tauri::App, root: &PathBuf, node: &PathBuf) -> Result<(), Bo
                 });
             }
             "autostart" => {
-                let manager = app_handle.autolaunch();
-                let enabled = manager.is_enabled().unwrap_or(false);
-                if enabled {
-                    let _ = manager.disable();
-                } else {
-                    let _ = manager.enable();
+                // Truthful toggle: attempt the change, then re-read the real
+                // state and reflect THAT in the checkbox and the log. muda
+                // toggles the check on click regardless, so a failed
+                // enable()/disable() would otherwise leave the user believing
+                // persistence is on. Panic-safe: auto-launch unwraps
+                // home_dir, and this handler runs outside the tray
+                // catch_unwind.
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let manager = app_handle.autolaunch();
+                    let current = manager.is_enabled().unwrap_or(false);
+                    if current {
+                        let _ = manager.disable();
+                    } else {
+                        let _ = manager.enable();
+                    }
+                    manager.is_enabled().unwrap_or(current)
+                }));
+                match outcome {
+                    Ok(on) => {
+                        let _ = autostart.set_checked(on);
+                        eprintln!(
+                            "linux-doctor: start at login {}",
+                            if on { "enabled" } else { "disabled" }
+                        );
+                    }
+                    Err(_) => {
+                        eprintln!("⚠️  linux-doctor: could not change start-at-login");
+                    }
                 }
-                eprintln!(
-                    "linux-doctor: start at login {}",
-                    if enabled { "disabled" } else { "enabled" }
-                );
             }
             "quit" => app_handle.exit(0),
             _ => {}

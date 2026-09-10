@@ -5,19 +5,26 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-# The release steps publish artifacts via GITHUB_TOKEN — without this the
-# default token is read-only and softprops/action-gh-release gets a 403.
-# id-token + attestations enable Sigstore provenance via actions/attest.
+# One release at a time per ref; a manual run never cancels a tag release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least privilege by default: only the two build jobs that publish/attest
+# get write scopes (below). A manual dispatch therefore cannot publish —
+# its release/attest steps are also tag-gated.
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
   # CLI: test, pack the npm tarball, create the release with it.
   cli:
     name: CLI tarball ${{ github.ref_name }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -40,6 +47,7 @@ jobs:
           sha256sum rel/*.tgz > rel/SHA256SUMS && cat rel/SHA256SUMS
           ls -lh rel/
       - name: Attest tarball provenance (SLSA L2)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: rel/*
@@ -51,6 +59,7 @@ jobs:
           echo "--- Notes for $TAG ---"; cat /tmp/notes.md
           test -s /tmp/notes.md || echo "No changelog entry for $TAG" > /tmp/notes.md
       - name: Create the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: rel/*
@@ -62,6 +71,10 @@ jobs:
   gui:
     name: GUI bundles ${{ github.ref_name }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -96,6 +109,17 @@ jobs:
         env:
           # Run linuxdeploy without FUSE — removes runner-to-runner variance.
           APPIMAGE_EXTRACT_AND_RUN: "1"
+      - name: Verify the bundled Node runtime is inside the packages
+        run: |
+          set -euo pipefail
+          DEB=$(ls src-tauri/target/release/bundle/deb/*.deb | head -n1)
+          dpkg-deb --fsys-tarfile "$DEB" | tar -xO "./usr/lib/Linux Doctor/runtime/node" > /tmp/pkg-node
+          chmod +x /tmp/pkg-node
+          /tmp/pkg-node --version
+          sudo apt-get install -y -q rpm >/dev/null
+          RPM=$(ls src-tauri/target/release/bundle/rpm/*.rpm | head -n1)
+          rpm -qlp "$RPM" | grep -q "runtime/node"
+          echo "✓ runtime/node present and runnable in deb + rpm"
       - name: Collect artifacts
         run: |
           mkdir -p dist
@@ -113,10 +137,12 @@ jobs:
           sha256sum dist/* > dist/SHA256SUMS-bundles.txt && cat dist/SHA256SUMS-bundles.txt
           ls -lh dist/
       - name: Attest bundle provenance (SLSA L2)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: dist/*
       - name: Attach bundles to the release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*

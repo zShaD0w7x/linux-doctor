@@ -82,6 +82,9 @@ function makeSandbox({ storage } = {}) {
       matchMedia: () => ({ matches: false, addEventListener: () => {} }),
       addEventListener: () => {},
     },
+    // The dashboard reads the BARE matchMedia global (ui-wide.js) — keep the
+    // stub here so the narrow path is what these invariants exercise.
+    matchMedia: () => ({ matches: false, addEventListener: () => {} }),
     localStorage: {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
       setItem: (k, v) => store.set(k, String(v)),

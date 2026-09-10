@@ -61,9 +61,13 @@ function makeSandbox({ staticData }) {
   const sandbox = {
     document,
     window: {
-      matchMedia: () => ({ matches: true, addEventListener: () => {} }),
+      matchMedia: () => ({ matches: false, addEventListener: () => {} }),
       addEventListener: () => {},
     },
+    // The dashboard reads the BARE matchMedia global (ui-wide.js), so the
+    // stub must live at sandbox level too — window.matchMedia alone left the
+    // wide-mode path unreachable (a decoy matches:true that never ran).
+    matchMedia: () => ({ matches: false, addEventListener: () => {} }),
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
     navigator: {},
     performance: { now: () => Date.now() },
