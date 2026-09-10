@@ -49,7 +49,10 @@ LLM_API_KEY=sk-... linux-doctor --ai
 
 Works with any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`). If
 the AI is unreachable, Linux Doctor silently falls back to the plain report —
-the AI is a bonus, never a dependency.
+the AI is a bonus, never a dependency. `LLM_BASE_URL` goes through the same
+egress guard as `--push`: a non-loopback endpoint must be `https://` (the
+Bearer key never travels in cleartext), and a private/LAN LLM needs
+`--allow-private-endpoint`.
 
 ## Alerts & heartbeat [Pro]
 
@@ -66,6 +69,29 @@ linux-doctor --alert https://ntfy.sh/my-server-topic
 linux-doctor --install-timer   # runs daily with --notify attached
 # or: linux-doctor --daemon --interval 3600 --alert https://ntfy.sh/my-server-topic
 ```
+
+> **Privacy:** the alert body carries the machine's `hostname` and
+> `machineId` (an alert is about a specific machine), and its finding titles
+> are scrubbed. A public ntfy.sh topic is readable by anyone who guesses or
+> finds the topic name — use a long random topic, a self-hosted ntfy, or any
+> other private webhook if that identity matters to you.
+
+`--push` and `--alert` refuse private/LAN address literals (`192.168.x.x`,
+`10.x.x.x`, `169.254.x.x`, IPv6 ULA/link-local) by default: a report carries
+your findings, so sending it to the wrong internal host should be a decision,
+not an accident. A self-hosted server on your network is legitimate — opt in
+explicitly:
+
+```bash
+linux-doctor --push https://192.168.1.20:8443/reports --allow-private-endpoint
+```
+
+All four egress paths (`--push`, `--alert`, `--heartbeat`, `--ai`) also
+refuse to follow HTTP redirects, so an allowed URL cannot silently bounce the
+payload to an internal target. `--push` scrubs every finding's text (title,
+detail, evidence, fix) and the AI summary before sending; the machine's
+`hostname` and `machineId` remain, by design, so a fleet can tell machines
+apart.
 
 `--heartbeat` is the complement: a dead-man's switch. After every completed
 run it sends a bare GET (no body — liveness only, nothing sensitive leaves

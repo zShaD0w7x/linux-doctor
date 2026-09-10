@@ -44,6 +44,7 @@ _linux_doctor() {
     '--license[show Pro add-on status]' \
     '--alert=[POST an alert webhook]:url:' \
     '--heartbeat=[ping a dead-man switch after every run]:url:' \
+    '--allow-private-endpoint[allow --push/--alert/--heartbeat/--ai to target private/LAN addresses]' \
     '--daemon[run continuously as a scheduled agent]' \
     '--interval=[seconds between --daemon runs]:seconds:' \
     '--support[write a privacy-safe support bundle (JSON)]' \

@@ -14,7 +14,7 @@ import { aiSummary } from "./llm.js";
 import { pushReport, validatePushUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
 import { score, scoreBreakdown, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled, cleanStreak } from "./history.js";
-import { buildSupportBundle, writeSupportBundle, supportMessage } from "./support.js";
+import { buildSupportBundle, writeSupportBundle, supportMessage, scrub, scrubFinding, scrubDeep } from "./support.js";
 import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored, addIgnore, addIgnoreCode, removeIgnore, removeIgnoreCode } from "./ignore.js";
 import { loadConfig } from "./config.js";
 import { loadThresholds, DEFAULT_THRESHOLDS } from "./thresholds.js";
@@ -371,6 +371,7 @@ OPTIONS
   --license      show the Linux Doctor Pro add-on status and exit
   --alert <url>  POST an alert webhook when the machine degrades [Pro]
   --heartbeat <url> ping a dead-man's switch after every run [Pro]
+  --allow-private-endpoint  let --push/--alert/--heartbeat/--ai target private/LAN addresses
   --daemon       run continuously, re-checking every --interval seconds [Pro]
   --interval <s> seconds between --daemon runs (default 3600) [Pro]
   --help         show this help
@@ -791,7 +792,7 @@ function printIgnoreLists(titles, codes) {
           try {
           await pushReport(args.pushUrl, {
             system: report.system,
-            findings: report.findings,
+            findings: report.findings.map(scrubFinding),
             score: report.score,
             newCount: report.newCount,
             fixedCount: report.fixedCount,
@@ -799,14 +800,14 @@ function printIgnoreLists(titles, codes) {
             skippedChecks: report.skippedChecks,
             checksAtomicSkipped: report.checksAtomicSkipped,
             changeMessage: report.changeMessage,
-          }, { apiKey: process.env.FLEET_API_KEY });
+          }, { apiKey: process.env.FLEET_API_KEY, allowPrivate: args.allowPrivateEndpoint });
           } catch (err) {
             console.error(`linux-doctor: could not send report: ${err.message}`);
           }
         }
         if (args.alertUrl && shouldAlert(report)) {
           try {
-            await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY });
+            await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY, allowPrivate: args.allowPrivateEndpoint });
             console.log(`Alert sent to ${args.alertUrl}`);
           } catch (err) {
             console.error(`linux-doctor: could not send alert: ${err.message}`);
@@ -814,7 +815,7 @@ function printIgnoreLists(titles, codes) {
         }
         if (args.heartbeatUrl) {
           try {
-            await pingHeartbeat(args.heartbeatUrl);
+            await pingHeartbeat(args.heartbeatUrl, { allowPrivate: args.allowPrivateEndpoint });
           } catch (err) {
             console.error(`linux-doctor: could not ping heartbeat: ${err.message}`);
           }
@@ -952,15 +953,15 @@ function printIgnoreLists(titles, codes) {
     process.env.LLM_API_KEY = process.env.LLM_API_KEY || "ollama";
   }
   if (args.ai || args.aiLocal) {
-    summary = await aiSummary(findings, { premium: pro });
+    summary = await aiSummary(findings, { premium: pro, allowPrivate: args.allowPrivateEndpoint });
   }
 
   if (args.pushUrl) {
     try {
       await pushReport(args.pushUrl, {
         system,
-        findings,
-        summary,
+        findings: findings.map(scrubFinding),
+        summary: summary ? scrub(summary) : summary,
         score: sc,
         newCount,
         fixedCount: report.fixedCount,
@@ -968,7 +969,7 @@ function printIgnoreLists(titles, codes) {
         skippedChecks: report.skippedChecks,
         checksAtomicSkipped: report.checksAtomicSkipped,
         changeMessage: report.changeMessage,
-      }, { apiKey: process.env.FLEET_API_KEY });
+      }, { apiKey: process.env.FLEET_API_KEY, allowPrivate: args.allowPrivateEndpoint });
       console.log(`Report sent to ${args.pushUrl}`);
     } catch (err) {
       console.error(`linux-doctor: could not send report to fleet server: ${err.message}`);
@@ -982,7 +983,7 @@ function printIgnoreLists(titles, codes) {
   if (args.alertUrl) {
     try {
       if (shouldAlert(report)) {
-        await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY });
+        await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY, allowPrivate: args.allowPrivateEndpoint });
         console.log(`Alert sent to ${args.alertUrl}`);
       }
     } catch (err) {
@@ -994,7 +995,7 @@ function printIgnoreLists(titles, codes) {
   // silence itself becomes the alert. Best effort, like --alert.
   if (args.heartbeatUrl) {
     try {
-      await pingHeartbeat(args.heartbeatUrl);
+      await pingHeartbeat(args.heartbeatUrl, { allowPrivate: args.allowPrivateEndpoint });
     } catch (err) {
       console.error(`linux-doctor: could not ping heartbeat: ${err.message}`);
     }
@@ -1002,7 +1003,14 @@ function printIgnoreLists(titles, codes) {
 
   if (args.htmlPath) {
     try {
-      const jsonPayload = renderJson(findings, system, jsonOptions(report, { durationMs }));
+      // --html is a share-shaped artifact, so it gets the same privacy pass as
+      // --md: scrubDeep() redacts IPs and home paths in every field of the
+      // payload (including nextAction/diff/checkErrors), and the hostname is
+      // never shipped. scrubDeep walks the whole object, so a field added
+      // later is covered without anyone remembering to scrub it.
+      const payload = scrubDeep(JSON.parse(renderJson(findings, system, jsonOptions(report, { durationMs }))));
+      if (payload.system) payload.system.hostname = "<hostname-redacted>";
+      const jsonPayload = JSON.stringify(payload, null, 2);
       const dashboard = readFileSync(new URL("../src-gui/index.html", import.meta.url), "utf8");
       // Embed the payload as window.__DATA__ (the dashboard prefers it over
       // the network) instead of overriding window.fetch — no monkey-patching

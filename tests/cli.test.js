@@ -320,6 +320,7 @@ test("--html writes a standalone HTML file that contains the report data", () =>
     const data = JSON.parse(match[1]);
     assert.equal(data.schemaVersion, 1);
     assert.ok(Array.isArray(data.findings));
+    assert.equal(data.system.hostname, "<hostname-redacted>", "--html must not ship the machine hostname");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

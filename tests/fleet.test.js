@@ -89,3 +89,27 @@ test("pushReport: refuses an insecure HTTP endpoint when auth is configured", as
     /insecure endpoint/
   );
 });
+
+test("validatePushUrl: private/LAN literals require --allow-private-endpoint", () => {
+  assert.match(validatePushUrl("https://192.168.1.10:8443/reports"), /private\/LAN/);
+  assert.match(validatePushUrl("https://10.0.0.5/x"), /private\/LAN/);
+  assert.match(validatePushUrl("https://169.254.169.254/latest"), /private\/LAN/);
+  assert.match(validatePushUrl("https://[fd00::1]:8443/x"), /private\/LAN/);
+  // Explicit opt-in for a self-hosted LAN server.
+  assert.equal(validatePushUrl("https://192.168.1.10:8443/reports", { allowPrivate: true }), null);
+  // Loopback and public hosts are unaffected.
+  assert.equal(validatePushUrl("http://127.0.0.1:8080/push"), null);
+  assert.equal(validatePushUrl("https://fleet.example.com/reports"), null);
+});
+
+test("pushReport: refuses to follow redirects", async () => {
+  const origFetch = globalThis.fetch;
+  let opts = null;
+  globalThis.fetch = async (_url, o) => { opts = o; return { ok: true, status: 200 }; };
+  try {
+    await pushReport("https://example.com/reports", { findings: [] });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+  assert.equal(opts.redirect, "error", "a redirect could bounce the report to an internal target");
+});

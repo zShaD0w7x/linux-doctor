@@ -84,3 +84,20 @@ test("aiSummary: redacts IPs and home paths before sending to the LLM", async ()
   assert.match(content, /<user-redacted>/);
   assert.match(content, /nothing sensitive here/, "benign text passes through untouched");
 });
+test("aiSummary: refuses a plaintext non-loopback LLM endpoint (key would leak)", async () => {
+  const prevKey = process.env.LLM_API_KEY;
+  const prevUrl = process.env.LLM_BASE_URL;
+  process.env.LLM_API_KEY = "test-key";
+  process.env.LLM_BASE_URL = "http://my-llm.corp/v1";
+  const origFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  try {
+    assert.equal(await aiSummary([{ severity: "info", title: "x" }]), null);
+    assert.equal(called, false, "no request may be made with a cleartext non-loopback endpoint");
+  } finally {
+    globalThis.fetch = origFetch;
+    if (prevKey === undefined) delete process.env.LLM_API_KEY; else process.env.LLM_API_KEY = prevKey;
+    if (prevUrl === undefined) delete process.env.LLM_BASE_URL; else process.env.LLM_BASE_URL = prevUrl;
+  }
+});

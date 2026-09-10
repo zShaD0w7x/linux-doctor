@@ -37,6 +37,7 @@ complete -c linux-doctor -l profile -d 'Show check durations'
 complete -c linux-doctor -l license -d 'Show Pro add-on status'
 complete -c linux-doctor -l alert -r -d 'POST an alert webhook'
 complete -c linux-doctor -l heartbeat -r -d "Ping a dead-man's switch after every run"
+complete -c linux-doctor -l allow-private-endpoint -d "Allow --push/--alert/--heartbeat/--ai to target private/LAN addresses"
 complete -c linux-doctor -l daemon -d 'Run continuously as a scheduled agent'
 complete -c linux-doctor -l interval -r -d 'Seconds between --daemon runs'
 complete -c linux-doctor -l support -d 'Write a privacy-safe support bundle (JSON)'

@@ -8,6 +8,23 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Security
 
+- **Egress endpoints are checked by destination, not just scheme.**
+  `--push`, `--alert`, `--heartbeat` and `--ai` now refuse private/LAN
+  address literals (RFC1918, link-local including the cloud metadata
+  address, CGNAT, IPv6 ULA/link-local) unless `--allow-private-endpoint` is
+  passed for a self-hosted server. All four also refuse HTTP redirects, so
+  an allowed URL cannot bounce the payload to an internal target.
+  `LLM_BASE_URL` goes through the same guard: an API key can no longer be
+  sent to a plaintext non-loopback LLM endpoint.
+- **Webhook and fleet payloads carry scrubbed finding text.** `--alert`
+  titles and `--push` finding text (title/detail/evidence/fix) plus the AI
+  summary are redacted like `--md`; `hostname`/`machineId` stay, by design,
+  so a fleet can tell machines apart. The ntfy docs now warn that a public
+  topic exposes that identity.
+- **`--html` exports are scrubbed like `--md`.** The whole embedded payload
+  is walked (`scrubDeep`) so IPs and `/home`, `/run/media`, `/media` paths
+  are redacted in every field — including `nextAction` and the diff — and
+  the machine hostname is replaced with `<hostname-redacted>`.
 - **State files are written atomically and privately.** `config.json` (which
   may hold the Pro license key), history, cache, the support bundle and the
   systemd units now go through one `atomicWrite()` helper: a unique temp

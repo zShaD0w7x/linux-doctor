@@ -12,12 +12,17 @@
  * fixes pulled from the findings' own fix field, and a confidence note.
  */
 import { scrub } from "./support.js";
+import { validatePushUrl } from "./fleet.js";
 
-export async function aiSummary(findings, { premium = false } = {}) {
+export async function aiSummary(findings, { premium = false, allowPrivate = false } = {}) {
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) return null;
 
   const baseUrl = (process.env.LLM_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+  // Same egress rules as --push/--alert: no Bearer token over plaintext HTTP
+  // to a non-loopback host, and private/LAN endpoints need an explicit
+  // opt-in. A rejected URL means no summary — never a silent cleartext key.
+  if (validatePushUrl(baseUrl, { apiKey, allowPrivate })) return null;
   const model = process.env.LLM_MODEL || "gpt-4o-mini";
 
   const list = findings
@@ -33,6 +38,7 @@ export async function aiSummary(findings, { premium = false } = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(10000),
+      redirect: "error",
       body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: premium ? 700 : 400 }),
     });
     if (!res.ok) return null;

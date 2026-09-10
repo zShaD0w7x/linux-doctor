@@ -23,7 +23,8 @@ The previous audit's 2 High + 1 Medium remain **open** (CLI-side, untouched here
 | H2 | ReDoS in `scrub()` IPv6 (`support.js:35`) | **Fixed** — linear patterns; 1M colons in ~6ms, regression test with a time budget |
 | M1 | Unescaped `distro/kernel/uptime` (`render-status.js:71-73`) | **Fixed** — all fields through `esc()` |
 | M3, M6, M8 | Atomic/private state writes, path scrubbing, corrupt-config warning | **Fixed** — `atomicWrite()` (0600/0700, O_EXCL, rename), `/run/media`+`/media` scrubbed, `loadConfig` warns |
-| M2, M4, M5, M7, L1–L12 | Export scrubbing parity, egress destination, webhook bodies, loopback GET caching, shell-guardrail/docs low-tier | Open (deferred) |
+| M2, M4, M5 | HTML-export scrub parity, egress destination validation, webhook/fleet scrubbing | **Fixed** — `scrubDeep` + redacted hostname; private/LAN egress needs `--allow-private-endpoint` + no-redirect; alert/push text scrubbed |
+| M7, L1–L12 | Loopback GET caching, shell-guardrail/docs low-tier | Open (deferred) |
 
 ## 2. New findings
 

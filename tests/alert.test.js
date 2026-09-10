@@ -102,3 +102,15 @@ test("sendAlert: refuses plaintext HTTP to a non-loopback host when auth is set"
     await new Promise((r) => server.close(r));
   }
 });
+test("buildAlert: finding titles are scrubbed before leaving the machine", () => {
+  const p = buildAlert({
+    score: 10,
+    counts: { high: 1, medium: 0, info: 0 },
+    newCount: 1,
+    findings: [
+      { code: "disk/full", severity: "high", title: "Disk 192.168.1.50 on /home/alice is full", isNew: true },
+    ],
+  });
+  assert.ok(!p.findings[0].title.includes("192.168.1.50"), "IP must be redacted");
+  assert.ok(!p.findings[0].title.includes("/home/alice"), "home path must be redacted");
+});

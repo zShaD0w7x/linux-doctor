@@ -14,12 +14,13 @@
 import { validatePushUrl } from "./fleet.js";
 
 /** GET the heartbeat URL. Throws on network or HTTP errors. */
-export async function pingHeartbeat(url) {
-  const err = validatePushUrl(url, {});
+export async function pingHeartbeat(url, { allowPrivate = false } = {}) {
+  const err = validatePushUrl(url, { allowPrivate });
   if (err) throw new Error(err.replace(/^--push /, ""));
   const res = await fetch(url.trim(), {
     method: "GET",
     signal: AbortSignal.timeout(10000),
+    redirect: "error",
   });
   if (!res.ok) throw new Error(`heartbeat endpoint responded ${res.status}`);
   return res;

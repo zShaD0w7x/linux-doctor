@@ -9,6 +9,8 @@ import {
   defaultBundlePath,
   supportMessage,
   scrub,
+  scrubFinding,
+  scrubDeep,
   PRIVACY_EXCLUDED,
   BUNDLE_HISTORY_LIMIT,
 } from "../src/support.js";
@@ -126,4 +128,24 @@ test("scrub: IPv6 forms redacted, times and code kept", () => {
   // Careful: the old pattern also redacted C++ scope chains.
   assert.equal(scrub("std::vector"), "std::vector");
   assert.equal(scrub("ports 443:8443"), "ports 443:8443");
+});
+
+test("scrubFinding/scrubDeep: every text field is redacted", () => {
+  const f = scrubFinding({
+    title: "t 10.0.0.1",
+    detail: "d /home/alice/.config",
+    evidence: "e fe80::1",
+    fix: "f 192.168.0.1",
+    code: "x/y",
+  });
+  const s = JSON.stringify(f);
+  assert.ok(!s.includes("10.0.0.1") && !s.includes("/home/alice") && !s.includes("fe80::1") && !s.includes("192.168.0.1"));
+  assert.equal(f.code, "x/y", "non-text fields are untouched");
+
+  const deep = scrubDeep({ a: "1.2.3.4", nested: { b: ["/home/bob/x", "plain"] }, n: 5, keep: false });
+  assert.equal(deep.a, "<ip-redacted>");
+  assert.equal(deep.nested.b[0], "/home/<user-redacted>/x");
+  assert.equal(deep.nested.b[1], "plain");
+  assert.equal(deep.n, 5);
+  assert.equal(deep.keep, false);
 });

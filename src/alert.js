@@ -8,6 +8,7 @@
 import os from "node:os";
 
 import { machineId, validatePushUrl } from "./fleet.js";
+import { scrub } from "./support.js";
 
 /** True when the report has something worth waking a human about. */
 export function shouldAlert(report) {
@@ -17,7 +18,9 @@ export function shouldAlert(report) {
   );
 }
 
-/** The compact payload sent to the webhook. */
+/** The compact payload sent to the webhook. `hostname` and `machineId` are
+ *  deliberate identity (an alert is about a specific machine); the finding
+ *  titles are scrubbed, because webhooks are often public (ntfy.sh). */
 export function buildAlert(report) {
   return {
     event: "linux-doctor-alert",
@@ -29,15 +32,15 @@ export function buildAlert(report) {
     sentAt: new Date().toISOString(),
     findings: report.findings
       .filter((f) => f.severity === "high" || (f.isNew && f.severity === "medium"))
-      .map((f) => ({ code: f.code, severity: f.severity, title: f.title, isNew: !!f.isNew })),
+      .map((f) => ({ code: f.code, severity: f.severity, title: scrub(f.title) ?? f.title, isNew: !!f.isNew })),
   };
 }
 
 /** POST the alert. Throws on network or HTTP errors. */
-export async function sendAlert(url, payload, { apiKey } = {}) {
+export async function sendAlert(url, payload, { apiKey, allowPrivate = false } = {}) {
   // Same guard as --push: a Bearer token must never travel over plaintext
-  // HTTP to a non-loopback host.
-  const err = validatePushUrl(url, { apiKey });
+  // HTTP to a non-loopback host, and private/LAN targets need an opt-in.
+  const err = validatePushUrl(url, { apiKey, allowPrivate });
   if (err) throw new Error(err.replace(/^--push /, ""));
   const headers = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
@@ -45,6 +48,7 @@ export async function sendAlert(url, payload, { apiKey } = {}) {
     method: "POST",
     headers,
     signal: AbortSignal.timeout(10000),
+    redirect: "error",
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`alert webhook responded ${res.status}`);

@@ -53,6 +53,31 @@ export function scrub(text) {
     .replace(/\/run\/user\/\d+/g, "/run/user/<uid-redacted>");
 }
 
+/** A finding with every free-text field scrubbed (title/detail/evidence/fix). */
+export function scrubFinding(f) {
+  const out = { ...f };
+  for (const k of ["title", "detail", "evidence", "fix"]) {
+    if (typeof out[k] === "string") out[k] = scrub(out[k]);
+  }
+  return out;
+}
+
+/**
+ * Recursively scrub every string in a JSON-like value. Used for share-ready
+ * exports whose whole payload leaves the machine (the --html file), so a
+ * field added later is redacted without anyone remembering to scrub it.
+ */
+export function scrubDeep(value) {
+  if (typeof value === "string") return scrub(value);
+  if (Array.isArray(value)) return value.map(scrubDeep);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = scrubDeep(v);
+    return out;
+  }
+  return value;
+}
+
 /** Privacy-safe subset of system info — only the already-public distro fields. */
 function safeSystem(system) {
   if (!system) return null;
