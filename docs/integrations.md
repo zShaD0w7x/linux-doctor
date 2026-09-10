@@ -34,12 +34,14 @@ linux-doctor --support
 ```
 
 Produces a single, shareable file for bug reports: system facts
-(`system.atomic` included), the active config, the latest findings, and a
-capped copy of your history (last 10 runs). It is **privacy-scrubbed** — IP
-addresses and `/home/<user>` paths are redacted before anything is written,
-and the bundle lists exactly what it excluded under `privacy.excluded`, so
-you can attach it to an issue without leaking your network or home directory.
-It contains no secrets (no API keys, no file contents).
+(`system.atomic` included), the latest findings, and a short history tail
+(the last 5 runs — scores and counts only, never their finding text). It is
+**privacy-scrubbed** — IP addresses and `/home/<user>` paths are redacted
+from every field before anything is written, the machine's hostname and
+username are excluded entirely, and the bundle lists exactly what it left
+out under `privacy.excluded`, so you can attach it to an issue without
+leaking your network or home directory. It contains no config file (which
+may hold a license key) and no secrets.
 
 ## AI summary (optional)
 

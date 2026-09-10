@@ -8,6 +8,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Security
 
+- **Credentials in endpoint URLs are redacted before printing.** An
+  `https://user:pass@host` endpoint's password no longer appears in error
+  messages, the daemon banner, or the "sent" lines.
+- **The support bundle scrubs every field, not just the four known ones.**
+  A plugin can attach arbitrary extra fields to a finding; those used to
+  travel raw into the bundle. The whole finding is now walked.
 - **Loopback report endpoints are cached, single-flight, and bounded.** The
   desktop's `GET /report` and the web dashboard's `/api/report` serve a 10s
   cached report; concurrent requests share one scan, so a drive-by page
@@ -79,6 +85,10 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **Docs: support-bundle privacy claims corrected** (it carries no config —
+  which may hold a license key — and a 5-run score/counts-only tail), and
+  the plugin/Pro **trust model** is now stated in the README and
+  docs/configuration.md: drop-in code runs with your full privileges.
 - **`npm run gui:build` / `gui:dev` fetch the bundled Node runtime first**
   (a no-op when the right version is already present), so a local desktop
   build can no longer package a stale or missing interpreter. The README now
@@ -95,6 +105,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **A malformed threshold can no longer become 0.** `Number("")` and
+  `Number([])` are both 0, so a config like `"diskFullPct": []` silently
+  turned into a 0 threshold that flagged everything. Only a real number or a
+  non-empty numeric string is accepted now (CLI, dashboard and config all
+  share one coercion).
 - **Wide dashboard hygiene:** the detail pane escapes severity and duration
   like every other field, `aria-pressed` follows grouping set from the URL,
   and the "no findings match" message no longer lands in the pane column.

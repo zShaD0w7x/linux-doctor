@@ -42,6 +42,11 @@ function isPrivateLiteral(host) {
   return PRIVATE_IPV4.test(h) || PRIVATE_IPV6.test(h);
 }
 
+/** Strip credentials from a URL before it is shown in a message or a log. */
+export function redactUrl(url) {
+  return String(url).replace(/\/\/[^/@\s]+@/, "//<redacted>@");
+}
+
 /**
  * Validate a fleet endpoint URL up front, so a typo fails with a clear
  * message instead of a generic fetch error three steps into the run.
@@ -59,20 +64,20 @@ export function validatePushUrl(url, { apiKey, allowPrivate = false } = {}) {
   try {
     parsed = new URL(url.trim());
   } catch {
-    return `invalid URL "${url}" — did you forget https:// ?`;
+    return `invalid URL "${redactUrl(url)}" — did you forget https:// ?`;
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    return `invalid URL "${url}" — only http:// and https:// endpoints are supported`;
+    return `invalid URL "${redactUrl(url)}" — only http:// and https:// endpoints are supported`;
   }
-  if (!parsed.hostname) return `invalid URL "${url}" — missing host name`;
+  if (!parsed.hostname) return `invalid URL "${redactUrl(url)}" — missing host name`;
   // Node keeps the brackets on IPv6 hostnames ("[::1]"); strip them for the
   // loopback comparison, same as the dashboard server's origin check.
   const host = parsed.hostname.replace(/^\[|\]$/g, "");
   if (apiKey && parsed.protocol === "http:" && !PLAINTEXT_OK_HOSTS.has(host)) {
-    return `insecure endpoint "${url}" — FLEET_API_KEY is set and would travel unencrypted over HTTP; use https:// (loopback URLs are exempt)`;
+    return `insecure endpoint "${redactUrl(url)}" — FLEET_API_KEY is set and would travel unencrypted over HTTP; use https:// (loopback URLs are exempt)`;
   }
   if (!allowPrivate && isPrivateLiteral(host)) {
-    return `endpoint "${url}" points at a private/LAN address — pass --allow-private-endpoint if this is a self-hosted server on your network`;
+    return `endpoint "${redactUrl(url)}" points at a private/LAN address — pass --allow-private-endpoint if this is a self-hosted server on your network`;
   }
   return null;
 }

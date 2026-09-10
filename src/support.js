@@ -100,17 +100,13 @@ function safeSystem(system) {
  * bundle stays small and never re-exposes a historical issue's detail.
  */
 export function buildSupportBundle({ system, findings = [], score = null, newCount = 0, fixedCount = 0, diffSinceLast = { added: [], fixed: [], unchanged: 0 }, counts = null, checksRun = 0, checksSkipped = 0, checksAtomicSkipped = 0, checkErrors = [], history = [] } = {}) {
-  const safeFindings = findings.map((f) => ({
-    ...f,
-    title: scrub(f.title),
-    detail: scrub(f.detail),
-    evidence: scrub(f.evidence),
-    fix: scrub(f.fix),
-  }));
+  // scrubDeep over the whole finding: a plugin can attach arbitrary extra
+  // fields, and scrubbing only the four known ones let those travel raw.
+  const safeFindings = findings.map((f) => scrubDeep({ ...f }));
   // Diff entries carry finding titles too — same redaction rules apply.
   const safeDiff = diffSinceLast ? {
-    added: (Array.isArray(diffSinceLast.added) ? diffSinceLast.added : []).map((f) => ({ ...f, title: scrub(f.title) })),
-    fixed: (Array.isArray(diffSinceLast.fixed) ? diffSinceLast.fixed : []).map((f) => ({ ...f, title: scrub(f.title) })),
+    added: (Array.isArray(diffSinceLast.added) ? diffSinceLast.added : []).map((f) => scrubDeep({ ...f })),
+    fixed: (Array.isArray(diffSinceLast.fixed) ? diffSinceLast.fixed : []).map((f) => scrubDeep({ ...f })),
     unchanged: diffSinceLast.unchanged ?? 0,
   } : diffSinceLast;
   const tail = (Array.isArray(history) ? history : []).slice(-BUNDLE_HISTORY_LIMIT).map((r) => ({

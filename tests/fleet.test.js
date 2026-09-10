@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pushReport, machineId, validatePushUrl } from "../src/fleet.js";
+import { pushReport, machineId, validatePushUrl, redactUrl } from "../src/fleet.js";
 
 test("machineId: reads /etc/machine-id or returns null", () => {
   const id = machineId();
@@ -112,4 +112,13 @@ test("pushReport: refuses to follow redirects", async () => {
     globalThis.fetch = origFetch;
   }
   assert.equal(opts.redirect, "error", "a redirect could bounce the report to an internal target");
+});
+
+test("redactUrl: credentials never appear in echoed URLs or errors", () => {
+  assert.equal(redactUrl("https://user:pass@host/x"), "https://<redacted>@host/x");
+  assert.equal(redactUrl("https://host/x"), "https://host/x");
+  const msg = validatePushUrl("http://user:pass@example.com/x", { apiKey: "k" });
+  assert.match(msg, /insecure endpoint/);
+  assert.ok(!msg.includes("pass"), "the password must not appear in the error");
+  assert.match(msg, /<redacted>@/);
 });

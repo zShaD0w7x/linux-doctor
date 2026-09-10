@@ -42,6 +42,19 @@ export const DEFAULT_THRESHOLDS = {
   demoWarn: 0.9,
 };
 
+/**
+ * Strict threshold coercion. Accepts a real number or a non-empty numeric
+ * string; everything else is null. Number("") and Number([]) are 0, which
+ * would silently turn a malformed config into a 0 threshold that flags
+ * everything — a false-alarm generator, not a setting.
+ */
+export function coerceThreshold(value) {
+  const v = typeof value === "number" ? value
+    : typeof value === "string" && value.trim() !== "" ? Number(value)
+    : NaN;
+  return Number.isFinite(v) ? v : null;
+}
+
 /** Merge the user's thresholds (config.thresholds) over the defaults. */
 export function loadThresholds(config) {
   const t = (config && config.thresholds) || {};
@@ -49,8 +62,8 @@ export function loadThresholds(config) {
   const out = { ...DEFAULT_THRESHOLDS };
   for (const k of Object.keys(DEFAULT_THRESHOLDS)) {
     if (!(k in t)) continue;
-    const v = Number(t[k]);
-    if (!Number.isFinite(v)) continue;
+    const v = coerceThreshold(t[k]);
+    if (v === null) continue;
     out[k] = v;
   }
   return out;

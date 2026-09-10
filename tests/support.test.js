@@ -149,3 +149,21 @@ test("scrubFinding/scrubDeep: every text field is redacted", () => {
   assert.equal(deep.n, 5);
   assert.equal(deep.keep, false);
 });
+
+test("buildSupportBundle: unknown finding fields are scrubbed too", () => {
+  const b = buildSupportBundle({
+    findings: [
+      { title: "t", detail: "d", evidence: "e", fix: "f", customField: "leak 192.168.9.9 /home/zoe/x", confidence: "high" },
+    ],
+  });
+  const s = JSON.stringify(b);
+  assert.ok(!s.includes("192.168.9.9"), "a plugin's extra field must not leak an IP");
+  assert.ok(!s.includes("/home/zoe"), "a plugin's extra field must not leak a home path");
+});
+
+test("buildSupportBundle: never carries the hostname or a license key", () => {
+  const b = buildSupportBundle({ system: { hostname: "secret-host", distro: "X", kernel: "6" }, findings: [] });
+  const s = JSON.stringify(b);
+  assert.ok(!s.includes("secret-host"), "hostname must be excluded");
+  assert.ok(!s.toLowerCase().includes("licensekey"), "the config (license key) is never included");
+});

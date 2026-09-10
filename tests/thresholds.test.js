@@ -48,3 +48,13 @@ test("loadConfig: reads ignore and thresholds together", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("loadThresholds: malformed values fall back to defaults, never 0", () => {
+  const t = loadThresholds({
+    thresholds: { diskFullPct: [], memoryWarn: "", loadWarn: null, inodeFullPct: "91" },
+  });
+  assert.equal(t.diskFullPct, DEFAULT_THRESHOLDS.diskFullPct, "[] coerces to 0 and must be rejected");
+  assert.equal(t.memoryWarn, DEFAULT_THRESHOLDS.memoryWarn, '"" coerces to 0 and must be rejected');
+  assert.equal(t.loadWarn, DEFAULT_THRESHOLDS.loadWarn, "null coerces to 0 and must be rejected");
+  assert.equal(t.inodeFullPct, 91, "a numeric string is still accepted");
+});

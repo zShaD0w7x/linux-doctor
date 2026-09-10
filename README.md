@@ -12,6 +12,11 @@ actually matter. Each finding comes with a clear explanation and a
 copy-paste fix. It remembers your last run, so every report tells you what's
 new, what got fixed, and what stayed the same.
 
+> Its own code never modifies your system. Drop-in checks
+> (`~/.config/linux-doctor/checks/`) and the Pro add-on are code **you**
+> install and run with your privileges — see
+> [docs/configuration.md](docs/configuration.md#plugins-custom-checks).
+
 - 🎯 **One clear next step** — every report leads with ▶ START HERE, the single most useful action, not a wall of graphs
 - 🧠 **Memory built in** — health score (0–100), trend sparkline, and a plain-language NEW/FIXED diff on every run
 - 🔒 **Read-only by construction** — it never changes your system; fixes are suggestions you run yourself (optional `--fix` is dry-run first, double opt-in)

@@ -199,3 +199,22 @@ test("parseArgs: --fix, --yes, --interactive and --notify are boolean flags", ()
   assert.equal(out.notify, true);
   assert.equal(out.error, null);
 });
+
+test("planFixes: hostile finding text cannot escape into a command", () => {
+  const plan = planFixes([
+    {
+      id: 1,
+      code: "services/failed",
+      severity: "high",
+      title: "t",
+      detail: "Failed: `evil; $(reboot)` plus `ok.service`.",
+      evidence: "safe.service\tsystem\nx$(reboot).service\tsystem",
+    },
+  ]);
+  const cmds = plan.flatMap((p) => p.commands.map((c) => c.cmd));
+  assert.ok(cmds.length > 0, "expected a plan");
+  for (const cmd of cmds) {
+    assert.doesNotMatch(cmd, /\$\(|`|;|\|/, `metacharacter survived into: ${cmd}`);
+    assert.match(cmd, /'[A-Za-z0-9_.@\\-]+\.(?:service|timer|socket|target)'/, `unit must be single-quoted: ${cmd}`);
+  }
+});

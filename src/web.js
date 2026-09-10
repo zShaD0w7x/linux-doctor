@@ -9,7 +9,7 @@ import { exec } from "node:child_process";
 import { dirname } from "node:path";
 import { addIgnore } from "./ignore.js";
 import { loadConfig, configFile } from "./config.js";
-import { DEFAULT_THRESHOLDS } from "./thresholds.js";
+import { DEFAULT_THRESHOLDS, coerceThreshold } from "./thresholds.js";
 import { timerStatus } from "./units.js";
 import { shq } from "./utils.js";
 
@@ -163,8 +163,8 @@ export async function startWeb({ collect, history = () => [], checkList = async 
         // only allow known keys; drop non-numeric values (e.g. "90%")
         const clean = {};
         for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in next.thresholds) {
-          const v = Number(next.thresholds[k]);
-          if (Number.isFinite(v)) clean[k] = v;
+          const v = coerceThreshold(next.thresholds[k]);
+          if (v !== null) clean[k] = v;
         }
         next.thresholds = clean;
         const file = configFile();

@@ -25,7 +25,8 @@ The previous audit's 2 High + 1 Medium remain **open** (CLI-side, untouched here
 | M3, M6, M8 | Atomic/private state writes, path scrubbing, corrupt-config warning | **Fixed** — `atomicWrite()` (0600/0700, O_EXCL, rename), `/run/media`+`/media` scrubbed, `loadConfig` warns |
 | M2, M3, M4, M5, M6, M8 | HTML-export scrub parity, atomic private writes, egress destination, webhook/fleet scrubbing, removable-media paths, corrupt-config warning | **Fixed** |
 | M7 | Loopback GET caching / drive-by scan storm | **Fixed** — TTL cache + single-flight on both servers, `?refresh=1` for explicit reloads, polls no longer write history |
-| L1–L12 | Shell-guardrail blind spots, docs low-tier | Open (deferred) |
+| L1, L4, L6, L8, L10, L12 | Hostile-input fix test, plugin trust docs, bundle field scrub, URL-credential redaction, doc drift, strict numeric coercion | **Fixed** (user-impacting subset) |
+| L2, L3, L5, L7, L9, L11 | UNIT_RE backslash, plugin codes, unit `q()` escaping, local POST cap, CSP nonce, history lock | Open (no user impact today) |
 
 > Delta findings: **P0** (N1–N3, N9, N17), **P1** (N5, N7, N8, N21) plus N6/N13/N15, and **P2** (N4, N16, N18–N20, N22, N24) are fixed. Remaining: N10–N12, N23, N25 (low-tier / upstream), and the deferred baseline lows.
 

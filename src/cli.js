@@ -11,13 +11,13 @@ import { pingHeartbeat } from "./heartbeat.js";
 import { renderReport, renderJson, renderPlain, renderTodo, SEV_ORDER, countBySeverity, pickNextFinding, jsonForInlineScript } from "./report.js";
 import { renderMarkdown } from "./markdown.js";
 import { aiSummary } from "./llm.js";
-import { pushReport, validatePushUrl } from "./fleet.js";
+import { pushReport, validatePushUrl, redactUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
 import { score, scoreBreakdown, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled, cleanStreak } from "./history.js";
 import { buildSupportBundle, writeSupportBundle, supportMessage, scrub, scrubFinding, scrubDeep } from "./support.js";
 import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored, addIgnore, addIgnoreCode, removeIgnore, removeIgnoreCode } from "./ignore.js";
 import { loadConfig } from "./config.js";
-import { loadThresholds, DEFAULT_THRESHOLDS } from "./thresholds.js";
+import { loadThresholds, DEFAULT_THRESHOLDS, coerceThreshold } from "./thresholds.js";
 import { detectDistro } from "./distro.js";
 import { detectProfile } from "./profile.js";
 import { dedupe } from "./dedupe.js";
@@ -625,8 +625,8 @@ function printIgnoreLists(titles, codes) {
       const merged = { ...(cfg.thresholds || {}), ...incoming };
       const clean = {};
       for (const k of Object.keys(DEFAULT_THRESHOLDS)) if (k in merged) {
-        const v = Number(merged[k]);
-        if (Number.isFinite(v)) clean[k] = v;
+        const v = coerceThreshold(merged[k]);
+        if (v !== null) clean[k] = v;
       }
       const next = { ...cfg, thresholds: clean };
       const file = configFile();
@@ -783,7 +783,7 @@ function printIgnoreLists(titles, codes) {
     const intervalMs = Number(args.interval ?? 3600) * 1000;
     process.on("SIGINT", () => process.exit(0));
     process.on("SIGTERM", () => process.exit(0));
-    console.log(`linux-doctor agent: checking every ${intervalMs / 1000}s${args.pushUrl ? `, pushing to ${args.pushUrl}` : ""}${args.alertUrl ? `, alerting ${args.alertUrl}` : ""}${args.heartbeatUrl ? `, heartbeat ${args.heartbeatUrl}` : ""}`);
+    console.log(`linux-doctor agent: checking every ${intervalMs / 1000}s${args.pushUrl ? `, pushing to ${redactUrl(args.pushUrl)}` : ""}${args.alertUrl ? `, alerting ${redactUrl(args.alertUrl)}` : ""}${args.heartbeatUrl ? `, heartbeat ${redactUrl(args.heartbeatUrl)}` : ""}`);
     for (;;) {
       const t0 = Date.now();
       try {
@@ -812,7 +812,7 @@ function printIgnoreLists(titles, codes) {
         if (args.alertUrl && shouldAlert(report)) {
           try {
             await sendAlert(args.alertUrl, buildAlert(report), { apiKey: process.env.FLEET_API_KEY, allowPrivate: args.allowPrivateEndpoint });
-            console.log(`Alert sent to ${args.alertUrl}`);
+            console.log(`Alert sent to ${redactUrl(args.alertUrl)}`);
           } catch (err) {
             console.error(`linux-doctor: could not send alert: ${err.message}`);
           }
@@ -974,7 +974,7 @@ function printIgnoreLists(titles, codes) {
         checksAtomicSkipped: report.checksAtomicSkipped,
         changeMessage: report.changeMessage,
       }, { apiKey: process.env.FLEET_API_KEY, allowPrivate: args.allowPrivateEndpoint });
-      console.log(`Report sent to ${args.pushUrl}`);
+      console.log(`Report sent to ${redactUrl(args.pushUrl)}`);
     } catch (err) {
       console.error(`linux-doctor: could not send report to fleet server: ${err.message}`);
       return 2;

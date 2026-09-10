@@ -110,6 +110,12 @@ Plugins show up in `--list`, are gated by `appliesTo` like built-ins, and are
 runnable with `--check example`. A broken or id-colliding plugin is skipped
 with a warning — it never takes down a run.
 
+> **Trust model:** a plugin is code you chose to install, and it runs with
+> your full user privileges — it can read and write anything you can. Linux
+> Doctor's own code is read-only by construction, but it cannot sandbox a
+> plugin. Only drop in files you have read and trust. The same applies to the
+> Pro add-on module (`LINUX_DOCTOR_PRO_MODULE`).
+
 ## Caching
 
 The `updates` check refreshes package metadata, which is the slowest thing in
