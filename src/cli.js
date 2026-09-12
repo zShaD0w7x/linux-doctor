@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { atomicWrite } from "./fsx.js";
-import { run, runPool, lines } from "./utils.js";
+import { run, runPool, lines, withDeadline, setDebug } from "./utils.js";
 import { normalizeFindings, invalidFindings } from "./findings.js";
 import { checks as CHECKS } from "./checks/index.js";
 import { systemInfo } from "./checks/system.js";
@@ -35,6 +35,11 @@ const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url),
 // an unbounded Promise.all over 26 checks would launch dozens of commands
 // simultaneously; 4 keeps a full run fast without hammering the machine.
 const RUN_CONCURRENCY = 4;
+
+// Wall-clock cap for a single check. A check with many sequential commands
+// (one per device/timer/pool) must not be able to stretch a run unboundedly;
+// on expiry it is recorded in checkErrors and the run continues.
+const CHECK_DEADLINE_MS = 45000;
 
 /** Group checks by category, preserving first-appearance order. */
 function groupByCategory(checks) {
@@ -185,7 +190,7 @@ async function collectReport({ checkIds, checks, ignorePatterns, ignoreCodes, th
     // A check that throws must never take down the whole report: it is
     // recorded in checkErrors and the run continues without it.
     try {
-      const out = (await c.run(cctx)).map((f) => ({ ...f, check: c.id }));
+      const out = (await withDeadline(() => c.run(cctx), CHECK_DEADLINE_MS, `check ${c.id}`)).map((f) => ({ ...f, check: c.id }));
       checkDurations.push({ check: c.id, ms: Date.now() - t0 });
       return out;
     } catch (err) {
@@ -372,6 +377,7 @@ OPTIONS
   --alert <url>  POST an alert webhook when the machine degrades [Pro]
   --heartbeat <url> ping a dead-man's switch after every run [Pro]
   --allow-private-endpoint  let --push/--alert/--heartbeat/--ai target private/LAN addresses
+  --debug        trace every command and its result to stderr (or LINUX_DOCTOR_DEBUG=1)
   --daemon       run continuously, re-checking every --interval seconds [Pro]
   --interval <s> seconds between --daemon runs (default 3600) [Pro]
   --help         show this help
@@ -397,6 +403,7 @@ export async function main(argv) {
     console.error(`linux-doctor: ${args.error}`);
     return 2;
   }
+  setDebug(args.debug);
   if (args.help) {
     console.log(HELP);
     return 0;
@@ -635,7 +642,7 @@ function printIgnoreLists(titles, codes) {
       return 0;
     } catch (err) {
       console.log(JSON.stringify({ ok: false, error: err.message }));
-      return 1;
+      return 2;
     }
   }
 

@@ -30,37 +30,91 @@ export const TIMEOUT_MS = {
  * slow command, and from a missing binary, which is `missing: true`. Callers
  * decide whether partial stdout is still usable.
  */
+/**
+ * Debug tracing: `--debug` / LINUX_DOCTOR_DEBUG=1 writes every spawned command
+ * and its result to stderr (stdout stays machine-clean), so a wrong finding
+ * can be traced back to the exact command and output.
+ */
+let debugEnabled = process.env.LINUX_DOCTOR_DEBUG === "1";
+export function setDebug(on) {
+  debugEnabled = !!on;
+}
+
+function debugTrace(cmd, result, ms) {
+  if (!debugEnabled) return;
+  const tail = (s, n = 200) => {
+    const t = String(s || "").trim().replace(/\s+/g, " ");
+    return t.length > n ? `${t.slice(0, n)}…` : t;
+  };
+  const status = result.ok
+    ? `exit ${result.code}`
+    : result.missing
+      ? "missing"
+      : result.timedOut
+        ? "timed out"
+        : result.truncated
+          ? "truncated"
+          : `exit ${result.code}`;
+  process.stderr.write(`[debug] ${ms}ms ${status}  $ ${cmd}\n`);
+  if (!result.ok) {
+    if (result.stderr) process.stderr.write(`[debug]   stderr: ${tail(result.stderr)}\n`);
+    if (result.stdout) process.stderr.write(`[debug]   stdout: ${tail(result.stdout)}\n`);
+  }
+}
+
+/**
+ * Reject when `task()` outlasts `ms` (a per-check wall-clock cap, so a check
+ * with many sequential commands cannot stretch the whole run). The timer is
+ * always cleared or fired, so it never lingers past the race.
+ */
+export async function withDeadline(task, ms, label = "task") {
+  let timer;
+  try {
+    return await Promise.race([
+      task(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function run(cmd, { timeoutMs = TIMEOUT_MS.DEFAULT, maxBuffer = 4 * 1024 * 1024, env } = {}) {
+  const t0 = Date.now();
+  let result;
   try {
     const { stdout, stderr } = await execP(cmd, {
       timeout: timeoutMs,
       maxBuffer,
       env: { ...process.env, LC_ALL: "C", ...env },
     });
-    return { ok: true, code: 0, stdout, stderr };
+    result = { ok: true, code: 0, stdout, stderr };
   } catch (err) {
     // maxBuffer exceeded: the child was killed for producing too much output.
     // Checked BEFORE `killed` — a maxBuffer kill also sets killed=true, but it
     // is data loss, not a timeout.
     if (err.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
-      return { ok: false, code: -2, stdout: err.stdout || "", stderr: err.stderr || "", truncated: true };
+      result = { ok: false, code: -2, stdout: err.stdout || "", stderr: err.stderr || "", truncated: true };
+    } else if (err.killed === true) {
+      // exec kills the child when it exceeds the timeout — a killed process
+      // means the command hung, not that it failed, and callers need to tell
+      // the two apart (a timeout is not evidence the check "ran fine").
+      result = { ok: false, code: 1, stdout: err.stdout || "", stderr: err.stderr || "", timedOut: true };
+    } else if (err.code === "ENOENT" || (err.message && err.message.includes("spawn"))) {
+      result = { ok: false, code: -1, stdout: "", stderr: "", missing: true };
+    } else {
+      result = {
+        ok: false,
+        code: typeof err.code === "number" ? err.code : 1,
+        stdout: err.stdout || "",
+        stderr: err.stderr || "",
+      };
     }
-    // exec kills the child when it exceeds the timeout — a killed process
-    // means the command hung, not that it failed, and callers need to tell
-    // the two apart (a timeout is not evidence the check "ran fine").
-    if (err.killed === true) {
-      return { ok: false, code: 1, stdout: err.stdout || "", stderr: err.stderr || "", timedOut: true };
-    }
-    if (err.code === "ENOENT" || (err.message && err.message.includes("spawn"))) {
-      return { ok: false, code: -1, stdout: "", stderr: "", missing: true };
-    }
-    return {
-      ok: false,
-      code: typeof err.code === "number" ? err.code : 1,
-      stdout: err.stdout || "",
-      stderr: err.stderr || "",
-    };
   }
+  debugTrace(cmd, result, Date.now() - t0);
+  return result;
 }
 
 export function lines(text) {

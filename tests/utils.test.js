@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { run, runPool, slugify, plural, journalLines, shq } from "../src/utils.js";
+import { run, runPool, slugify, plural, journalLines, shq, withDeadline, setDebug } from "../src/utils.js";
 
 const execP = promisify(exec);
 
@@ -95,4 +95,36 @@ test("journalLines: strips boot separators and -- No entries -- lines", () => {
 test("journalLines: tail keeps only the last N real entries", () => {
   const out = ["-- Boot 1 --", "a", "-- Boot 2 --", "b", "c", "d"].join("\n");
   assert.deepEqual(journalLines(out, { tail: 2 }), ["c", "d"]);
+});
+
+test("withDeadline: resolves a task that finishes in time", async () => {
+  assert.equal(await withDeadline(async () => 5, 1000, "t"), 5);
+});
+
+test("withDeadline: rejects a task that outlasts the deadline", async () => {
+  await assert.rejects(
+    () => withDeadline(() => new Promise(() => {}), 30, "slow check"),
+    /slow check timed out after/
+  );
+});
+
+test("run: --debug traces a command to stderr without changing the result", async (t) => {
+  const chunks = [];
+  const spy = t.mock.method(process.stderr, "write", (c) => {
+    chunks.push(String(c));
+    return true;
+  });
+  setDebug(true);
+  try {
+    const res = await run("printf hi");
+    assert.equal(res.ok, true);
+    assert.equal(res.stdout, "hi");
+    assert.ok(
+      chunks.some((c) => c.includes("[debug]") && c.includes("printf hi")),
+      "the command must appear in the debug trace"
+    );
+  } finally {
+    setDebug(false);
+    spy.mock.restore();
+  }
 });

@@ -45,6 +45,7 @@ _linux_doctor() {
     '--alert=[POST an alert webhook]:url:' \
     '--heartbeat=[ping a dead-man switch after every run]:url:' \
     '--allow-private-endpoint[allow --push/--alert/--heartbeat/--ai to target private/LAN addresses]' \
+    '--debug[trace every command and its result to stderr]' \
     '--daemon[run continuously as a scheduled agent]' \
     '--interval=[seconds between --daemon runs]:seconds:' \
     '--support[write a privacy-safe support bundle (JSON)]' \

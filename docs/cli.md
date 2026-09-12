@@ -67,6 +67,7 @@ STATUS (`SCORE 77/100 = 100 −15 disk/full …`), pinned by tests so
 --alert <url>     POST a webhook when the machine degrades [Pro]
 --heartbeat <url> ping a dead-man's switch after every run [Pro]
 --allow-private-endpoint  let --push/--alert/--heartbeat/--ai target private/LAN addresses
+--debug        trace every command and its result to stderr (or LINUX_DOCTOR_DEBUG=1)
 --daemon          run continuously, re-checking every --interval [Pro]
 --interval <s>    seconds between --daemon runs (default 3600) [Pro]
 --help            usage
