@@ -26,10 +26,11 @@ export const orphans = defineCheck({
       sample = pkgs.slice(0, 5).join(", ");
       evidence = pkgs.slice(0, 5).join("\n") || "pacman -Qtdq: none";
     } else if (pkg === "apt" || family === "debian") {
-      const res = await ctx.run("apt-get -s autoremove 2>/dev/null | grep -E '^Remv ' | wc -l");
-      count = Number(lines(res.stdout)[0] || 0);
-      const list = await ctx.run("apt-get -s autoremove 2>/dev/null | grep -E '^Remv ' | head -5");
-      sample = lines(list.stdout).slice(0, 3).join("\n");
+      // One dry-run serves both the count and the sample (it used to run twice).
+      const res = await ctx.run("apt-get -s autoremove 2>/dev/null | grep -E '^Remv '");
+      const pkgs = lines(res.stdout);
+      count = pkgs.length;
+      sample = pkgs.slice(0, 3).join("\n");
       evidence = `apt autoremove --dry-run: ${count} removable`;
       if (sample) evidence += `\n${sample}`;
     } else if (pkg === "dnf" || family === "fedora") {

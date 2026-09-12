@@ -101,12 +101,11 @@ export const packages = defineCheck({
       return findings;
     }
 
-    // Fedora/RHEL family — check rpm DB and dnf
+    // Fedora/RHEL family — check dnf. (`rpm -Va` was run here too and its
+    // result never used; two full rpmdb verifications were pure dead work
+    // that almost always exceeded the timeout.)
     if (pkg === "dnf" || family === "fedora") {
-      const [rpmCheck, dnfCheck] = await Promise.all([
-        ctx.run("rpm --verify --all 2>&1 | head -5; rpm -Va 2>&1 | head -5"),
-        ctx.run("dnf check 2>&1 | head -20"),
-      ]);
+      const dnfCheck = await ctx.run("dnf check 2>&1 | head -20");
 
       const dnfOut = (dnfCheck.stdout || "").toLowerCase();
       if (/error|broken|conflict|missing dependency/i.test(dnfOut) && dnfOut.trim() !== "") {

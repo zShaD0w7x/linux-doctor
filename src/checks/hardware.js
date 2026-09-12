@@ -16,13 +16,14 @@ export const hardware = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    const [mce, edc] = await Promise.all([
-      ctx.run('journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null'),
-      ctx.run('journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null'),
-    ]);
-
-    const mceLines = mce.ok ? journalLines(mce.stdout, { tail: 5 }) : [];
-    const edcLines = edc.ok ? journalLines(edc.stdout, { tail: 5 }) : [];
+    // One kernel-log read with both patterns (was two journalctl spawns), then
+    // split in JS. A shell grep is also more portable than journalctl -g.
+    const ker = await ctx.run(
+      'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"'
+    );
+    const all = ker.ok ? journalLines(ker.stdout, { tail: 40 }) : [];
+    const mceLines = all.filter((l) => /mce|machine check|hardware error/i.test(l)).slice(-5);
+    const edcLines = all.filter((l) => /edac|corrected error|ecc error/i.test(l)).slice(-5);
 
     if (mceLines.length > 0) {
       findings.push(finding({
@@ -44,7 +45,7 @@ export const hardware = defineCheck({
         fix: "If these repeat often, test the memory (Memtest86+) and reseat or replace the suspect DIMM.",
         confidence: "medium",
       }));
-    } else if (mce.ok || edc.ok) {
+    } else if (ker.ok) {
       findings.push(finding({
         severity: "info",
         code: "hardware/ok",

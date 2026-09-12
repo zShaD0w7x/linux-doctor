@@ -10,12 +10,14 @@
  * null when the GPU is being used (or glxinfo is not available).
  */
 export async function detectSoftwareRenderer(ctx) {
+  // Spawned by both the gpu and wayland checks; memoize per run (the result
+  // cannot change mid-run). Cached on the run's ctx so tests stay isolated.
+  if (ctx && "__swRenderer" in ctx) return ctx.__swRenderer;
   const glx = await ctx.run("glxinfo -B 2>/dev/null | grep -i 'renderer string'");
   const renderer = glx.stdout.toLowerCase();
-  if (renderer && /llvmpipe|softpipe|swrast|software/i.test(renderer)) {
-    return glx.stdout.trim();
-  }
-  return null;
+  const result = renderer && /llvmpipe|softpipe|swrast|software/i.test(renderer) ? glx.stdout.trim() : null;
+  if (ctx) ctx.__swRenderer = result;
+  return result;
 }
 
 /**

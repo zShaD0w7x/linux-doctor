@@ -1064,7 +1064,7 @@ test("backup: snapper configs count as a snapshot system", async () => {
 
 test("hardware: machine check exceptions are high", async () => {
   const ctx = stubCtx({
-    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null': "Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged\n",
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged\n",
   });
   const findings = await hardware.run(ctx);
   const high = findings.filter((f) => f.severity === "high");
@@ -1075,7 +1075,7 @@ test("hardware: machine check exceptions are high", async () => {
 
 test("hardware: corrected ECC errors are medium", async () => {
   const ctx = stubCtx({
-    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
   });
   const findings = await hardware.run(ctx);
   const med = findings.filter((f) => f.severity === "medium");
@@ -1085,8 +1085,8 @@ test("hardware: corrected ECC errors are medium", async () => {
 
 test("hardware: clean kernel log is informational", async () => {
   const ctx = stubCtx({
-    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
-    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
   assert.equal(findings.length, 1);
@@ -1097,8 +1097,8 @@ test("hardware: clean kernel log is informational", async () => {
 test("hardware: boot separators alone are NOT hardware errors", async () => {
   // journalctl -k -g prints "-- Boot ... --" separators even with no matches.
   const ctx = stubCtx({
-    'journalctl -k -g "mce|machine check|hardware error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
-    'journalctl -k -g "edac|corrected error|ECC error" --since "-7 days" --no-pager -o short 2>/dev/null': "",
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
   assert.ok(!findings.some((f) => f.severity === "high" || f.severity === "medium"), "separator-only output must not be an error finding");

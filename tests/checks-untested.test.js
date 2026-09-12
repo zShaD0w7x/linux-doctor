@@ -1,7 +1,8 @@
 /**
  * Behavior tests for checks that previously had none (analysis §7): oom, wifi,
- * orphans, boot. They ran only through the generic all-fail path, so a parser
- * regression would have been invisible.
+ * orphans, packages, fs, cache. They ran only through the generic all-fail
+ * path, so a parser regression would have been invisible. (boot/hardware are
+ * already covered in tests/checks.test.js.)
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +12,9 @@ import { loadThresholds } from "../src/thresholds.js";
 import { oom } from "../src/checks/oom.js";
 import { wifi } from "../src/checks/wifi.js";
 import { orphans } from "../src/checks/orphans.js";
-import { boot } from "../src/checks/boot.js";
+import { packages } from "../src/checks/packages.js";
+import { fs } from "../src/checks/fs.js";
+import { cache } from "../src/checks/cache.js";
 
 function stubCtx(map, osRelease = { id: "ubuntu", id_like: "debian" }) {
   return {
@@ -87,10 +90,8 @@ test("wifi: no adapter at all is informational", async () => {
 // ------------------------------------------------------------ orphans ---------
 
 test("orphans: 12 removable apt packages is medium", async () => {
-  const ctx = stubCtx({
-    "apt-get -s autoremove 2>/dev/null | grep -E '^Remv ' | wc -l": "12\n",
-    "apt-get -s autoremove 2>/dev/null | grep -E '^Remv ' | head -5": "Remv libfoo [1.0]\nRemv libbar [2.0]\n",
-  });
+  const remv = Array.from({ length: 12 }, (_, i) => `Remv lib${i} [1.0]`).join("\n") + "\n";
+  const ctx = stubCtx({ "apt-get -s autoremove 2>/dev/null | grep -E '^Remv '": remv });
   const findings = await orphans.run(ctx);
   assert.equal(findings[0].code, "orphans/many");
   assert.equal(findings[0].severity, "medium");
@@ -98,7 +99,7 @@ test("orphans: 12 removable apt packages is medium", async () => {
 });
 
 test("orphans: none is informational", async () => {
-  const ctx = stubCtx({ "apt-get -s autoremove 2>/dev/null | grep -E '^Remv ' | wc -l": "0\n" });
+  const ctx = stubCtx({ "apt-get -s autoremove 2>/dev/null | grep -E '^Remv '": "" });
   const findings = await orphans.run(ctx);
   assert.equal(findings[0].code, "orphans/none");
 });
@@ -110,34 +111,85 @@ test("orphans: a couple of arch orphans is informational", async () => {
   assert.equal(findings[0].severity, "info");
 });
 
-// --------------------------------------------------------------- boot ---------
+// ----------------------------------------------------------- packages ---------
 
-test("boot: a 95% full /boot is high", async () => {
+test("packages: a broken dpkg database is high", async () => {
   const ctx = stubCtx({
-    "df -P /boot 2>/dev/null | tail -1": "/dev/sda1 524288 498073 26215 95% /boot\n",
-    "test -d /boot 2>/dev/null && echo yes": "yes\n",
+    "dpkg --audit 2>&1 | head -20": "The following packages are in a mess due to serious problems during installation:\n libfoo\n",
+    "apt-get check 2>&1 | head -20": "",
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
   });
-  const findings = await boot.run(ctx);
-  const full = findings.find((f) => f.code === "boot/full");
-  assert.ok(full, "expected a boot/full finding");
-  assert.equal(full.severity, "high");
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/broken");
+  assert.equal(findings[0].severity, "high");
 });
 
-test("boot: image-based systems are skipped entirely", async () => {
-  const ctx = stubCtx({}, { id: "bazzite" });
-  assert.equal(ctx.dist.imageBased, true, "sanity: bazzite must be image-based");
-  assert.deepEqual(await boot.run(ctx), []);
-});
-
-test("boot: a bootloader-less /boot with kernels is medium", async () => {
+test("packages: a held apt lock is medium", async () => {
   const ctx = stubCtx({
-    "df -P /boot 2>/dev/null | tail -1": "/dev/sda1 524288 100000 424288 19% /boot\n",
-    "ls /boot/grub/grub.cfg /boot/grub2/grub.cfg /boot/loader/entries/*.conf 2>/dev/null | head -1": "",
-    "ls /boot/efi/EFI/*/grub*.cfg /boot/efi/EFI/*/grubx64.efi 2>/dev/null | head -1": "",
-    "test -d /boot 2>/dev/null && echo yes": "yes\n",
-    "ls /boot/vmlinuz-* 2>/dev/null | head -1": "/boot/vmlinuz-6.8\n",
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": "",
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "/var/lib/dpkg/lock\n4242\n",
   });
-  const findings = await boot.run(ctx);
-  assert.equal(findings[0].code, "boot/no-config");
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/locked");
   assert.equal(findings[0].severity, "medium");
+});
+
+test("packages: a healthy apt database is informational", async () => {
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": "",
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+// ----------------------------------------------------------------- fs ---------
+
+test("fs: a read-only remount is high", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "command -v dmesg 2>/dev/null": "",
+    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS|Remounting filesystem read-only' | tail -n 20": "EXT4-fs error (device sda2): remounting filesystem read-only\n",
+    "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "EXT4-fs (sda2): Remounting filesystem read-only\n",
+  });
+  const findings = await fs.run(ctx);
+  assert.equal(findings[0].code, "fs/readonly-remount");
+  assert.equal(findings[0].severity, "high");
+});
+
+test("fs: a clean kernel log is informational", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "command -v dmesg 2>/dev/null": "",
+    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS|Remounting filesystem read-only' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "",
+  });
+  const findings = await fs.run(ctx);
+  assert.equal(findings[0].code, "fs/ok");
+  assert.equal(findings[0].severity, "info");
+});
+
+// -------------------------------------------------------------- cache ---------
+
+test("cache: a 12 GB user cache is medium", async () => {
+  const ctx = stubCtx({
+    'du -sb "$HOME/.cache" 2>/dev/null | cut -f1': "12000000000\n",
+    'du -sb "$HOME/.local/share/Trash" 2>/dev/null | cut -f1': "",
+  });
+  const findings = await cache.run(ctx);
+  assert.equal(findings[0].code, "cache/large");
+  assert.equal(findings[0].severity, "medium");
+});
+
+test("cache: a small cache is silent (no false positive)", async () => {
+  const ctx = stubCtx({
+    'du -sb "$HOME/.cache" 2>/dev/null | cut -f1': "100000000\n",
+    'du -sb "$HOME/.local/share/Trash" 2>/dev/null | cut -f1': "",
+  });
+  const findings = await cache.run(ctx);
+  assert.ok(!findings.some((f) => /medium|high/.test(f.severity)), "a 100 MB cache must not alarm");
 });
