@@ -103,3 +103,38 @@ Download `Linux-Doctor_0.3.0_amd64.AppImage`, then:
 CLI users: npx github:zShaD0w7x/linux-doctor  (Node ≥ 20)
 Read-only diagnostics — it never modifies your system.
 ```
+
+## Auto-update (desktop app)
+
+The Tauri app checks GitHub Releases for a newer **signed** build and, with
+the user's consent, installs it and restarts. The check runs ~12s after
+startup and from the tray's **Check for updates** item. `LINUX_DOCTOR_NO_UPDATE=1`
+disables it (dev/tests).
+
+- Endpoint: `https://github.com/zShaD0w7x/linux-doctor/releases/latest/download/latest.json`
+  (configured in `src-tauri/tauri.conf.json` → `plugins.updater.endpoints`).
+- The manifest `latest.json` is assembled by `scripts/make-latest-json.mjs`
+  from the signed AppImage (`*.AppImage` + `*.AppImage.sig`) during the release
+  job — Tauri's CLI does not write it (that is `tauri-action`'s job, which this
+  repo does not use).
+- **Linux auto-update targets the AppImage.** `.deb`/`.rpm` users update
+  through their package manager.
+
+### Signing key (one-time, then a CI secret)
+
+```bash
+npx tauri signer generate -w ~/.tauri/linux-doctor.key   # keep the private key safe
+```
+
+1. Put the printed **public** key into `src-tauri/tauri.conf.json` →
+   `plugins.updater.pubkey`.
+2. Store the **private** key as the repository secret
+   `TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, empty
+   for a passwordless key). **Never commit it.**
+3. The release job fails fast if the secret is missing — a release without it
+   would produce artifacts no installed app can verify.
+
+**If the private key is lost, existing installs can no longer be updated** by
+a new key (the public key is baked into each build). Generate a new pair,
+update `pubkey`, and ship one release users install manually; from then on
+auto-update works again.

@@ -27,6 +27,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": [
       "deb",
       "rpm",
@@ -46,6 +47,14 @@
       "../src-gui/index.html": "src-gui/index.html",
       "../package.json": "package.json",
       "runtime/node": "runtime/node"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGQ0RBQUE0NjAwQjUyQjYKUldTMlVndGdwS3JOWDNJYjZkZGRhaW92azI5TFRXeHREQkVEbmpoYkF4ZUlKWFFaSkxJayt6Z1cK",
+      "endpoints": [
+        "https://github.com/zShaD0w7x/linux-doctor/releases/latest/download/latest.json"
+      ]
     }
   }
 }

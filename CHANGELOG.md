@@ -145,12 +145,20 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
+- **Desktop app: auto-update.** The app checks GitHub Releases for a newer
+  signed build ~12s after startup and from a tray **Check for updates** item;
+  a native dialog offers to install and restart. Artifacts are
+  minisign-signed (public key in `tauri.conf.json`, private key a CI secret),
+  the updater manifest is assembled by `scripts/make-latest-json.mjs`, and a
+  release fails fast if the signing secret is missing. On Linux the updatable
+  artifact is the AppImage (deb/rpm stay package-manager updates).
+  `LINUX_DOCTOR_NO_UPDATE=1` disables the check.
 - **The desktop app is a tray app.** It now handles a second launch by
   surfacing the existing window (single-instance, no second report server
   losing the fixed port), a tray icon with Open / Run checks now /
-  Start at login (official autostart plugin) / Quit, all handled Rust-side
-  (Tauri IPC is not used in this stack). Missing-tray systems fail soft —
-  the app continues without the tray.
+  Start at login (official autostart plugin) / Check for updates / Quit, all
+  handled Rust-side (Tauri IPC is not used in this stack). Missing-tray
+  systems fail soft — the app continues without the tray.
 - **The desktop app now bundles its own Node runtime.** The .deb/.AppImage/.rpm
   packages ship a pinned Node 22 LTS binary under `<resources>/runtime/node`,
   hash-checked against the official SHASUMS256.txt at build time

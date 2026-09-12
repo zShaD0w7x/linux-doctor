@@ -104,11 +104,32 @@ jobs:
       # local `tauri build` uses — see docs/RELEASING.md).
       - name: Bundle the Node runtime into the packages
         run: node scripts/fetch-node-runtime.mjs
+      - name: Verify the updater signing key is configured
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY secret is not set — auto-update artifacts cannot be signed. See docs/RELEASING.md (Auto-update)."
+            exit 1
+          fi
       - name: Build Tauri bundles (appimage, deb, rpm)
         run: npx tauri build --bundles appimage,deb,rpm
         env:
           # Run linuxdeploy without FUSE — removes runner-to-runner variance.
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          # Signing the updater artifacts (.sig) — required because
+          # bundle.createUpdaterArtifacts is on. The key is generated once with
+          # `npx tauri signer generate` and stored as a repo secret.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Build the updater manifest (latest.json)
+        run: |
+          set -euo pipefail
+          TAG=${GITHUB_REF#refs/tags/}
+          VER=${TAG#v}
+          node scripts/make-latest-json.mjs \
+            src-tauri/target/release/bundle \
+            "$VER" "$TAG" "${{ github.repository }}"
       - name: Verify the bundled Node runtime is inside the packages
         run: |
           set -euo pipefail
@@ -124,7 +145,8 @@ jobs:
         run: |
           mkdir -p dist
           find src-tauri/target/release/bundle -type f \( \
-            -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} dist/ \;
+            -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+            -o -name "*.sig" -o -name "latest.json" \) -exec cp {} dist/ \;
           # Tauri already names outputs with the version; only normalize
           # spaces ("Linux Doctor_x.y.z_amd64") so upload keeps them sane.
           cd dist

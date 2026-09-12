@@ -542,6 +542,11 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // Auto-update (analysis "app needs" P0-2): the updater and the native
+        // prompt are driven from Rust, like the tray — Tauri's JS IPC does not
+        // work on this stack.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let root = repo_root(app.handle());
             let node = node_bin(app.handle());
@@ -560,10 +565,90 @@ pub fn run() {
                 Err(_) => eprintln!("⚠️  linux-doctor: no system tray library — continuing without it"),
             }
             fit_window(app);
+            // Quiet startup update check a few seconds in, so it never races
+            // the first paint or the initial scan. Opt out with
+            // LINUX_DOCTOR_NO_UPDATE=1 (also useful in tests/dev).
+            if std::env::var("LINUX_DOCTOR_NO_UPDATE").is_err() {
+                let handle = app.handle().clone();
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_secs(12));
+                    check_for_updates(&handle, false);
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running Linux Doctor");
+}
+
+/// Check GitHub Releases for a newer signed build and, with the user's
+/// consent, install it and restart. Runs on Tauri's async runtime; the dialog
+/// is non-blocking so the event loop is never stalled. Any failure is a log
+/// line — an update check must never disturb a running diagnostic.
+fn check_for_updates(app: &tauri::AppHandle, user_initiated: bool) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    use tauri_plugin_updater::UpdaterExt;
+
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let updater = match app.updater() {
+            Ok(u) => u,
+            Err(e) => {
+                eprintln!("linux-doctor: updater unavailable: {e}");
+                return;
+            }
+        };
+        match updater.check().await {
+            Ok(Some(update)) => {
+                let version = update.version.clone();
+                let app_after = app.clone();
+                app.dialog()
+                    .message(format!(
+                        "Linux Doctor {version} is available. Install it now and restart?"
+                    ))
+                    .title("Update available")
+                    .kind(MessageDialogKind::Info)
+                    .buttons(MessageDialogButtons::OkCancelCustom(
+                        "Install".to_string(),
+                        "Later".to_string(),
+                    ))
+                    .show(move |install| {
+                        if !install {
+                            return;
+                        }
+                        let app_install = app_after.clone();
+                        tauri::async_runtime::spawn(async move {
+                            match update.download_and_install(|_, _| {}, || {}).await {
+                                Ok(()) => {
+                                    eprintln!("linux-doctor: update installed — restarting");
+                                    app_install.restart();
+                                }
+                                Err(e) => eprintln!("linux-doctor: update install failed: {e}"),
+                            }
+                        });
+                    });
+            }
+            Ok(None) => {
+                if user_initiated {
+                    app.dialog()
+                        .message("Linux Doctor is up to date.")
+                        .title("No updates")
+                        .kind(MessageDialogKind::Info)
+                        .show(|_| {});
+                }
+            }
+            Err(e) => {
+                eprintln!("linux-doctor: update check failed: {e}");
+                if user_initiated {
+                    app.dialog()
+                        .message(format!("Could not check for updates: {e}"))
+                        .title("Update check failed")
+                        .kind(MessageDialogKind::Warning)
+                        .show(|_| {});
+                }
+            }
+        }
+    });
 }
 
 /// Tray icon with the desktop-app actions (app-needs research P1-3/P1-4):
@@ -585,11 +670,14 @@ fn build_tray(app: &tauri::App, root: &PathBuf, node: &PathBuf) -> Result<(), Bo
         .checked(app.autolaunch().is_enabled().unwrap_or(false))
         .build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    let update = MenuItemBuilder::with_id("update", "Check for updates").build(app)?;
     let menu = MenuBuilder::new(app)
         .item(&open)
         .item(&runnow)
         .separator()
         .item(&autostart)
+        .separator()
+        .item(&update)
         .separator()
         .item(&quit)
         .build()?;
@@ -658,6 +746,7 @@ fn build_tray(app: &tauri::App, root: &PathBuf, node: &PathBuf) -> Result<(), Bo
                 }
             }
             "quit" => app_handle.exit(0),
+            "update" => check_for_updates(app_handle, true),
             _ => {}
         }
     });
