@@ -242,3 +242,18 @@ Ce e bun: 5 views, master-detail la ≥1440px, 4 teme, taste 1–5, a11y pass, s
 | B5/B6 locale/fds moarte | locale rulează fără LC_ALL forțat; fds verifică presiunea per-proces vs `RLIMIT_NOFILE` | teste noi; live: ambele tac corect |
 
 **Efect:** toate rezultatele false/înșelătoare confirmate live (profil, booți, immutable, firewall) sunt corectate, iar lanțul „fals pozitiv → comandă distructivă" din `--fix` este tăiat. 577/577 teste verzi.
+
+## 14. Follow-up-uri rezolvate (2026-09-12, a doua rundă)
+
+| Zonă | Ce s-a făcut | Commit |
+|---|---|---|
+| Observabilitate | `--debug` / `LINUX_DOCTOR_DEBUG=1`: fiecare comandă + durata + status + tail stdout/stderr pe stderr (stdout rămâne curat) | `311ee03` |
+| Performanță/robustețe | `withDeadline()`: fiecare check e limitat la 45s wall-clock; la expirare → `checkErrors`, rularea continuă | `311ee03` |
+| Consistență | `--thresholds-set` iese acum 2 (ca orice eroare de input) | `311ee03` |
+| Compatibilitate | `getent` lipsă → `network/skipped` (nu „DNS failing" fals); `df` inutilizabil → `disk/skipped`/`inodes/skipped` explicite; `free` fără coloana `available` → fallback `/proc/meminfo`, altfel skip; `fstrim` nu mai numără zram/loop ca SSD | `58bf316` |
+| Bug real rămas | `oom` număra LINII, nu evenimente: un singur OOM (2 linii, același pid) = „2 kills" + high. Acum numără pid-uri distincte → 1 eveniment = medium | `661f45a` |
+| Teste | `tests/checks-untested.test.js`: oom, wifi, orphans, boot (înainte doar calea generică all-fail) | `661f45a` |
+| CI | un picior de matrice rebuild-uiește bundle-ul GUI și pică pe `git diff` — toate testele GUI citesc `index.html` comis, deci un edit fără rebuild trecea | `661f45a` |
+| UX | `isDesktop()` detectează și prin `tauri://localhost` (nu doar globalul injectat); erorile serviciului desktop sunt afișate, nu înghițite; mesajul „instalează Node" corectat; exportul static `--html` arată secțiunea Skipped | `71a292c` |
+
+**Rămase deliberat nemodificate** (impact redus / risc mare, documentate în §1–§12): refactor `cli.js`/dedup `scrub`, deduplicarea probelor (`glxinfo`×2, `journalctl -k`×4), teste de comportament pentru `packages`/`fs`/`cache`, suport ARM/musl pentru pachetele desktop, i18n, `check-dashboard.mjs` în CI. 595/595 teste verzi.
