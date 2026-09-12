@@ -1,5 +1,7 @@
 # Analiză completă Linux Doctor 0.5.0 — arhitectură, funcționalitate, bug-uri, compatibilitate
 
+> **Status: problemele grave au fost reparate** (commit-uri `3db847c`, `f71178e`, `0433b57`) — vezi §13 mai jos. Restul (arhitectură, performanță, compatibilitate, teste, UX) rămân recomandări deschise.
+
 > Data: 2026-09-12 · Metodă: 5 analize paralele (arhitectură/module, bug-uri/fețe incomplete, root/`--fix`, performanță/compatibilitate, teste/logging/UX) cu dovezi `file:line`, plus **verificare live personală** pe acest host (Bazzite 44, systemd, Wayland, 16 core). 572/572 teste trec la momentul analizei. Nu s-a modificat cod.
 > Complementar: [audit-0.5.0.md](audit-0.5.0.md), [audit-app-delta-2026.md](audit-app-delta-2026.md) (securitate).
 
@@ -224,3 +226,19 @@ Ce e bun: 5 views, master-detail la ≥1440px, 4 teme, taste 1–5, a11y pass, s
 | 15 | `__TAURI_INTERNALS__` contradicție + mesaj „no Node" greșit în app | UX, Mediu | S |
 
 > Nota de onestitate: multe dintre cele de mai sus sunt exact tipul de bug pe care **numai rularea pe hardware variat** îl scoate la iveală — de asta contează `--debug` (#13) și testarea pe distro-uri (CI-ul Fedora există, dar nu și Alpine/non-systemd).
+
+---
+
+## 13. Ce am reparat (2026-09-12)
+
+| Finding | Fix | Verificare |
+|---|---|---|
+| B3 `smart/failing` cod mort — disc care moare neraportat | health string citit înainte de ramura `!ok` | test nou (FAILED + exit 8) |
+| B1 profil desktop→server (`loginctl $2`) | probă `SESSION_PROBE` fără index de coloană, partajată cu wayland | live: `--self-test` → „Profile: desktop" |
+| B2 `crash` numără booți pe viață | parse `-o json` + filtrare fereastră 7 zile (fail-safe 0) | live: „15 reboots in 7 days" (era 62) |
+| B4 `immutable` greșit pe Bazzite (`overlay`) | `immutable` = composefs/ostree **sau** `imageBased` **sau** bootc | live: `immutable: true`, atomic consistent |
+| R4 „no firewall" fals fără root → putea declanșa ufw | `detectFirewall()` partajat: „necunoscut" când nft e needitibil fără root; cod nou `security/firewall-unknown` (fără fix) | teste noi security/ports |
+| R2 `--fix --yes` prea permisiv | autoremove pachete, prune containere, ștergere Trash, activare firewall → tier `[manual]` (nu se execută) | test actualizat (toate `manual`) |
+| B5/B6 locale/fds moarte | locale rulează fără LC_ALL forțat; fds verifică presiunea per-proces vs `RLIMIT_NOFILE` | teste noi; live: ambele tac corect |
+
+**Efect:** toate rezultatele false/înșelătoare confirmate live (profil, booți, immutable, firewall) sunt corectate, iar lanțul „fals pozitiv → comandă distructivă" din `--fix` este tăiat. 577/577 teste verzi.
