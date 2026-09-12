@@ -257,3 +257,19 @@ Ce e bun: 5 views, master-detail la ≥1440px, 4 teme, taste 1–5, a11y pass, s
 | UX | `isDesktop()` detectează și prin `tauri://localhost` (nu doar globalul injectat); erorile serviciului desktop sunt afișate, nu înghițite; mesajul „instalează Node" corectat; exportul static `--html` arată secțiunea Skipped | `71a292c` |
 
 **Rămase deliberat nemodificate** (impact redus / risc mare, documentate în §1–§12): refactor `cli.js`/dedup `scrub`, deduplicarea probelor (`glxinfo`×2, `journalctl -k`×4), teste de comportament pentru `packages`/`fs`/`cache`, suport ARM/musl pentru pachetele desktop, i18n, `check-dashboard.mjs` în CI. 595/595 teste verzi.
+
+## 15. A doua rundă de follow-up-uri
+
+| Zonă | Ce s-a făcut | Commit |
+|---|---|---|
+| Probe redundante | `packages` (Fedora): eliminat `rpm -Va` (dublu, rezultat nefolosit — muncă moartă, de obicei ucisă de timeout); `orphans` (apt): un singur `apt-get -s autoremove` dă și count și sample; `glxinfo` memoizat per rulare (era spawn-uit de gpu ȘI wayland); `hardware`: un singur `journalctl -k` cu ambele pattern-uri (era 2), grep shell mai portabil decât `journalctl -g` | `08fc95b` |
+| Teste | `checks-untested.test.js` extins: oom, wifi, orphans, packages, fs, cache (singurele chiar netestate; boot/hardware erau deja în `checks.test.js`) | `08fc95b` |
+| Drift scrub | `scrub-parity.test.js`: rulează **ambele** implementări (Node `support.js` + GUI `export.js`) pe aceleași fixture-uri — triplicarea nu mai poate divergea silențios | `08fc95b` |
+| ARM | `fetch-node-runtime.mjs` e conștient de arhitectură (hash-uri pin-uite x64 + arm64, selectate din `process.arch`); o arhitectură nesuportată eșuează explicit | `c15d0e0` |
+| Browser check | `check-dashboard.mjs` găsește Chromium-ul caché (nu mai hardcodează versiunea) și dă eroare clară fără browser; adăugat ca pas **pre-tag** în RELEASING.md (nu în CI-ul de PR, care n-are browser) | `c15d0e0` |
+
+### Deliberat NU (cu motiv)
+- **Refactor `cli.js` (god-object)**: risc mare de regresie pentru zero beneficiu vizibil userului; documentat, nu atins.
+- **Dedup `scrub()` prin cod partajat**: imposibil curat — bundle-ul GUI e un script clasic (fără `export`), iar Node are nevoie de ESM. Am pus în schimb un test de paritate comportamentală, care prinde exact hazardul.
+- **i18n**: funcție nouă mare (toate string-urile), nu o remediere; rămâne candidat de roadmap, nu de „fix".
+- **Job CI ARM + browser**: scriptul e acum arch-aware, dar adăugarea unui runner arm64 / a unui download de Chromium în fiecare PR aduce cost și fragilitate; pașii sunt documentați în RELEASING.md.
