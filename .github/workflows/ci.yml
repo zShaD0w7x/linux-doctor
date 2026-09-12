@@ -61,6 +61,14 @@ jobs:
       # missing from the published package, the CLI crashes on every run.
       - name: Packaging gate
         run: npm pack --dry-run 2>&1 | grep -q "src-gui/index.html"
+      # The dashboard bundle is committed and read by web.js/--html. All GUI
+      # tests read that artifact, so a src-gui edit without a rebuild would
+      # otherwise pass CI silently. One matrix leg is enough.
+      - name: Dashboard bundle is up to date
+        if: matrix.node == 22
+        run: |
+          npm run build:gui
+          git diff --exit-code -- src-gui/index.html
 
   # A second, closer-to-real system: Node on Fedora, running the same suite
   # (the CLI tests spawn the real binary against the container's /proc, free,
