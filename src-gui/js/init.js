@@ -125,7 +125,11 @@ async function load() {
     status.className = "status warn";
     status.innerHTML = "";
     status.textContent = "\u26a0\ufe0f Could not run checks: " + (err && err.message ? err.message : err);
-    report.innerHTML = '<div class="empty">Run failed \u2014 see the message above. Make sure Node.js \u2265 20 is installed and on PATH.</div>';
+    report.innerHTML = '<div class="empty">Run failed \u2014 see the message above. ' +
+      (isDesktop()
+        ? "The desktop app ships its own Node runtime, so a reinstall usually fixes a broken install."
+        : "Make sure the dashboard server is still running, then press Re-run checks.") +
+      "</div>";
   } finally {
     rerun.disabled = false;
     rerun.textContent = "↻ Re-run checks";

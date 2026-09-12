@@ -132,12 +132,16 @@ function renderDiff(data) {
 }
 
 async function renderSkipped() {
-  if (STATIC_DATA) return;
   const box = $("#skipped");
-  const checks = await fetchChecks();
   const byId = new Map();
-  for (const c of checks.filter((c) => !c.appliesHere)) {
-    byId.set(c.id, { id: c.id, title: c.title, reason: "Only runs on: " + c.appliesTo.join(", ") + "." });
+  // Profile-based skips need the live check list; atomic skips travel in the
+  // report payload itself, so a static --html export can still show them
+  // (it used to drop the whole section).
+  if (!STATIC_DATA) {
+    const checks = await fetchChecks();
+    for (const c of checks.filter((c) => !c.appliesHere)) {
+      byId.set(c.id, { id: c.id, title: c.title, reason: "Only runs on: " + c.appliesTo.join(", ") + "." });
+    }
   }
   const atomic = (typeof lastReportData !== "undefined" && lastReportData && lastReportData.skippedChecks) || [];
   for (const s of atomic) {

@@ -121,9 +121,9 @@ npm run gui:dev
 npm run gui:build
 ```
 
-The bundled app needs `node` on PATH to run the checks. Set
-`LINUX_DOCTOR_ROOT` to point at a Linux Doctor checkout if the bundled
-resources are unavailable.
+The bundled app ships its own Node.js runtime (nothing to install on PATH).
+Set `LINUX_DOCTOR_ROOT` to point at a Linux Doctor checkout if the bundled
+resources are unavailable, or `LINUX_DOCTOR_NODE` to override the interpreter.
 
 To put the app in your desktop menu, install the launcher (the deb/rpm
 bundles ship one automatically; this is for the AppImage or manual setups):
