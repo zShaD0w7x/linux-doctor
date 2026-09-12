@@ -936,7 +936,7 @@ test("bluetooth: controller present but daemon down is medium", async () => {
 
 test("wayland: no graphical session is informational", async () => {
   const ctx = stubCtx({
-    'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1': "",
+    'loginctl list-sessions --no-legend 2>/dev/null | grep -m1 -E "(^|[[:space:]])seat[0-9]+([[:space:]]|$)" | cut -d" " -f1': "",
   });
   const findings = await wayland.run(ctx);
   assert.equal(findings.length, 1);
@@ -946,7 +946,7 @@ test("wayland: no graphical session is informational", async () => {
 
 test("wayland: X11 session is informational", async () => {
   const ctx = stubCtx({
-    'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1': "2\n",
+    'loginctl list-sessions --no-legend 2>/dev/null | grep -m1 -E "(^|[[:space:]])seat[0-9]+([[:space:]]|$)" | cut -d" " -f1': "2\n",
     "loginctl show-session 2 -p Type -p Desktop 2>/dev/null": "Type=x11\nDesktop=KDE\n",
   });
   const findings = await wayland.run(ctx);
@@ -957,7 +957,7 @@ test("wayland: X11 session is informational", async () => {
 
 test("wayland: healthy Wayland session with running compositor is informational", async () => {
   const ctx = stubCtx({
-    'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1': "3\n",
+    'loginctl list-sessions --no-legend 2>/dev/null | grep -m1 -E "(^|[[:space:]])seat[0-9]+([[:space:]]|$)" | cut -d" " -f1': "3\n",
     "loginctl show-session 3 -p Type -p Desktop 2>/dev/null": "Type=wayland\nDesktop=gnome\n",
     "pgrep -a -f 'kwin_[w]ayland|gnome-[s]hell|[s]way|[h]yprland|[r]iver|[w]ayfire|[l]abwc|[n]iri|cosmic-[c]omp|[m]utter|[w]eston|[c]age' 2>/dev/null | head -1": "1234 gnome-shell\n",
   });
@@ -970,7 +970,7 @@ test("wayland: healthy Wayland session with running compositor is informational"
 
 test("wayland: Wayland session without a compositor is medium", async () => {
   const ctx = stubCtx({
-    'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1': "3\n",
+    'loginctl list-sessions --no-legend 2>/dev/null | grep -m1 -E "(^|[[:space:]])seat[0-9]+([[:space:]]|$)" | cut -d" " -f1': "3\n",
     "loginctl show-session 3 -p Type -p Desktop 2>/dev/null": "Type=wayland\nDesktop=gnome\n",
     "pgrep -a -f 'kwin_[w]ayland|gnome-[s]hell|[s]way|[h]yprland|[r]iver|[w]ayfire|[l]abwc|[n]iri|cosmic-[c]omp|[m]utter|[w]eston|[c]age' 2>/dev/null | head -1": "",
   });
@@ -982,7 +982,7 @@ test("wayland: Wayland session without a compositor is medium", async () => {
 
 test("wayland: software rendering in a Wayland session is medium", async () => {
   const ctx = stubCtx({
-    'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1': "3\n",
+    'loginctl list-sessions --no-legend 2>/dev/null | grep -m1 -E "(^|[[:space:]])seat[0-9]+([[:space:]]|$)" | cut -d" " -f1': "3\n",
     "loginctl show-session 3 -p Type -p Desktop 2>/dev/null": "Type=wayland\nDesktop=hyprland\n",
     "pgrep -a -f 'kwin_[w]ayland|gnome-[s]hell|[s]way|[h]yprland|[r]iver|[w]ayfire|[l]abwc|[n]iri|cosmic-[c]omp|[m]utter|[w]eston|[c]age' 2>/dev/null | head -1": "42 Hyprland\n",
     "glxinfo -B 2>/dev/null | grep -i 'renderer string'": "OpenGL renderer string: llvmpipe (LLVM 17.0.6, 256 bits)\n",
@@ -1618,7 +1618,7 @@ test("crash: many reboots in a week is flagged", async () => {
   const ctx = stubCtx({});
   ctx.run = async (cmd) => {
     if (cmd.includes("--list-boots")) {
-      const lines = Array.from({length: 25}, (_, i) => `  -${i}  ...`).join("\n");
+      const lines = JSON.stringify(Array.from({ length: 25 }, (_, i) => ({ index: -i, boot_id: "b" + i, first_entry: (Date.now() - i * 60000) * 1000, last_entry: (Date.now() - i * 60000) * 1000 })));
       return { ok: true, code: 0, stdout: lines + "\n", stderr: "" };
     }
     if (cmd.includes("coredumpctl")) return { ok: false, code: 1, stdout: "", stderr: "" };
@@ -1634,7 +1634,7 @@ test("crash: many reboots explained by an auto-update mechanism are not alarming
   const ctx = stubCtx({});
   ctx.run = async (cmd) => {
     if (cmd.includes("--list-boots")) {
-      const l = Array.from({ length: 25 }, (_, i) => `  -${i}  ...`).join("\n");
+      const l = JSON.stringify(Array.from({ length: 25 }, (_, i) => ({ index: -i, boot_id: "b" + i, first_entry: (Date.now() - i * 60000) * 1000, last_entry: (Date.now() - i * 60000) * 1000 })));
       return { ok: true, code: 0, stdout: l + "\n", stderr: "" };
     }
     if (cmd.includes("journalctl -k")) return { ok: true, code: 0, stdout: "", stderr: "" };
@@ -1654,7 +1654,7 @@ test("crash: a real kernel panic is high even when an auto-update mechanism exis
   const ctx = stubCtx({});
   ctx.run = async (cmd) => {
     if (cmd.includes("--list-boots")) {
-      const l = Array.from({ length: 25 }, (_, i) => `  -${i}  ...`).join("\n");
+      const l = JSON.stringify(Array.from({ length: 25 }, (_, i) => ({ index: -i, boot_id: "b" + i, first_entry: (Date.now() - i * 60000) * 1000, last_entry: (Date.now() - i * 60000) * 1000 })));
       return { ok: true, code: 0, stdout: l + "\n", stderr: "" };
     }
     if (cmd.includes("journalctl -k")) return { ok: true, code: 0, stdout: "Aug 19 10:00:00 host kernel: Kernel panic - not syncing: Fatal exception\n", stderr: "" };
@@ -1733,4 +1733,38 @@ test("stable codes: every built-in findings.push block declares a code", () => {
       }
     }
   }
+});
+
+// Real smartctl exits non-zero when the drive is FAILING (status bit 3), so
+// the health string must be read before the !ok branch — otherwise a dying
+// disk is silently skipped.
+test("smart: FAILED health with a non-zero smartctl exit is still reported", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd === "smartctl --scan 2>/dev/null") return { ok: true, code: 0, stdout: "/dev/sda -d scsi # /dev/sda\n", stderr: "" };
+    if (cmd.includes("smartctl -H -c")) return { ok: false, code: 8, stdout: "SMART overall-health self-assessment test result: FAILED!\n", stderr: "" };
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await smart.run(ctx);
+  const failing = findings.find((f) => f.code === "smart/failing");
+  assert.ok(failing, "a failing disk must be reported even when smartctl exits non-zero");
+  assert.equal(failing.severity, "high");
+});
+
+test("crash: many boots outside the window are not flagged", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) {
+      const old = Array.from({ length: 25 }, (_, i) => ({
+        index: -i,
+        boot_id: "b" + i,
+        first_entry: (Date.now() - (30 + i) * 86400000) * 1000,
+        last_entry: (Date.now() - (30 + i) * 86400000) * 1000,
+      }));
+      return { ok: true, code: 0, stdout: JSON.stringify(old), stderr: "" };
+    }
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  assert.ok(!findings.some((f) => /reboot/i.test(f.title)), "lifetime boot count must not be reported as recent reboots");
 });

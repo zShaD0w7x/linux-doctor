@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectProfile } from "../src/profile.js";
+import { execFileSync } from "node:child_process";
+import { detectProfile, SESSION_PROBE } from "../src/profile.js";
 
 /** Stub exec: command string → { ok, stdout }. Unknown commands fail. */
 function execStub(map) {
@@ -13,7 +14,7 @@ function execStub(map) {
   };
 }
 
-const SESSION = "loginctl list-sessions --no-legend 2>/dev/null | awk '$2==\"seat0\"{print $1}' | head -1";
+const SESSION = SESSION_PROBE;
 
 test("detectProfile: a real battery makes it a laptop", async () => {
   const p = await detectProfile(execStub({
@@ -55,4 +56,22 @@ test("detectProfile: wireless-device batteries do not count as laptop", async ()
     [SESSION]: "2\n",
   }));
   assert.equal(p.kind, "desktop", "a Logitech receiver battery must not mark a desktop as laptop");
+});
+
+// The bug was the awk field index ($2 is UID, not SEAT) and it was invisible
+// because the tests stubbed the whole command. This runs the REAL probe
+// pipeline against fixtures with shifted columns.
+test("SESSION_PROBE: finds the seat-backed session regardless of column position", () => {
+  const fixture = ["1 1000 u - 1766 manager - no -", "3 1000 u seat0 2416 user tty2 no -"];
+  const cmd = SESSION_PROBE.replace(
+    "loginctl list-sessions --no-legend 2>/dev/null",
+    `printf '%s\\n' ${fixture.map((l) => `'${l}'`).join(" ")}`
+  );
+  assert.equal(execFileSync("sh", ["-c", cmd]).toString().trim(), "3");
+
+  const headless = SESSION_PROBE.replace(
+    "loginctl list-sessions --no-legend 2>/dev/null",
+    "printf '%s\\n' '1 1000 u - 1766 manager - no -'"
+  );
+  assert.equal(execFileSync("sh", ["-c", headless]).toString().trim(), "");
 });

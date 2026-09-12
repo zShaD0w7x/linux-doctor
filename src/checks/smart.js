@@ -41,12 +41,10 @@ export const smart = defineCheck({
     let blocked = false;
     for (const dev of devices.slice(0, 4)) {
       const res = await ctx.run(`smartctl -H -c ${shq(dev)} 2>/dev/null`, { timeoutMs: TIMEOUT_MS.SMART });
-      if (!res.ok) {
-        // Permission denied (SMART reads usually need root) — say so once.
-        if (/permission/i.test(res.stderr || "")) blocked = true;
-        continue; // unsupported device — skip silently
-      }
-      const text = res.stdout;
+      const text = res.stdout || "";
+      // smartctl exits non-zero when the device is FAILING (exit status bit 3),
+      // not only on errors — so the health string must be inspected BEFORE the
+      // !ok branch, or a failing disk is silently skipped.
       if (/FAILING_NOW|FAILED/.test(text)) {
         findings.push(finding({
           severity: "high",
@@ -58,7 +56,14 @@ export const smart = defineCheck({
           fix: `Back up everything on this disk immediately, then test it with \`sudo smartctl -t long ${dev}\`. Replace the drive if the test fails.`,
           confidence: "high",
         }));
-      } else if (/PASSED|OK/.test(text)) {
+        continue;
+      }
+      if (!res.ok) {
+        // Permission denied (SMART reads usually need root) — say so once.
+        if (/permission/i.test(res.stderr || "")) blocked = true;
+        continue; // unsupported device — skip silently
+      }
+      if (/PASSED|OK/.test(text)) {
         checked += 1;
       }
     }

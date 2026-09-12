@@ -17,6 +17,16 @@ import { run, shq } from "./utils.js";
  */
 let cachedProfile = null;
 
+/**
+ * Shell probe for the session id of a seat-backed (graphical) session.
+ * Exported so wayland.js reuses it and so tests can run the real parsing
+ * against fixtures. Never index a fixed column: `loginctl list-sessions`
+ * has gained columns across systemd versions, and `$2=="seat0"` used to
+ * read the UID — classifying every battery-less desktop as a headless
+ * server and skipping all desktop checks.
+ */
+export const SESSION_PROBE = 'loginctl list-sessions --no-legend 2>/dev/null | grep -m1 -E "(^|[[:space:]])seat[0-9]+([[:space:]]|$)" | cut -d" " -f1';
+
 /** Drop the memoized profile — mainly for tests that inject a real exec. */
 export function resetProfileCache() {
   cachedProfile = null;
@@ -39,7 +49,8 @@ async function computeProfile(exec) {
   );
   const hasBattery = types.some(({ type }) => type.ok && type.stdout.trim() === "Battery");
 
-  const session = await exec("loginctl list-sessions --no-legend 2>/dev/null | awk '$2==\"seat0\"{print $1}' | head -1");
+  // Find a session whose SEAT is a seatN token (see SESSION_PROBE).
+  const session = await exec(SESSION_PROBE);
   const hasSession = session.ok && session.stdout.trim() !== "";
 
   let kind = "desktop";

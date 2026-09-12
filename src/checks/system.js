@@ -39,19 +39,23 @@ async function computeSystemInfo() {
   const hours = Math.floor(uptimeSec / 3600);
   const minutes = Math.floor((uptimeSec % 3600) / 60);
 
-  // Immutable (ostree/composefs) distros report the root as a virtual layer.
-  const rootFs = await run(`findmnt -no FSTYPE -T / 2>/dev/null`);
-  const immutable = /composefs|ostree/i.test(rootFs.stdout || "");
-
   // Normalized distro profile (family, package manager, image-based) so
   // checks and JSON consumers have one place to learn what system this is.
   const dist = detectDistro(osRelease);
+
+  // Immutable/atomic detection. composefs/ostree report a virtual root, but
+  // composefs-on-overlay (Bazzite, Silverblue) reports "overlay" — so the
+  // os-release-derived imageBased flag is an equal signal. The two used to
+  // disagree, which suppressed the report note and the atomic skips.
+  const rootFs = await run(`findmnt -no FSTYPE -T / 2>/dev/null`);
 
   // bootc is the newer atomic engine (CentOS/Fedora bootc, RHEL bootc). It
   // presents like ostree: a virtual root and image-based updates. Detect it
   // cheaply via the runtime state dir or the bootc binary.
   const bootcRes = await run("test -d /run/bootc 2>/dev/null || command -v bootc >/dev/null 2>&1 && echo 1");
   const bootc = bootcRes.ok && /1/.test(bootcRes.stdout);
+
+  const immutable = /composefs|ostree/i.test(rootFs.stdout || "") || dist.imageBased || bootc;
 
   // One structured view of "is this an atomic system and what kind", so
   // checks and the report can adapt once instead of each re-deriving it.

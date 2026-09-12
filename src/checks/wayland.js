@@ -1,4 +1,5 @@
 import { lines, shq } from "../utils.js";
+import { SESSION_PROBE } from "../profile.js";
 import { detectSoftwareRenderer } from "./shared.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
@@ -17,9 +18,8 @@ export const wayland = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    const sid = await ctx.run(
-      'loginctl list-sessions --no-legend 2>/dev/null | awk \'$2=="seat0"{print $1}\' | head -1'
-    );
+    // Session whose SEAT is a seatN token (shared probe — never a fixed column).
+    const sid = await ctx.run(SESSION_PROBE);
     if (sid.missing) {
       findings.push(finding({
         severity: "info",

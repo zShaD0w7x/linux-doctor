@@ -22,9 +22,10 @@ export const crash = defineCheck({
     const findings = [];
 
     // --- Unexpected reboots: many boots in a short window ---
-    const boots = await ctx.run(
-      'journalctl --list-boots --since "7 days ago" --no-pager 2>/dev/null | grep -v "^$"'
-    );
+    // `journalctl --list-boots --since` is IGNORED by journalctl (--since does
+    // not apply to --list-boots), so the JSON form is used and filtered here:
+    // each entry carries first_entry/last_entry as µs since the epoch.
+    const boots = await ctx.run('journalctl --list-boots -o json --no-pager 2>/dev/null');
 
     if (boots.missing) {
       findings.push(finding({
@@ -40,7 +41,19 @@ export const crash = defineCheck({
     }
 
     if (boots.ok) {
-      const bootCount = lines(boots.stdout).filter((l) => /^\s*-?\d+\s/.test(l)).length;
+      // Boots that overlapped the last 7 days. Fail-safe: if the JSON cannot
+      // be parsed, count 0 rather than falling back to the lifetime table
+      // (which produced a scary, wrong "N reboots in the last 7 days").
+      const cutoffUs = (Date.now() - 7 * 24 * 60 * 60 * 1000) * 1000;
+      let bootCount = 0;
+      try {
+        const entries = JSON.parse(boots.stdout);
+        if (Array.isArray(entries)) {
+          bootCount = entries.filter((b) => Number.isFinite(b?.last_entry) && b.last_entry >= cutoffUs).length;
+        }
+      } catch {
+        bootCount = 0;
+      }
 
       // 7–14 boots/week is normal (reboots for updates, kernel switches);
       // >14 is worth explaining. Only then do we pay for the extra commands.
