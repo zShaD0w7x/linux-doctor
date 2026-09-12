@@ -185,3 +185,18 @@ test("backup/stale: unreadable trigger state never cries stale", async () => {
   const findings = await backup.run(ctx);
   assert.ok(findings.some((f) => f.code === "backup/ok"));
 });
+
+test("fds: per-process pressure is caught when file-max is effectively unlimited", async () => {
+  const ctx = stubCtx({
+    "cat /proc/sys/fs/file-nr 2>/dev/null": "11671 0 9223372036854775807\n",
+    'for p in /proc/[0-9]*; do n=$(ls "$p/fd" 2>/dev/null | wc -l); [ "$n" -gt 0 ] && echo "$n ${p##*/}"; done | sort -rn | head -3': "950 4242\n10 1\n",
+    "head -40 /proc/4242/limits 2>/dev/null": "Limit                     Soft Limit           Hard Limit           Units\nMax open files            1024                 1048576              files\n",
+    "cat /proc/4242/comm 2>/dev/null": "postgres\n",
+  });
+  const findings = await fds.run(ctx);
+  assert.equal(findings.length, 1, "expected one finding");
+  assert.equal(findings[0].code, "fds/exhausted");
+  assert.equal(findings[0].severity, "high");
+  assert.match(findings[0].title, /postgres/);
+  assert.match(findings[0].evidence, /950\/1024/);
+});

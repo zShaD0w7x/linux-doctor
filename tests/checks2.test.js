@@ -148,7 +148,7 @@ test("zram: no zram and sane swappiness is silent", async () => {
 
 test("locales: broken locale is medium", async () => {
   const ctx = stubCtx({
-    "locale 2>&1": "locale: Cannot set LC_CTYPE to default locale: No such file or directory\nLANG=en_US.UTF-8\nLC_ALL=\n",
+    "env -u LC_ALL locale 2>&1": "locale: Cannot set LC_CTYPE to default locale: No such file or directory\nLANG=en_US.UTF-8\nLC_ALL=\n",
   });
   const findings = await locales.run(ctx);
   assert.equal(findings.length, 1);
@@ -158,7 +158,7 @@ test("locales: broken locale is medium", async () => {
 
 test("locales: healthy locale is silent", async () => {
   const ctx = stubCtx({
-    "locale 2>&1": "LANG=en_US.UTF-8\nLC_CTYPE=\"en_US.UTF-8\"\nLC_ALL=\n",
+    "env -u LC_ALL locale 2>&1": "LANG=en_US.UTF-8\nLC_CTYPE=\"en_US.UTF-8\"\nLC_ALL=\n",
   });
   assert.deepEqual(await locales.run(ctx), []);
 });

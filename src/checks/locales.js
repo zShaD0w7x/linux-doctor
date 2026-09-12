@@ -15,7 +15,10 @@ export const locales = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    const res = await ctx.run("locale 2>&1");
+    // run() pins LC_ALL=C for deterministic parsing — which would mask the
+    // exact error this check looks for. Unset it for this one command so the
+    // user's real LANG/LC_* are evaluated.
+    const res = await ctx.run("env -u LC_ALL locale 2>&1");
     const output = `${res.stdout}\n${res.stderr}`;
     if (!/failed to set locale|cannot set LC_/i.test(output)) return findings;
 
