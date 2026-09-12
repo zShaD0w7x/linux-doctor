@@ -40,7 +40,9 @@ test("every action across the workflows is pinned to a 40-char commit SHA", () =
 
 test("the Node runtime fetch verifies a hardcoded hash (not a same-origin one)", () => {
   const src = read("scripts/fetch-node-runtime.mjs");
-  assert.match(src, /const NODE_SHA256 = "[0-9a-f]{64}"/, "hardcoded sha256 required");
+  assert.match(src, /const NODE_HASHES = \{/, "pinned per-architecture hashes required");
+  const hashes = src.match(/"[0-9a-f]{64}"/g) || [];
+  assert.ok(hashes.length >= 2, "x64 and arm64 tarball hashes must both be pinned");
   assert.doesNotMatch(src, /fetch\([^)]*SHASUMS256/, "checksum must not be fetched at run time");
   assert.match(src, /AbortSignal\.timeout/, "download needs a timeout");
   assert.match(src, /mkdtempSync/, "predictable /tmp paths are not allowed");
