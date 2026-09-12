@@ -2,6 +2,7 @@ import { lines } from "../utils.js";
 
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { detectFirewall } from "./shared.js";
 
 export const security = defineCheck({
   id: "security",
@@ -10,22 +11,30 @@ export const security = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    const [firewalld, ufw, nft] = await Promise.all([ctx.run("systemctl is-active firewalld 2>/dev/null"), ctx.run("systemctl is-active ufw 2>/dev/null"), ctx.run("nft list ruleset 2>/dev/null | head -5"),
-    ]);
-    const firewallActive =
-      firewalld.stdout.trim() === "active" ||
-      ufw.stdout.trim() === "active" ||
-      (nft.ok && nft.stdout.trim().length > 0);
+    const fw = await detectFirewall(ctx);
 
-    if (firewallActive) {
+    if (fw.active) {
       findings.push(finding({
         severity: "info",
         code: "security/firewall",
         title: "Firewall is active",
         detail: "A firewall is running, which is the recommended baseline for a desktop system.",
-        evidence: firewalld.stdout.trim() || ufw.stdout.trim() || "nftables rules present",
+        evidence: fw.evidence,
         fix: null,
         confidence: "high",
+      }));
+    } else if (!fw.determined) {
+      // We could not read the ruleset (no root) and no firewall service is
+      // active — say so instead of claiming there is no firewall. No fix
+      // either: this must never drive an enable-firewall command.
+      findings.push(finding({
+        severity: "info",
+        code: "security/firewall-unknown",
+        title: "Firewall status could not be determined",
+        detail: "`nft list ruleset` needs root to read the active ruleset and no firewalld/ufw/nftables service is active, so the firewall state is unknown. Re-run with `sudo linux-doctor` for a definitive answer.",
+        evidence: fw.evidence,
+        fix: null,
+        confidence: "medium",
       }));
     } else {
       // Absence of optional hardening, not a detected fault: most distros ship
@@ -35,8 +44,8 @@ export const security = defineCheck({
         severity: "info",
         code: "security/no-firewall",
         title: "No active firewall detected",
-        detail: "We could not detect an active firewall (firewalld, ufw, or nftables). On many distros the firewall is off by default, which is fine on a trusted home network but risky on public Wi-Fi.",
-        evidence: "firewalld/ufw inactive, no nftables rules",
+        detail: "No active firewall was detected (firewalld, ufw, or nftables). On many distros the firewall is off by default, which is fine on a trusted home network but risky on public Wi-Fi.",
+        evidence: fw.evidence,
         fix: "Enable one: `sudo systemctl enable --now firewalld` (Fedora-family) or `sudo ufw enable` (Debian-family).",
         confidence: "medium",
       }));

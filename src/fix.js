@@ -101,8 +101,8 @@ const CATALOG = {
   "journald/large": () => [{ cmd: "sudo journalctl --vacuum-size=200M", tier: "apply" }],
 
   /** Container image storage bloated: prune unused images (safe, only dangling/unused). */
-  "containerdisk/high": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "apply" }],
-  "containerdisk/warn": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "apply" }],
+  "containerdisk/high": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "manual" }],
+  "containerdisk/warn": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "manual" }],
 
   /**
    * No firewall: enable firewalld (Fedora/RHEL) or ufw (Debian) based on
@@ -113,13 +113,16 @@ const CATALOG = {
    * the timeout). Existing established sessions survive via conntrack.
    */
   "security/no-firewall": (_f, { family } = {}) => {
+    // Manual on purpose: enabling a firewall can cut the SSH session that is
+    // running --fix if the allow-rule does not match the real SSH setup.
     if (family === "debian") {
       return [
-        { cmd: "sudo ufw allow OpenSSH", tier: "apply" },
-        { cmd: "sudo ufw --force enable", tier: "apply" },
+        { cmd: "sudo ufw allow OpenSSH", tier: "manual" },
+        { cmd: "sudo ufw --force enable", tier: "manual" },
       ];
     }
-    return [{ cmd: "sudo systemctl enable --now firewalld", tier: "apply" }];
+    if (family === "arch") return [{ cmd: "sudo pacman -S --needed ufw && sudo ufw allow OpenSSH && sudo ufw --force enable", tier: "manual" }];
+    return [{ cmd: "sudo systemctl enable --now firewalld", tier: "manual" }];
   },
 
   /** Pending firmware: fwupd refresh. */
@@ -191,17 +194,18 @@ const CATALOG = {
   /** Inodes nearly full: same cleanup as disk, plus hunt for tiny-file spam. */
   "inodes/full": () => [{ cmd: "sudo journalctl --vacuum-size=500M; echo 'Hunt tiny files: sudo find / -xdev -type f | cut -d/ -f3 | sort | uniq -c | sort -rn | head -20'", tier: "manual" }],
 
-  /** Orphaned packages: family-aware autoremove */
+  /** Orphaned packages: family-aware autoremove. Manual — this removes
+   *  packages, and a false positive must never be auto-executed. */
   "orphans/many": (_f, { family } = {}) => {
-    if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "apply" }];
-    if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "apply" }];
+    if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "manual" }];
+    if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "manual" }];
     if (family === "suse") return [{ cmd: "sudo zypper packages --unneeded | grep '^i' && sudo zypper remove --clean-deps $(zypper packages --unneeded | awk '/^i/ {print $5}')", tier: "manual" }];
-    return [{ cmd: "sudo dnf autoremove", tier: "apply" }];
+    return [{ cmd: "sudo dnf autoremove", tier: "manual" }];
   },
   "orphans/some": (_f, { family } = {}) => {
-    if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "apply" }];
-    if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "apply" }];
-    return [{ cmd: "sudo dnf autoremove", tier: "apply" }];
+    if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "manual" }];
+    if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "manual" }];
+    return [{ cmd: "sudo dnf autoremove", tier: "manual" }];
   },
 
   /** Unused Flatpak runtimes */
@@ -213,7 +217,7 @@ const CATALOG = {
 
   /** Cache and trash bloat */
   "cache/large": () => [{ cmd: "du -sh ~/.cache/* 2>/dev/null | sort -rh | head -20; echo '---'; rm -rf ~/.cache/thumbnails/* 2>/dev/null; echo 'Cleared thumbnails'", tier: "manual" }],
-  "cache/trash": () => [{ cmd: "gio trash --empty 2>/dev/null || rm -rf ~/.local/share/Trash/*", tier: "apply" }],
+  "cache/trash": () => [{ cmd: "gio trash --empty 2>/dev/null || rm -rf ~/.local/share/Trash/*", tier: "manual" }],
 
   /** WiFi blocked/disabled */
   "wifi/blocked": () => [{ cmd: "rfkill unblock wifi && nmcli radio wifi on", tier: "apply" }],

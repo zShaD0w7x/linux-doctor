@@ -1,6 +1,7 @@
 import { lines } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { detectFirewall } from "./shared.js";
 
 /**
  * Risky services listening on non-loopback interfaces. A database that
@@ -67,17 +68,9 @@ export const ports = defineCheck({
       return findings;
     }
 
-    const [firewalld, ufw, nft] = await Promise.all([
-      ctx.run("systemctl is-active firewalld 2>/dev/null"),
-      ctx.run("systemctl is-active ufw 2>/dev/null"),
-      ctx.run("nft list ruleset 2>/dev/null | head -5"),
-    ]);
-    const firewallActive =
-      firewalld.stdout.trim() === "active" ||
-      ufw.stdout.trim() === "active" ||
-      (nft.ok && nft.stdout.trim().length > 0);
+    const fw = await detectFirewall(ctx);
 
-    if (firewallActive) {
+    if (fw.active) {
       findings.push(finding({
         severity: "info",
         code: "ports/ok",
@@ -85,6 +78,21 @@ export const ports = defineCheck({
         detail: `These services listen on non-loopback interfaces but a firewall is active, so exposure is controlled: ${exposed.map((e) => `${e.svc} :${e.port}`).join(", ")}. Verify the firewall rules actually restrict them if this machine faces the internet.`,
         evidence: exposed.map((e) => `${e.svc}\t:${e.port}\t${e.addr}`).join("\n"),
         fix: null,
+        confidence: "medium",
+      }));
+      return findings;
+    }
+
+    if (!fw.determined) {
+      // Exposure is real, but the firewall cannot be read without root — do
+      // not claim "no firewall" (that false negative also drove the ufw fix).
+      findings.push(finding({
+        severity: "medium",
+        code: "ports/exposed-risky",
+        title: `${exposed.length} risky service${exposed.length > 1 ? "s" : ""} exposed — firewall status unknown`,
+        detail: `These services accept connections from outside this machine: ${exposed.map((e) => `${e.svc} on :${e.port} (${e.addr})`).join(", ")}. The firewall state could not be read without root, so exposure may or may not be restricted. Re-run with \`sudo linux-doctor\` to confirm.`,
+        evidence: exposed.map((e) => `${e.svc}\t:${e.port}\t${e.addr}`).join("\n"),
+        fix: "Bind each service to 127.0.0.1 in its own config, or re-run with `sudo linux-doctor` to verify the firewall rules.",
         confidence: "medium",
       }));
       return findings;

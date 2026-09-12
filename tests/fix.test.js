@@ -65,13 +65,13 @@ test("planFixes: network/no-route is manual — cycling the link can cut the ver
   assert.match(plan[0].commands[0].cmd, /nmcli networking off/);
 });
 
-test("planFixes: debian firewall permits SSH before enabling ufw, using --force", () => {
+test("planFixes: debian firewall is manual — enabling ufw can cut the running SSH session", () => {
   const plan = planFixes([{ id: 1, code: "security/no-firewall", severity: "info", title: "t" }], { system: { family: "debian" } });
   assert.deepEqual(
     plan[0].commands.map((c) => c.cmd),
     ["sudo ufw allow OpenSSH", "sudo ufw --force enable"]
   );
-  assert.ok(plan[0].commands.every((c) => c.tier === "apply"));
+  assert.ok(plan[0].commands.every((c) => c.tier === "manual"), "enabling a firewall must never be auto-executed");
 });
 
 test("planFixes: non-debian firewall enables firewalld", () => {

@@ -580,6 +580,24 @@ test("security: AppArmor is reported on Debian-family systems", async () => {
   assert.match(aa.evidence, /docker-default/);
 });
 
+test("security: unreadable nftables without root is 'unknown', not 'no firewall'", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "inactive\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "systemctl is-active nftables 2>/dev/null": "inactive\n",
+    // nft list ruleset intentionally unstubbed: fails (permission) without root.
+    "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  const unknown = findings.find((f) => f.code === "security/firewall-unknown");
+  assert.ok(unknown, "expected a firewall-unknown finding");
+  assert.equal(unknown.severity, "info");
+  assert.equal(unknown.fix, null, "unknown must never carry a fix that could enable a firewall");
+  assert.ok(!findings.some((f) => f.code === "security/no-firewall"), "must not claim there is no firewall");
+});
+
 test("processes: a single app over 20% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // ps -o rss reports KiB: 4000000 KiB ≈ 3.8 GB of 15 GB (~25%).

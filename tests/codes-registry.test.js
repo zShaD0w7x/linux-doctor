@@ -43,6 +43,7 @@ export const REGISTRY = {
   "security/auto-update": { sev: ["info"], cat: "security" },
   "security/firewall": { sev: ["info"], cat: "security" },
   "security/no-firewall": { sev: ["info"], cat: "security" }, // documented exception, docs/severity.md
+  "security/firewall-unknown": { sev: ["info"], cat: "security" },
   "security/selinux": { sev: ["info"], cat: "security" },
   // backup
   "backup/none": { sev: ["info"], cat: "backup" },
