@@ -60,7 +60,19 @@ export const disk = defineCheck({
     const findings = [];
     const t = ctx.thresholds;
     const res = await ctx.run("df -P -B1 --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2");
-    if (!res.ok) return findings;
+    if (!res.ok) {
+      // BusyBox/minimal `df` rejects the GNU flags: say the check was skipped
+      // instead of silently reporting nothing (a silent core check is worse).
+      return [finding({
+        severity: "info",
+        code: "disk/skipped",
+        title: "Disk space check skipped",
+        detail: "`df` is not available or does not support the required flags on this system (BusyBox/minimal images), so disk usage could not be checked.",
+        evidence: (res.stderr || "df: unusable output").trim().slice(0, 200),
+        fix: null,
+        confidence: "medium",
+      })];
+    }
 
     for (const l of lines(res.stdout).slice(1)) {
       const p = l.split(/\s+/);

@@ -95,6 +95,7 @@ export const REGISTRY = {
   "cache/trash": { sev: ["info", "medium"], cat: "system" },
   // disk / fs / inodes
   "disk/full": { sev: ["high", "medium"], cat: "storage" },
+  "disk/skipped": { sev: ["info"], cat: "storage" },
   "raid/degraded": { sev: ["high"], cat: "storage" },
   "raid/rebuilding": { sev: ["medium"], cat: "storage" },
   "raid/ok": { sev: ["info"], cat: "storage" },
@@ -103,6 +104,7 @@ export const REGISTRY = {
   "fs/ok": { sev: ["info"], cat: "storage" },
   "fs/readonly-remount": { sev: ["high"], cat: "storage" },
   "inodes/full": { sev: ["high", "medium"], cat: "storage" },
+  "inodes/skipped": { sev: ["info"], cat: "storage" },
   // firmware / flatpak / fstrim
   "firmware/none": { sev: ["info"], cat: "system" },
   "firmware/not-checked": { sev: ["info"], cat: "system" },

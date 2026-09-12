@@ -219,3 +219,9 @@ test("fstrim: SSD with no TRIM mechanism is medium with an enable fix", async ()
   assert.equal(findings[0].severity, "medium");
   assert.match(findings[0].fix, /systemctl enable --now fstrim\.timer/);
 });
+
+test("fstrim: zram/loop ROTA=0 devices are not treated as SSDs", async () => {
+  const ctx = stubCtx({ "lsblk -dno NAME,ROTA 2>/dev/null": "zram0 0\nloop0 0\n" });
+  const findings = await fstrim.run(ctx);
+  assert.equal(findings.length, 0, "no trimmable storage means TRIM is not applicable");
+});

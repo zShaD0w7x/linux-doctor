@@ -2,14 +2,14 @@
 
 Every finding `code` is stable — use it for `--ignore-code`, history diffing, and scripting. Generated from `src/checks/index.js` + `tests/codes-registry.test.js`; do not edit by hand.
 
-Total: **49 checks** → **161 codes**.
+Total: **49 checks** → **164 codes**.
 
 | Check | Category | Codes | Severity |
 |---|---|---|---|
 | `memory` — Memory pressure | system | `memory/low` (medium/high)<br>`memory/skipped` (info)<br>`memory/swap` (info) | desktop/laptop/server |
 | `load` — CPU load | system | `load/busy` (info)<br>`load/overloaded` (medium/high) | desktop/laptop/server |
-| `disk` — Disk space | system | `disk/full` (high/medium) | desktop/laptop/server |
-| `inodes` — Inode usage | system | `inodes/full` (high/medium) | desktop/laptop/server |
+| `disk` — Disk space | system | `disk/full` (high/medium)<br>`disk/skipped` (info) | desktop/laptop/server |
+| `inodes` — Inode usage | system | `inodes/full` (high/medium)<br>`inodes/skipped` (info) | desktop/laptop/server |
 | `fs` — Filesystem errors | system | `fs/btrfs-errors` (high)<br>`fs/io-errors` (high)<br>`fs/ok` (info)<br>`fs/readonly-remount` (high) | desktop/laptop/server |
 | `raid` — RAID array health | storage | `raid/degraded` (high)<br>`raid/rebuilding` (medium)<br>`raid/ok` (info) | server |
 | `oom` — Out-of-memory kills | system | `oom/kills` (medium/high)<br>`oom/ok` (info) | desktop/laptop/server |
@@ -26,7 +26,7 @@ Total: **49 checks** → **161 codes**.
 | `containers` — Container runtimes | software | `containers/docker-stopped` (medium)<br>`containers/none` (info)<br>`containers/ok` (info)<br>`containers/oom` (high)<br>`containers/dead` (medium)<br>`containers/restarting` (medium)<br>`containers/podman-failed` (medium) | desktop/laptop/server |
 | `containerdisk` — Container storage | system | `containerdisk/high` (high)<br>`containerdisk/ok` (info)<br>`containerdisk/skipped` (info)<br>`containerdisk/warn` (medium) | desktop/laptop/server |
 | `crash` — Crash and reboot history | system | `crash/coredumps` (high/medium)<br>`crash/panic` (high)<br>`crash/reboots` (info/medium/high)<br>`crash/skipped` (info) | desktop/laptop/server |
-| `security` — Basic security posture | security | `security/autologin` (medium)<br>`security/apparmor` (info)<br>`security/auto-update` (info)<br>`security/firewall` (info)<br>`security/no-firewall` (info)<br>`security/selinux` (info) | desktop/laptop/server |
+| `security` — Basic security posture | security | `security/autologin` (medium)<br>`security/apparmor` (info)<br>`security/auto-update` (info)<br>`security/firewall` (info)<br>`security/no-firewall` (info)<br>`security/firewall-unknown` (info)<br>`security/selinux` (info) | desktop/laptop/server |
 | `secureboot` — Secure Boot and TPM | security | `secureboot/bios` (info)<br>`secureboot/disabled` (info)<br>`secureboot/enabled` (info)<br>`secureboot/no-tpm` (info)<br>`secureboot/tpm` (info) | desktop/laptop/server |
 | `luks` — Disk encryption (LUKS) | security | `luks/encrypted` (info)<br>`luks/none` (info) | desktop/laptop/server |
 | `ssh` — SSH server configuration | security | `ssh/ok` (info)<br>`ssh/root-login` (medium)<br>`ssh/root-password` (high) | desktop/laptop/server |

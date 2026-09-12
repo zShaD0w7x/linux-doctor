@@ -133,7 +133,7 @@ test("disk: AppImage runtime mounts (always 100% by design) are NOT reported as 
 
 test("inodes: AppImage runtime mounts are NOT reported as inode-exhausted", async () => {
   const ctx = stubCtx({
-    "df -iP --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2 2>/dev/null": `Filesystem     Inodes IUsed IFree IUse% Mounted on\nLinux.Doctor_0.3.5_amd64.AppImage     100 100 0 100% /tmp/.mount_Linux.icbcpE\n/dev/sda3     1000000 100000 900000   10% /var/home`,
+    "df -iP --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2": `Filesystem     Inodes IUsed IFree IUse% Mounted on\nLinux.Doctor_0.3.5_amd64.AppImage     100 100 0 100% /tmp/.mount_Linux.icbcpE\n/dev/sda3     1000000 100000 900000   10% /var/home`,
   });
   const findings = await inodes.run(ctx);
   assert.equal(findings.length, 0, "same AppImage exemption as the disk check");
@@ -1152,7 +1152,7 @@ test("network: DNS failure is medium when a route exists", async () => {
   const ctx = stubCtx({
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
-    "getent ahostsv4 kernel.org 2>/dev/null | head -1": "",
+    "getent ahostsv4 kernel.org 2>&1 | head -1": "",
   });
   const findings = await network.run(ctx);
   assert.equal(findings.length, 1);
@@ -1165,7 +1165,7 @@ test("network: route + working DNS is informational", async () => {
   const ctx = stubCtx({
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
-    "getent ahostsv4 kernel.org 2>/dev/null | head -1": "151.101.1.69     STREAM kernel.org\n",
+    "getent ahostsv4 kernel.org 2>&1 | head -1": "151.101.1.69     STREAM kernel.org\n",
   });
   const findings = await network.run(ctx);
   assert.equal(findings.length, 1);
@@ -1785,4 +1785,30 @@ test("crash: many boots outside the window are not flagged", async () => {
   };
   const findings = await crash.run(ctx);
   assert.ok(!findings.some((f) => /reboot/i.test(f.title)), "lifetime boot count must not be reported as recent reboots");
+});
+
+test("network: missing getent is a skip, not a false DNS failure", async () => {
+  const ctx = stubCtx({
+    "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0\n",
+    "getent ahostsv4 kernel.org 2>&1 | head -1": "/bin/sh: 1: getent: not found\n",
+  });
+  const findings = await network.run(ctx);
+  const skip = findings.find((f) => f.code === "network/skipped");
+  assert.ok(skip, "expected a network/skipped finding");
+  assert.equal(skip.severity, "info");
+  assert.ok(!findings.some((f) => f.code === "network/dns"), "must not claim DNS is failing when getent is absent");
+});
+
+test("disk: an unusable df is an explicit skip, not silence", async () => {
+  const findings = await disk.run(stubCtx({}));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "disk/skipped");
+  assert.equal(findings[0].severity, "info");
+});
+
+test("inodes: an unusable df -i is an explicit skip, not silence", async () => {
+  const findings = await inodes.run(stubCtx({}));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "inodes/skipped");
+  assert.equal(findings[0].severity, "info");
 });

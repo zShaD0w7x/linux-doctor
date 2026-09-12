@@ -54,8 +54,18 @@ export const inodes = defineCheck({
   async run(ctx) {
     const findings = [];
     const t = ctx.thresholds;
-    const res = await ctx.run("df -iP --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2 2>/dev/null");
-    if (!res.ok) return findings;
+    const res = await ctx.run("df -iP --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs --exclude-type=overlay --exclude-type=proc --exclude-type=sysfs --exclude-type=cgroup2");
+    if (!res.ok) {
+      return [finding({
+        severity: "info",
+        code: "inodes/skipped",
+        title: "Inode check skipped",
+        detail: "`df -i` is not available or does not support the required flags on this system (BusyBox/minimal images), so inode usage could not be checked.",
+        evidence: (res.stderr || "df -i: unusable output").trim().slice(0, 200),
+        fix: null,
+        confidence: "medium",
+      })];
+    }
 
     for (const l of lines(res.stdout).slice(1)) {
       const p = l.split(/\s+/);

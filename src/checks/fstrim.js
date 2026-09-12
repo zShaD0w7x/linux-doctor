@@ -21,7 +21,13 @@ export const fstrim = defineCheck({
     // spinning rust; ROTA=0 covers SSDs and NVMe.
     const rota = await ctx.run("lsblk -dno NAME,ROTA 2>/dev/null");
     if (!rota.ok) return findings; // lsblk missing — nothing we can say
-    const ssds = lines(rota.stdout).filter((l) => l.trim().endsWith("0"));
+    const ssds = lines(rota.stdout).filter((l) => {
+      const name = l.trim().split(/\s+/)[0];
+      // zram (RAM-backed swap), loop, ram, optical and floppy devices report
+      // ROTA=0 but are not trimmable storage.
+      if (/^(zram|loop|ram|sr|fd)/.test(name)) return false;
+      return l.trim().endsWith("0");
+    });
     if (ssds.length === 0) return findings; // HDD-only system: TRIM does not apply
 
     // Covered when the weekly timer is enabled…

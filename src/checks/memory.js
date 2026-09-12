@@ -28,11 +28,32 @@ export const memory = defineCheck({
 
     const memLine = lines(mem.stdout).find((l) => l.startsWith("Mem:"));
     if (!memLine) return findings;
+    const header = lines(mem.stdout)[0] || "";
     const parts = memLine.split(/\s+/);
     const total = num(parts[1]);
-    const available = num(parts[6]);
-    const used = total - available;
     if (total === 0) return findings;
+    // `available` exists in procps-ng's free (the header says so). BusyBox and
+    // older free lack it, so field 6 would be `cached` — fall back to the
+    // kernel's MemAvailable instead of computing a ratio from the wrong field.
+    let available = /\bavailable\b/i.test(header) ? num(parts[6]) : null;
+    if (available === null) {
+      const ma = await ctx.run("grep -m1 '^MemAvailable:' /proc/meminfo 2>/dev/null");
+      const kb = num(String(ma.stdout).trim().split(/\s+/)[1]);
+      if (ma.ok && kb > 0) available = kb * 1024;
+    }
+    if (available === null) {
+      findings.push(finding({
+        severity: "info",
+        code: "memory/skipped",
+        title: "Memory check skipped (no availability figure)",
+        detail: "Neither `free` nor /proc/meminfo reported available memory on this system, so memory pressure could not be computed.",
+        evidence: "no available/MemAvailable field",
+        fix: null,
+        confidence: "medium",
+      }));
+      return findings;
+    }
+    const used = total - available;
 
     const availRatio = available / total;
     let severity = null;

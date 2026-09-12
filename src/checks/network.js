@@ -59,8 +59,22 @@ export const network = defineCheck({
     // DNS is only meaningful when there is a route. Time the resolution to
     // catch slow resolvers — the most common "net is slow" complaint.
     const t0 = Date.now();
-    const dns = await ctx.run("getent ahostsv4 kernel.org 2>/dev/null | head -1");
+    // 2>&1 (not 2>/dev/null): a missing `getent` (musl/minimal images) prints
+    // "not found", which must be a skip, not a false "DNS is failing".
+    const dns = await ctx.run("getent ahostsv4 kernel.org 2>&1 | head -1");
     const dnsMs = Date.now() - t0;
+    if (/not found|no such file/i.test(dns.stdout || "") || dns.missing) {
+      findings.push(finding({
+        severity: "info",
+        code: "network/skipped",
+        title: "DNS check skipped (getent not available)",
+        detail: "`getent` is not installed on this system (common on musl/minimal images), so DNS resolution could not be tested.",
+        evidence: "getent: not found",
+        fix: null,
+        confidence: "medium",
+      }));
+      return findings;
+    }
     if (!dns.ok || dns.stdout.trim() === "") {
       findings.push(finding({
         severity: "medium",
