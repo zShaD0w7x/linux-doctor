@@ -31,11 +31,15 @@ async function desktopFetch(path, q = "") {
   return res.json();
 }
 
-/* refresh=true forces a fresh scan; the servers otherwise serve a short
-   cached report (a drive-by page cannot trigger a scan storm). */
-async function fetchReport({ refresh = false } = {}) {
+/* refresh=true forces a fresh scan; save=true records the run in history.
+   Background polling passes neither (the servers serve a short cached report,
+   and machine history only advances on an explicit run). */
+async function fetchReport({ refresh = false, save = false } = {}) {
   if (STATIC_DATA) return STATIC_DATA;
-  const q = refresh ? "?refresh=1" : "";
+  const p = new URLSearchParams();
+  if (refresh) p.set("refresh", "1");
+  if (save) p.set("save", "1");
+  const q = p.toString() ? `?${p}` : "";
   if (isDesktop()) return desktopFetch("/report", q);
   const res = await fetch("/api/report" + q, { cache: "no-store" });
   if (!res.ok) throw new Error("HTTP " + res.status);

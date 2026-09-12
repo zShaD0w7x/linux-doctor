@@ -85,6 +85,10 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Changed
 
+- **Dashboard "Re-run checks" now records the run in history.** The trend and
+  the new/fixed diff advance exactly when the user asks for a run (with a
+  confirmation toast); the 20s background auto-refresh still never writes
+  history, so polling cannot churn it.
 - **Docs: support-bundle privacy claims corrected** (it carries no config —
   which may hold a license key — and a 5-run score/counts-only tail), and
   the plugin/Pro **trust model** is now stated in the README and

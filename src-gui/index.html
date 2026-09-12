@@ -1245,11 +1245,15 @@ async function desktopFetch(path, q = "") {
   return res.json();
 }
 
-/* refresh=true forces a fresh scan; the servers otherwise serve a short
-   cached report (a drive-by page cannot trigger a scan storm). */
-async function fetchReport({ refresh = false } = {}) {
+/* refresh=true forces a fresh scan; save=true records the run in history.
+   Background polling passes neither (the servers serve a short cached report,
+   and machine history only advances on an explicit run). */
+async function fetchReport({ refresh = false, save = false } = {}) {
   if (STATIC_DATA) return STATIC_DATA;
-  const q = refresh ? "?refresh=1" : "";
+  const p = new URLSearchParams();
+  if (refresh) p.set("refresh", "1");
+  if (save) p.set("save", "1");
+  const q = p.toString() ? `?${p}` : "";
   if (isDesktop()) return desktopFetch("/report", q);
   const res = await fetch("/api/report" + q, { cache: "no-store" });
   if (!res.ok) throw new Error("HTTP " + res.status);
@@ -3612,7 +3616,7 @@ $("#expandall").addEventListener("click", () => {
 })();
 
 // Re-run
-async function load() {
+async function load({ saveHistory = false } = {}) {
   const status = $("#status");
   const report = $("#report");
   const rerun = $("#rerun");
@@ -3626,9 +3630,11 @@ async function load() {
     // Category grouping needs the check→category map; fetch it once before
     // the first render. Never fatal — grouping falls back to "Other".
     await loadCategoryMap();
-    // Explicit load (first paint / Re-run) asks for a fresh scan; background
-    // polling uses the server's short cache instead of forcing work.
-    render(await fetchReport({ refresh: true }));
+    // Explicit load (first paint / Re-run) asks for a fresh scan; only an
+    // explicit Re-run records the run in history — background polling never
+    // does (it would churn the trend).
+    render(await fetchReport({ refresh: true, save: saveHistory }));
+    if (saveHistory) showToast("\u2713 Run recorded in history");
   } catch (err) {
     status.className = "status warn";
     status.innerHTML = "";
@@ -3643,7 +3649,7 @@ async function load() {
     rerun.textContent = "↻ Re-run checks";
   }
 }
-$("#rerun").addEventListener("click", load);
+$("#rerun").addEventListener("click", () => load({ saveHistory: true }));
 
 // PDF export
 const pdfBtn = $("#pdfbtn");

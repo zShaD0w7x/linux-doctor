@@ -64,10 +64,12 @@ to copy the stable code, or type `code:<prefix>` in search to filter by it.
 Hit **Re-run checks** for a fresh report. The dashboard **auto-refreshes**
 every 20s — it pauses while you are reading (searching, filtering, or with a
 finding expanded) so your place is never reset, and the Auto button shows
-its paused state. Density defaults to compact (more findings per viewport)
-and is remembered, like the theme. Pure HTML/CSS/JS — no frameworks; the
-page served by `--web`, the desktop app, and `--html` exports are all built
-from `src-gui/` via `npm run build:gui`.
+its paused state. **Re-run records the run in history** (the trend and the
+new/fixed diff move); the background auto-refresh deliberately does **not**,
+so polling can never churn your history. Density defaults to compact (more
+findings per viewport) and is remembered, like the theme. Pure HTML/CSS/JS —
+no frameworks; the page served by `--web`, the desktop app, and `--html`
+exports are all built from `src-gui/` via `npm run build:gui`.
 
 The **history** view draws your health-score sparkline (with date tooltips
 and a dashed 50-point "needs attention" line) plus a stacked bar chart of

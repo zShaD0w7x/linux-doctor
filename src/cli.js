@@ -840,7 +840,9 @@ function printIgnoreLists(titles, codes) {
 
   if (args.web) {
     const server = await startWeb({
-      collect: async () => attachHistory(await collect(), { save: false }),
+      // `save` is passed by an explicit Re-run from the dashboard; background
+      // polls call without it and must not advance machine history.
+      collect: async (save = false) => attachHistory(await collect(), { save: !!save }),
       history: loadHistory,
       checkList: async () => {
         const profile = await detectProfile();

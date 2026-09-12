@@ -149,18 +149,21 @@ fn which(bin: &str) -> Option<PathBuf> {
 
 /// Runs every check via the Node CLI and returns the raw JSON report bytes.
 /// Exit code 0 (healthy) and 1 (findings found) are both valid reports.
-fn collect_report(root: &PathBuf, node: &PathBuf) -> Result<Vec<u8>, String> {
-    let out = Command::new(node)
+/// `save` is false for the dashboard's background polls (which must not churn
+/// the new/fixed story) and true for an explicit Re-run from the UI.
+fn collect_report(root: &PathBuf, node: &PathBuf, save: bool) -> Result<Vec<u8>, String> {
+    let mut command = Command::new(node);
+    command
         .args(["bin/doctor.js", "--json"])
         .current_dir(root)
         .env_remove("LD_LIBRARY_PATH")
         .env_remove("LD_PRELOAD")
         .env_remove("NODE_OPTIONS")
-        .env_remove("NODE_PATH")
-        // The dashboard polls this endpoint; without this every poll would
-        // append a history run and churn the new/fixed story. Polls still read
-        // history, they just never advance it.
-        .env("LINUX_DOCTOR_NO_SAVE", "1")
+        .env_remove("NODE_PATH");
+    if !save {
+        command.env("LINUX_DOCTOR_NO_SAVE", "1");
+    }
+    let out = command
         .output()
         .map_err(|e| {
             format!(
@@ -447,11 +450,14 @@ fn handle_client(mut stream: TcpStream, root: &PathBuf, node: &PathBuf, report_c
         None => (path.as_str(), ""),
     };
     let refresh = query.split('&').any(|kv| kv == "refresh=1");
+    // save=1 comes from an explicit Re-run: it records history and must never
+    // be served from (or masked by) the poll cache.
+    let save = query.split('&').any(|kv| kv == "save=1");
 
     let (status, body) = match (method.as_str(), route) {
         ("OPTIONS", _) => ("204 No Content", Vec::new()),
         ("GET", "/report") | ("GET", "/report/") => {
-            match cached_collect(report_cache, REPORT_TTL, refresh, || collect_report(root, node)) {
+            match cached_collect(report_cache, REPORT_TTL, refresh || save, || collect_report(root, node, save)) {
                 Ok(bytes) => ("200 OK", bytes),
                 Err(msg) => (
                     "500 Internal Server Error",

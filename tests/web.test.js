@@ -246,3 +246,21 @@ test("web: /api/report is cached; ?refresh=1 bypasses the TTL", async () => {
     server.close();
   }
 });
+
+test("web: an explicit Re-run (?save=1) records history; polls never do", async () => {
+  const saves = [];
+  const collect = async (save) => {
+    saves.push(save);
+    return { generatedAt: new Date().toISOString(), system: {}, findings: [] };
+  };
+  const server = await startWeb({ collect, open: false, port: 0, quiet: true });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    await fetch(base + "/api/report"); // background poll
+    await fetch(base + "/api/report?refresh=1"); // another poll/first paint
+    await fetch(base + "/api/report?refresh=1&save=1"); // explicit Re-run
+    assert.deepEqual(saves, [false, false, true], "only the Re-run must ask to save");
+  } finally {
+    server.close();
+  }
+});

@@ -75,20 +75,23 @@ export async function startWeb({ collect, history = () => [], checkList = async 
     if (url.pathname === "/api/report") {
       try {
         const refresh = url.searchParams.get("refresh") === "1";
+        // save=1 comes from an explicit Re-run; it must record history and
+        // therefore never be served from (or stored as) a plain poll cache.
+        const save = url.searchParams.get("save") === "1";
         const fresh = reportCache.body !== null && Date.now() - reportCache.at < REPORT_TTL_MS;
         let body;
-        if (!refresh && fresh) {
+        if (!refresh && !save && fresh) {
           body = reportCache.body;
         } else {
           if (!reportInflight) {
             reportInflight = (async () => {
-              const data = await collect();
+              const data = await collect(save);
               const out = render(data);
               return typeof out === "string" ? out : JSON.stringify(out);
             })().finally(() => { reportInflight = null; });
           }
           body = await reportInflight;
-          reportCache = { at: Date.now(), body };
+          if (!save) reportCache = { at: Date.now(), body };
         }
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
         res.end(body);

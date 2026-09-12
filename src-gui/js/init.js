@@ -104,7 +104,7 @@ $("#expandall").addEventListener("click", () => {
 })();
 
 // Re-run
-async function load() {
+async function load({ saveHistory = false } = {}) {
   const status = $("#status");
   const report = $("#report");
   const rerun = $("#rerun");
@@ -118,9 +118,11 @@ async function load() {
     // Category grouping needs the check→category map; fetch it once before
     // the first render. Never fatal — grouping falls back to "Other".
     await loadCategoryMap();
-    // Explicit load (first paint / Re-run) asks for a fresh scan; background
-    // polling uses the server's short cache instead of forcing work.
-    render(await fetchReport({ refresh: true }));
+    // Explicit load (first paint / Re-run) asks for a fresh scan; only an
+    // explicit Re-run records the run in history — background polling never
+    // does (it would churn the trend).
+    render(await fetchReport({ refresh: true, save: saveHistory }));
+    if (saveHistory) showToast("\u2713 Run recorded in history");
   } catch (err) {
     status.className = "status warn";
     status.innerHTML = "";
@@ -135,7 +137,7 @@ async function load() {
     rerun.textContent = "↻ Re-run checks";
   }
 }
-$("#rerun").addEventListener("click", load);
+$("#rerun").addEventListener("click", () => load({ saveHistory: true }));
 
 // PDF export
 const pdfBtn = $("#pdfbtn");
