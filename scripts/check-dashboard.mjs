@@ -9,6 +9,7 @@
  * Usage: node scripts/check-dashboard.mjs <url>
  */
 import { chromium } from "playwright-core";
+import { existsSync, readdirSync } from "node:fs";
 
 const url = process.argv[2];
 if (!url) {
@@ -16,9 +17,29 @@ if (!url) {
   process.exit(2);
 }
 
-const exe =
-  process.env.CHROME_PATH ||
-  `${process.env.HOME}/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome`;
+/* Find the cached Chromium instead of hardcoding one version's path. */
+function findChromium() {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  const base = `${process.env.HOME}/.cache/ms-playwright`;
+  try {
+    const dirs = readdirSync(base).filter((d) => d.startsWith("chromium-")).sort();
+    for (const dir of dirs.reverse()) {
+      for (const rel of ["chrome-linux64/chrome", "chrome-linux/chrome"]) {
+        const p = `${base}/${dir}/${rel}`;
+        if (existsSync(p)) return p;
+      }
+    }
+  } catch {
+    /* no cache */
+  }
+  return null;
+}
+
+const exe = findChromium();
+if (!exe) {
+  console.error("no cached Chromium found — set CHROME_PATH or run `npx playwright install chromium`");
+  process.exit(2);
+}
 
 const browser = await chromium.launch({ executablePath: exe, headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 1200 } });

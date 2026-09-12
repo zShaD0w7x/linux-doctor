@@ -25,9 +25,16 @@ distributions.
 node scripts/bump-version.mjs 0.4.0
 # 2. curate CHANGELOG.md: move [Unreleased] -> ## [0.4.0] - YYYY-MM-DD
 npm run goldens:update   # if output changed
-npm test                 # must be green (544 tests)
+npm test                 # must be green (600+ tests)
 npm pack --dry-run | grep src-gui/index.html
 node bin/doctor.js --self-test && node bin/doctor.js --json | jq .checksRun
+
+# Real-browser dashboard smoke (not in PR CI — needs a cached Chromium +
+# playwright-core). Catches JS/console errors a vm test cannot:
+node bin/doctor.js --web & sleep 5
+node scripts/check-dashboard.mjs http://127.0.0.1:43901/
+kill %1
+
 
 git commit -am "chore: release 0.4.0"
 git push origin main              # wait for CI green (Node 20/22/24 + Fedora + Rust)
