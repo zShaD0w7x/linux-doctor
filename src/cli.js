@@ -293,8 +293,32 @@ async function runCompare(previous, checks, ignorePatterns, ignoreCodes, thresho
  * registry; callers with plugins pass the merged list.
  */
 export function applicableChecks(checkIds, kind, checks = CHECKS) {
-  const base = checkIds.length ? checks.filter((c) => checkIds.includes(c.id)) : checks;
-  return checkIds.length ? base : base.filter((c) => c.appliesTo.includes(kind));
+  if (!checkIds.length) {
+    return checks.filter((c) => c.appliesTo.includes(kind));
+  }
+
+  const tokens = checkIds.flatMap((id) => id.split(",").map((s) => s.trim())).filter(Boolean);
+  const targetIds = new Set();
+
+  for (const token of tokens) {
+    if (checks.some((c) => c.id === token)) {
+      targetIds.add(token);
+    } else {
+      const lower = token.toLowerCase();
+      let matchedCategory = false;
+      for (const c of checks) {
+        if (c.category && c.category.toLowerCase() === lower) {
+          targetIds.add(c.id);
+          matchedCategory = true;
+        }
+      }
+      if (!matchedCategory) {
+        targetIds.add(token);
+      }
+    }
+  }
+
+  return checks.filter((c) => targetIds.has(c.id));
 }
 
 /**
@@ -658,7 +682,9 @@ function printIgnoreLists(titles, codes) {
     return 0;
   }
 
-  const unknown = args.checkIds.find((id) => !checks.some((c) => c.id === id));
+  const unknown = args.checkIds.find(
+    (id) => !checks.some((c) => c.id === id || (c.category && c.category.toLowerCase() === id.toLowerCase()))
+  );
   if (unknown) {
     console.error(`Unknown check "${unknown}". Run with --help to list checks.`);
     return 2;
