@@ -16,3 +16,7 @@ docs/screenshots/audit-*/
 launch/
 src-tauri/runtime/
 .demo-app-frames/
+.watchlist
+# internal docs + local-only detection tooling (never published)
+internal/
+scripts/check-clones.mjs

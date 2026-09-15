@@ -538,6 +538,7 @@ fn respond_text(stream: &mut TcpStream, status: &str, message: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    disable_webkit_dmabuf();
     software_gl_fallback();
     tauri::Builder::default()
         // Must be the first registered plugin: the callback runs when a
@@ -828,6 +829,17 @@ fn software_gl_fallback() {
             "linux-doctor: running from an AppImage — defaulting to software GL \
              (set LINUX_DOCTOR_HARDWARE_GL=1 to use hardware rendering)"
         );
+    }
+}
+
+/// WebKitGTK's DMA-BUF renderer can produce a blank/white webview on many
+/// Linux setups (NVIDIA proprietary, very recent Mesa, some Wayland
+/// compositors). A diagnostics dashboard does not need it, so disable it
+/// before any GTK/WebKit code initializes. Set
+/// `WEBKIT_DISABLE_DMABUF_RENDERER=0` to opt back in.
+fn disable_webkit_dmabuf() {
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
 }
 
