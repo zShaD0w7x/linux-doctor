@@ -1,8 +1,57 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { readFileSync } from "node:fs";
 import { lines, plural } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 import { pkgInstall } from "../distro.js";
+
+const CONNTRACK_COUNT_PATH = "/proc/sys/net/netfilter/nf_conntrack_count";
+const CONNTRACK_MAX_PATH = "/proc/sys/net/netfilter/nf_conntrack_max";
+
+/**
+ * Return a conntrack-capacity finding, or null when conntrack is unavailable
+ * or comfortably below the configured warning threshold.
+ *
+ * `readFile` is injectable so tests can exercise procfs edge cases without
+ * touching the host kernel.
+ */
+export function conntrackFinding(ctx, readFile = readFileSync) {
+  let countText;
+  let maxText;
+  try {
+    countText = readFile(CONNTRACK_COUNT_PATH, "utf8");
+    maxText = readFile(CONNTRACK_MAX_PATH, "utf8");
+  } catch {
+    // The files only exist when nf_conntrack is loaded. Missing/unreadable
+    // procfs entries mean the check is not applicable, not a finding.
+    return null;
+  }
+
+  const count = Number.parseInt(String(countText).trim(), 10);
+  const max = Number.parseInt(String(maxText).trim(), 10);
+  if (!Number.isFinite(count) || !Number.isFinite(max) || count < 0 || max <= 0) {
+    return null;
+  }
+
+  const pct = (count / max) * 100;
+  const warnPct = ctx.thresholds.conntrackWarnPct ?? 80;
+  const highPct = ctx.thresholds.conntrackHighPct ?? 95;
+  if (pct < warnPct) return null;
+
+  const severity = pct >= highPct ? "high" : "medium";
+  return finding({
+    severity,
+    code: "network/conntrack",
+    title: `Conntrack table is ${pct.toFixed(1)}% full`,
+    detail:
+      `The kernel connection-tracking table is using ${count} of ${max} entries. ` +
+      "When it fills, NAT, containers, and stateful firewalls can start dropping new connections.",
+    evidence: `${count}/${max} entries (${pct.toFixed(1)}%)`,
+    fix:
+      "Increase the limit with `sudo sysctl -w net.netfilter.nf_conntrack_max=<value>` or investigate leaked/long-lived connections before raising it permanently.",
+    confidence: "high",
+  });
+}
 
 /**
  * Network connectivity: default route and DNS resolution. This is the #1
@@ -17,6 +66,9 @@ export const network = defineCheck({
   category: "network",
   async run(ctx) {
     const findings = [];
+
+    const conntrack = conntrackFinding(ctx);
+    if (conntrack) findings.push(conntrack);
 
     const [addr, route] = await Promise.all([
       ctx.run("ip -brief addr show 2>/dev/null"),
