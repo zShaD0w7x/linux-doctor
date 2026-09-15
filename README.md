@@ -5,23 +5,28 @@
 [![License](https://img.shields.io/github/license/zShaD0w7x/linux-doctor)](https://github.com/zShaD0w7x/linux-doctor/blob/main/LICENSE)
 [![Sponsor](https://img.shields.io/github/sponsors/zShaD0w7x)](https://github.com/sponsors/zShaD0w7x)
 
-**Linux diagnostics that explain the problem — and remember what changed.**
+**Linux diagnostics that explain the problem and remember what changed.**
 
 Linux Doctor runs safe, read-only checks and surfaces only the issues that
-actually matter. Each finding comes with a clear explanation and a
-copy-paste fix. It remembers your last run, so every report tells you what's
-new, what got fixed, and what stayed the same.
+actually matter. Each finding comes with an explanation and a copy-paste fix. It
+remembers your last run, so every report tells you what's new, what got fixed,
+and what stayed the same.
 
 > Its own code never modifies your system. Drop-in checks
 > (`~/.config/linux-doctor/checks/`) and the Pro add-on are code that **you**
-> install and run with your own privileges — see
+> install and run with your own privileges. See
 > [docs/configuration.md](docs/configuration.md#plugins-custom-checks).
 
-- 🎯 **One clear next step** — every report leads with ▶ START HERE, the single most useful action, not a wall of graphs
-- 🧠 **Memory built in** — health score (0–100), trend sparkline, and a plain-language NEW/FIXED diff on every run
-- 🔒 **Read-only by construction** — it never changes your system; fixes are suggestions you run yourself (the optional `--fix` shows a dry run first, and running it takes a second opt-in)
-- 🖥️ **CLI + desktop app** — terminal report, web dashboard, and a Tauri desktop app (AppImage / deb / rpm) sharing the exact same checks
-- 📦 **Runs anywhere** — `npx`, npm, AUR, RPM spec, `.deb`, AppImage; works gracefully on immutable distros (Silverblue, Bazzite)
+- One clear next step. Every report leads with START HERE, the single most useful
+  action, not a wall of graphs.
+- Memory built in. A health score (0-100), a trend sparkline, and a plain
+  NEW/FIXED diff on every run.
+- Read-only by construction. It never changes your system; fixes are suggestions
+  you run yourself. The optional `--fix` shows a dry run first, and running it
+  takes a second opt-in.
+- CLI, web dashboard and desktop app (Tauri) run the exact same checks.
+- Runs from `npx`, npm, an RPM, a `.deb` or the AppImage, and works on immutable
+  distros (Silverblue, Bazzite).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/zShaD0w7x/linux-doctor/main/docs/screenshots/demo.gif" alt="linux-doctor in a terminal: health score, START HERE action, and findings with plain-English explanations and fixes" width="760">
@@ -33,10 +38,11 @@ new, what got fixed, and what stayed the same.
 
 ## Why Linux Doctor?
 
-Linux already has the data — `journalctl`, `systemctl --failed`, `df`, `free`,
-`smartctl` — but not the answer. It hands you raw output and leaves you to find
-the line that matters. Linux Doctor reads the same sources and returns the
-**conclusion**: what is wrong, why it matters, and the one command to fix it.
+Linux already has the data. `journalctl`, `systemctl --failed`, `df`, `free`,
+`smartctl`. What it does not give you is the answer: you get raw output and you
+have to find the line that matters. Linux Doctor reads the same sources and
+returns the **conclusion**: what is wrong, why it matters, and the command to
+fix it.
 
 It is deliberately **a doctor, not a monitor**. It does not stream metrics,
 manage processes, or sit in the background waiting to page you. It answers
@@ -51,8 +57,8 @@ you what changed. That is a different job from a monitoring stack:
 | **Linux Doctor** | **diagnose → explain → suggest a fix → remember what changed** |
 
 Run it when something feels off, before filing a bug report, or daily from a
-`systemd` timer — and get one clear next step instead of a wall of graphs. Use
-it *alongside* your monitoring stack, not instead of it.
+`systemd` timer. You get one clear next step instead of a wall of graphs. Use it
+alongside your monitoring stack, not instead of it.
 
 ## Download the app (recommended)
 
@@ -76,23 +82,33 @@ no Node on `PATH`. `LINUX_DOCTOR_NODE=/path/to/node` still overrides it.
 > Installed size: the bundled runtime adds roughly 130 MB to the package.
 
 <details>
-<summary>AppImage graphics troubleshooting (very new Mesa, v0.3.2 and older)</summary>
+<summary>Troubleshooting: blank/white window or EGL errors (AppImage, very new Mesa)</summary>
 
-The bundle's WebKitGTK comes from an older LTS base and its accelerated
-paths can abort against bleeding-edge host Mesa (`Could not create default
-EGL display`). This is about the host's Mesa driver stack, not the GPU
-brand: **AMD and Intel** graphics (and nouveau) all run on Mesa and are
-equally exposed; NVIDIA's proprietary driver ships its own stack and is
-unlikely to hit it.
+The bundle's WebKitGTK comes from an older LTS base; its accelerated paths can
+abort against bleeding-edge host Mesa (`Could not create default EGL display`)
+or paint a blank/white webview. This is about the host's driver stack, not the
+GPU brand: **AMD and Intel** graphics (and nouveau) all run on Mesa and are
+equally exposed; NVIDIA's proprietary driver ships its own stack.
 
-**Current builds handle this automatically** — the AppImage defaults to
-software GL on launch (a diagnostics dashboard does not need GPU anyway).
-Set `LINUX_DOCTOR_HARDWARE_GL=1` to force hardware rendering. On v0.3.2
-or older, launch with:
+**Current builds handle both automatically** before any GTK/WebKit code runs:
+
+- the AppImage defaults to software GL (a diagnostics dashboard does not need
+  GPU anyway) — set `LINUX_DOCTOR_HARDWARE_GL=1` to force hardware rendering;
+- WebKit's DMA-BUF renderer is disabled (the usual cause of a white window) —
+  set `WEBKIT_DISABLE_DMABUF_RENDERER=0` to opt back in.
+
+On older builds, launch with either (or both):
 
 ```bash
-LIBGL_ALWAYS_SOFTWARE=1 ./linux-doctor-*-x86_64.AppImage
+WEBKIT_DISABLE_DMABUF_RENDERER=1 ./linux-doctor-*-x86_64.AppImage
+# still blank? also try:
+LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./linux-doctor-*-x86_64.AppImage
 ```
+
+If it is **still** blank, the AppImage's **bundled** WebKitGTK is incompatible
+with your host's driver stack (seen on very new Mesa and NVIDIA). Install the
+`.deb`/`.rpm` — or the [OBS package](#install--first-run-cli) — instead: those
+use the WebKitGTK shipped by your distribution, which matches the host.
 </details>
 
 ## Install & first run (CLI)
@@ -217,27 +233,41 @@ report still works.
 | [docs/configuration.md](docs/configuration.md) | ignore list, thresholds, plugins, caching, immutable-distro behavior |
 | [docs/integrations.md](docs/integrations.md) | JSON schema v1, `--support` bundles, optional AI summary, fleet reporting |
 | [docs/severity.md](docs/severity.md) | how severities are decided |
-| [docs/monitoring.md](docs/monitoring.md) | watching for clones and impersonation (`scripts/check-clones.mjs`) |
+| [docs/licensing.md](docs/licensing.md) | what the GPL grants and requires |
 | [docs/trademark.md](docs/trademark.md) | the name/logo vs. the code license |
 | [CHANGELOG.md](CHANGELOG.md) | every release, Keep-a-Changelog style |
 
+## Community
+
+Questions, ideas and show-your-setup go to
+[GitHub Discussions](https://github.com/zShaD0w7x/linux-doctor/discussions);
+bugs and check requests to [Issues](https://github.com/zShaD0w7x/linux-doctor/issues).
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Roadmap
 
-- ~~GUI with a one-click report~~ — shipped: a Tauri desktop app
-- ~~Report history and change detection~~ — shipped: health score, NEW/FIXED diff
-- ~~More checks: Bluetooth, Wayland, backup, hardware errors, LUKS~~ — shipped
+- ~~GUI with a one-click report~~: shipped as a Tauri desktop app
+- ~~Report history and change detection~~: shipped (health score, NEW/FIXED diff)
+- ~~More checks (Bluetooth, Wayland, backup, hardware errors, LUKS)~~: shipped
 - Auto-generated, distro-specific fix instructions
-- Signed packages on AUR/COPR and AppStream metadata in every package (Flatpak is not a fit — see [packaging/README.md](packaging/README.md))
-- **Maintenance:** single maintainer, AI-assisted. Roadmap lives in CHANGELOG
-  [Unreleased] and in GitHub issues — security fixes within days,
-  contributions welcome.
+- Signed packages on AUR/COPR and AppStream metadata in every package (Flatpak is not a fit; see [packaging/README.md](packaging/README.md))
+- Maintenance: single maintainer, AI-assisted. Roadmap lives in the CHANGELOG and
+  in GitHub issues. Security fixes within days, contributions welcome.
 
-## Transparency
+## Transparency and evidence
 
-Development is AI-assisted, and every decision is the author's.
-Accountability is by artifacts: 600+ automated tests (golden snapshots,
-shell-safety, output-parity), CI on Fedora + Node 20/22/24, read-only by
-construction with a pinned safe-fix catalog. Judge it by those artifacts.
+Development is AI-assisted, and every decision is the author's. Don't take the
+README's word for it; the artifacts are public:
+
+- [608 automated tests](tests/): golden snapshots for every output format,
+  shell-safety tests for the fix catalog, and output-parity tests that keep the
+  CLI and the dashboard in agreement.
+- [CI](https://github.com/zShaD0w7x/linux-doctor/actions/workflows/ci.yml) runs
+  the whole report on Fedora and on Node 20, 22 and 24, plus the Rust app on
+  `fmt`, `clippy` and `cargo audit`.
+- Read-only by construction, with a pinned safe-fix catalog. The egress paths
+  scrub findings and refuse private endpoints by default.
+- Every change is in the [CHANGELOG](CHANGELOG.md); releases are signed tags.
 
 <a id="tiers"></a>
 ## Editions
@@ -253,6 +283,8 @@ companies are strictly additive and described in
 
 - [GPL-3.0-or-later](LICENSE) — free for individuals and open-source projects. You may copy, modify and redistribute it, but any derivative work you distribute must stay open-source under the same terms.
 - [Commercial license](COMMERCIAL-LICENSE.md) — for companies that need to use Linux Doctor inside proprietary products.
+
+Details on what the GPL grants and requires: [docs/licensing.md](docs/licensing.md).
 
 What that means in practice:
 

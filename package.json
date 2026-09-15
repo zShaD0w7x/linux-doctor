@@ -22,6 +22,8 @@
     "docs/integrations.md",
     "docs/output-parity.md",
     "docs/severity.md",
+    "docs/licensing.md",
+    "docs/trademark.md",
     "docs/RELEASING.md",
     "docs/screenshots/dashboard-dark.png",
     "docs/screenshots/dashboard-light.png"
@@ -32,7 +34,6 @@
     "goldens:update": "node scripts/update-goldens.mjs",
     "demo:gif": "node scripts/demo-gif.mjs",
     "demo:app": "bash scripts/demo-app-gif.sh",
-    "check:clones": "node scripts/check-clones.mjs",
     "build:gui": "node scripts/build-gui.mjs",
     "gui:dev": "node scripts/fetch-node-runtime.mjs && tauri dev",
     "gui:build": "node scripts/fetch-node-runtime.mjs && tauri build"
@@ -55,9 +56,20 @@
   "keywords": [
     "linux",
     "diagnostics",
-    "health",
+    "troubleshooting",
+    "health-check",
     "system",
-    "cli"
+    "sysadmin",
+    "devops",
+    "cli",
+    "monitoring",
+    "observability",
+    "systemd",
+    "shell",
+    "homelab",
+    "self-hosted",
+    "tauri",
+    "linux-tools"
   ],
   "license": "GPL-3.0-or-later"
 }

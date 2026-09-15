@@ -1,0 +1,30 @@
+name: Check or feature request
+description: Suggest a new check, or an improvement to the tool.
+title: "[idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the symptom you keep hitting, not just the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should it do?
+    validations:
+      required: false
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - New check
+        - Improvement to an existing check
+        - CLI / UX
+        - Packaging
+        - Docs
+    validations:
+      required: true
