@@ -20,3 +20,12 @@ src-tauri/runtime/
 # internal docs + local-only detection tooling (never published)
 internal/
 scripts/check-clones.mjs
+
+# Documents that are internal by nature, wherever they sit. The directory rules
+# above cover the normal case; these catch a strategy/incident note that gets
+# written into docs/ by mistake. Enforced (not just hinted) by
+# tests/private-boundary.test.js — .gitignore is bypassable with `git add -f`,
+# a test that reads `git ls-files` is not.
+*.private.md
+internal-*.md
+*-internal.md
