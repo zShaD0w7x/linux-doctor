@@ -11,11 +11,20 @@ project — keep it that way.
 ## Ground rules
 
 - **Read-only, always.** Every check inspects the system and never modifies
-  it. Fixes are suggestions, never actions.
+  it. Fixes are suggestions, never actions. A check may not import `node:fs` or
+  `node:child_process` at all — it sees the world through `ctx.run`, which is
+  also what makes it testable with stubs. `tests/doctrine.test.js` enforces it.
 - Plain English for real people. Explain the problem like a normal user
   would understand it, and always offer a concrete fix.
 - No new dependencies without a strong reason. This project's zero-dependency
   story is a feature.
+- **A check must not be noisy.** It has to stay silent on the clean images in
+  CI, and if it fires on a recorded machine the fixture needs a written reason.
+  Defaults must be conservative and thresholds tunable, not hard-coded. See the
+  noise policy in [docs/doctrine.md](docs/doctrine.md).
+- **Issues and PRs get an answer**, including "no" or "not yet". If a PR of
+  yours goes quiet for a while, ping it — silence is a queue problem, not a
+  verdict on your patch.
 
 ## Adding a check
 

@@ -233,6 +233,7 @@ report still works.
 | [docs/configuration.md](docs/configuration.md) | ignore list, thresholds, plugins, caching, immutable-distro behavior |
 | [docs/integrations.md](docs/integrations.md) | JSON schema v1, `--support` bundles, optional AI summary, fleet reporting |
 | [docs/severity.md](docs/severity.md) | how severities are decided |
+| [docs/doctrine.md](docs/doctrine.md) | what the tool refuses to do, and how a finding earns trust |
 | [docs/licensing.md](docs/licensing.md) | what the GPL grants and requires |
 | [docs/trademark.md](docs/trademark.md) | the name/logo vs. the code license |
 | [CHANGELOG.md](CHANGELOG.md) | every release, Keep-a-Changelog style |
@@ -259,14 +260,20 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 Development is AI-assisted, and every decision is the author's. Don't take the
 README's word for it; the artifacts are public:
 
-- [608 automated tests](tests/): golden snapshots for every output format,
+- [616 automated tests](tests/): golden snapshots for every output format,
   shell-safety tests for the fix catalog, and output-parity tests that keep the
   CLI and the dashboard in agreement.
 - [CI](https://github.com/zShaD0w7x/linux-doctor/actions/workflows/ci.yml) runs
   the whole report on Fedora and on Node 20, 22 and 24, plus the Rust app on
   `fmt`, `clippy` and `cargo audit`.
+- A clean-image gate runs the engine inside Fedora, Debian, Alpine and Arch
+  containers and fails when a high or medium finding appears that the baseline
+  does not justify. Recorded machine fixtures (real command outputs, scrubbed)
+  replay the same way, and every finding they produce needs a written reason.
 - Read-only by construction, with a pinned safe-fix catalog. The egress paths
-  scrub findings and refuse private endpoints by default.
+  scrub findings and refuse private endpoints by default, and
+  [docs/doctrine.md](docs/doctrine.md) lists what the tool refuses to do, each
+  claim tied to the test that enforces it.
 - Every change is in the [CHANGELOG](CHANGELOG.md); releases are signed tags.
 
 <a id="tiers"></a>
