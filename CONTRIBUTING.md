@@ -35,20 +35,28 @@ project — keep it that way.
    system commands in tests.
 4. Run `npm test`, update the README checks table if needed.
 
-## Adding a Pro (premium) check
+## Pro (premium) checks
 
-Premium checks live in `src/checks/pro/` and are gated behind the license key —
-they must never run or even be listed in the free edition. Differences from a
-free check:
+**They live in a private package, not here.** This repository is the Free
+edition, and a guard test (`tests/open-core.test.js`) fails the suite if a
+`src/checks/pro/` directory, key generation or signature verification ever
+appears in it. That guard exists so users can trust this edition is complete
+rather than crippled — please do not work around it.
 
-1. Set `premium: true` in the `defineCheck` object (see `define.js`), so the
-   CLI only merges it into the registry when a valid key is configured.
-2. Register it in `src/checks/pro/index.js` (exported as `PRO_CHECKS`).
-3. Test it in `tests/prochecks.test.js` with `stubCtx`, and assert the check
-   is flagged `premium`.
-4. Run `npm test`. The free-edition tests (`--list`, `--check-list`,
-   `--check <id>`) guard that premium checks stay invisible without a key —
-   a premium check that leaks into free output fails the suite on purpose.
+The core loads the private package through one documented interface:
+
+```js
+init(core) → { checks, licensing }
+```
+
+So, for a contribution here:
+
+- The loader contract is pinned by a fixture in `tests/open-core.test.js`. Keep
+  it working; changing it breaks the private package.
+- Premium checks are written in the maintainer's private repository, not as a PR
+  here. If you have an idea for one, open an issue describing it instead.
+- `defineCheck` carries the `premium` marker for those checks, but that is the
+  core's side of the contract, not an invitation to add one in this tree.
 
 ## License & CLA (important)
 
@@ -58,11 +66,12 @@ Linux Doctor is **dual-licensed**:
 2. **A commercial license** — for companies that need to use it inside
    proprietary products (see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)).
 
-On top of that, the Pro license key (`--license-gen`, signed HMAC) unlocks
-premium features already shipped in the repo. Pro keys are issued by the
-maintainer; contributors never need one to work on the free edition.
+Pro keys are issued by the maintainer and verified inside the Pro package: the
+verification code and the signing secret are deliberately not in this
+repository. No premium code ships here, so the Free edition behaves identically
+whether or not a key string is present — a key on its own unlocks nothing.
 
-To keep this possible, **by submitting a pull request you agree that your
-contributions are offered under both licenses and that the maintainer may
+To keep the dual license possible, **by submitting a pull request you agree that
+your contributions are offered under both licenses and that the maintainer may
 relicense them as needed.** This is standard practice for dual-licensed
 projects such as MySQL and Qt.
