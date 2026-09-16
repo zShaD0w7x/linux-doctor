@@ -1,0 +1,29 @@
+# Path-based labels for pull requests (see .github/workflows/labeler.yml).
+#
+# These only cover *where* a change lands. The type labels — bug, enhancement —
+# are still added by hand, because a path cannot tell a fix from a feature.
+#
+# Every label listed here must already exist in the repository: the action
+# applies labels, it never creates them.
+
+# Anything under the checks engine.
+check:
+  - changed-files:
+      - any-glob-to-any-file: "src/checks/**"
+
+# The test suite itself, wherever it is touched.
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+
+# Packaging for distros: AUR, OBS/COPR, AppStream, AppImageHub.
+packaging:
+  - changed-files:
+      - any-glob-to-any-file: "packaging/**"
+
+# Docs, including the root-level README/CHANGELOG.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
