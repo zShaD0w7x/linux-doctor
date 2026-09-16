@@ -2,6 +2,7 @@
 import { journalLines, plural } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { classifyHardwareLine } from "./shared.js";
 
 /**
  * Messages that look scary but are routine noise on most distros.
@@ -36,16 +37,16 @@ const NOISE_PATTERNS = [
  */
 const DEFERRED_PATTERNS = [
   /system-sleep.*failed/i, // → suspend check
-  /mce|machine check/i, // → hardware check
-  /edac|corrected error|ECC error/i, // → hardware check
   /failed to start|failed with result|entered failed state/i, // → services check
+  // MCE/ECC lines are deferred to the hardware check via classifyHardwareLine
+  // (called in the loop below), which also rejects the routine boot lines that
+  // merely mention "mce"/"edac".
 ];
 
 const MEANINGFUL_PATTERNS = [
   /pam_unix\([^)]*\):.*could not identify/i,
   /Authentication attempt too soon/i,
-  /oom/i,
-  /out of memory/i,
+  /oom[-_](?:kill|reap)|\bout of memory\b/i,
   /i\/o error/i,
   /read-only file system/i,
   /corrupt/i,
@@ -83,13 +84,25 @@ export const journal = defineCheck({
     if (!res.ok && !res.truncated) return findings;
     if (!res.stdout.trim()) return findings;
 
-    const logLines = journalLines(res.stdout);
+    // `-o short` prints a multi-line message (a crash and its stack trace) as
+    // one timestamped head line followed by indented continuation lines. Only
+    // the head lines are entries: counting the continuation lines once turned a
+    // handful of crashes into a "3062 unrecognized log entries" finding. The
+    // fallback keeps the check alive if a future journalctl drops the prefix
+    // instead of silently reporting nothing.
+    const ENTRY_RE = /^[A-Z][a-z]{2} \d{2} \d{2}:\d{2}:\d{2} /;
+    const raw = journalLines(res.stdout);
+    const entries = raw.filter((l) => ENTRY_RE.test(l));
+    const logLines = entries.length > 0 ? entries : raw;
     const noise = [];
     const meaningful = [];
     const unknown = [];
     for (const l of logLines) {
+      if (classifyHardwareLine(l) !== null) {
+        continue; // owned by the hardware check
+      }
       if (DEFERRED_PATTERNS.some((re) => re.test(l))) {
-        continue; // owned by a dedicated check (suspend, hardware)
+        continue; // owned by a dedicated check (suspend, services)
       }
       if (NOISE_PATTERNS.some((re) => re.test(l))) {
         noise.push(l);

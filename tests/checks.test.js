@@ -682,6 +682,23 @@ test("journal: unrecognized entries stay informational, not medium", async () =>
   assert.match(findings[0].title, /unrecognized log entr/i);
 });
 
+// Regression: `-o short` prints a crash and its stack trace as one timestamped
+// head line followed by indented continuation lines. Counting every
+// continuation as its own entry turned a handful of crashes into a
+// "3062 unrecognized log entries" finding.
+test("journal: a multi-line entry counts once, not once per stack line", async () => {
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null":
+      "Aug 15 14:32:47 bazzite plasmashell[123]: Something unknown happened\n" +
+      "                                          Stack trace of thread 123:\n" +
+      "                                          #0  0x7f0 in __syscall_cancel_arch (libc.so.6)\n" +
+      "                                          #1  0x7f0 in start_thread (libc.so.6)\n",
+  });
+  const findings = await journal.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /^1 unrecognized log entry/);
+});
+
 test("battery: low battery is flagged medium", async () => {
   const ctx = stubCtx({
     "ls /sys/class/power_supply/ 2>/dev/null": "AC\nBAT0\n",
@@ -1074,14 +1091,19 @@ test("hardware: machine check exceptions are high", async () => {
   assert.ok(high[0].fix, "MCE findings should include a fix");
 });
 
-test("hardware: corrected ECC errors are medium", async () => {
+// EDAC's own vocabulary: a UE is *uncorrected*. The check used to report every
+// EDAC line as "Corrected hardware errors ... medium", i.e. it filed a lost bit
+// as a routine correction. Here the same line must now be high.
+test("hardware: an uncorrected (UE) memory error is high, not medium", async () => {
   const ctx = stubCtx({
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
   });
   const findings = await hardware.run(ctx);
-  const med = findings.filter((f) => f.severity === "medium");
-  assert.equal(med.length, 1);
-  assert.match(med[0].title, /Corrected hardware errors/);
+  const high = findings.filter((f) => f.severity === "high");
+  assert.equal(high.length, 1);
+  assert.equal(high[0].code, "hardware/ecc");
+  assert.match(high[0].title, /Uncorrected memory errors/);
+  assert.match(high[0].evidence, /UE/);
 });
 
 test("hardware: clean kernel log is informational", async () => {
@@ -1103,6 +1125,34 @@ test("hardware: boot separators alone are NOT hardware errors", async () => {
   });
   const findings = await hardware.run(ctx);
   assert.ok(!findings.some((f) => f.severity === "high" || f.severity === "medium"), "separator-only output must not be an error finding");
+});
+
+// Regression: "mce: CPU supports N MCE banks" is printed once per CPU at boot
+// on every Intel machine. A bare /mce/ match read it as a machine check
+// exception, i.e. a permanent high finding on healthy hardware.
+test("hardware: the MCE banks boot line is not a machine check exception", async () => {
+  const ctx = stubCtx({
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': [
+      "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
+      "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
+      "Aug 13 03:11:22 bazzite kernel: EDAC MC: Ver: 3.0.0",
+      "Aug 13 03:11:22 bazzite kernel: EDAC ie31200: No ECC support",
+    ].join("\n") + "\n",
+  });
+  const findings = await hardware.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "hardware/ok", "routine MCE/EDAC init lines must not be a hardware fault");
+  assert.equal(findings[0].severity, "info");
+});
+
+test("hardware: a real EDAC CE error is still reported", async () => {
+  const ctx = stubCtx({
+    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC MC0: 1 CE memory read error on CPU_SrcID#0_MC#0_Chan#0_DIMM#0\n",
+  });
+  const findings = await hardware.run(ctx);
+  const med = findings.filter((f) => f.severity === "medium");
+  assert.equal(med.length, 1);
+  assert.equal(med[0].code, "hardware/ecc");
 });
 
 test("luks: encrypted system is informational", async () => {

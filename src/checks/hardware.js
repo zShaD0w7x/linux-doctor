@@ -2,6 +2,7 @@
 import { journalLines } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { classifyHardwareLine } from "./shared.js";
 
 /**
  * Checks the kernel log for hardware errors: machine check exceptions (MCE —
@@ -17,14 +18,16 @@ export const hardware = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    // One kernel-log read with both patterns (was two journalctl spawns), then
-    // split in JS. A shell grep is also more portable than journalctl -g.
+    // The shell grep is deliberately wide (it is one cheap read): the words
+    // "mce" and "edac" are also carried by routine boot lines, so the
+    // classification happens in JS where a benign line can be rejected instead
+    // of becoming a finding. See classifyHardwareLine.
     const ker = await ctx.run(
       'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"'
     );
     const all = ker.ok ? journalLines(ker.stdout, { tail: 40 }) : [];
-    const mceLines = all.filter((l) => /mce|machine check|hardware error/i.test(l)).slice(-5);
-    const edcLines = all.filter((l) => /edac|corrected error|ecc error/i.test(l)).slice(-5);
+    const mceLines = all.filter((l) => classifyHardwareLine(l) === "mce").slice(-5);
+    const edcLines = all.filter((l) => classifyHardwareLine(l) === "ecc").slice(-5);
 
     if (mceLines.length > 0) {
       findings.push(finding({
@@ -37,14 +40,23 @@ export const hardware = defineCheck({
         confidence: "high",
       }));
     } else if (edcLines.length > 0) {
+      // EDAC reports two very different events with the same vocabulary. A CE
+      // is a bit flip the controller corrected — watch it. A UE went
+      // uncorrected — that memory was wrong, so it is data loss, not a
+      // warning. Same root cause, so the same code; the severity is not.
+      const uncorrected = edcLines.some((l) => /\bUE\b|uncorrected|unrecoverable/i.test(l));
       findings.push(finding({
-        severity: "medium",
+        severity: uncorrected ? "high" : "medium",
         code: "hardware/ecc",
-        title: "Corrected hardware errors (ECC)",
-        detail: "The memory controller detected and corrected some bit-flip errors. Occasional ones are normal and ECC is doing its job, but frequent ones suggest a DIMM is starting to fail.",
+        title: uncorrected ? "Uncorrected memory errors (ECC)" : "Corrected hardware errors (ECC)",
+        detail: uncorrected
+          ? "The memory controller reported an uncorrected error: a bit flip it could not fix. Whatever that memory held was wrong, and the module is the suspect. Treat this as data loss, not as a warning to watch."
+          : "The memory controller detected and corrected some bit-flip errors. Occasional ones are normal and ECC is doing its job, but frequent ones suggest a DIMM is starting to fail.",
         evidence: edcLines.join("\n"),
-        fix: "If these repeat often, test the memory (Memtest86+) and reseat or replace the suspect DIMM.",
-        confidence: "medium",
+        fix: uncorrected
+          ? "Back up your data now. Run a memory test (Memtest86+ from your boot menu), reseat the suspect DIMM, and replace it if the test fails."
+          : "If these repeat often, test the memory (Memtest86+) and reseat or replace the suspect DIMM.",
+        confidence: uncorrected ? "high" : "medium",
       }));
     } else if (ker.ok) {
       findings.push(finding({

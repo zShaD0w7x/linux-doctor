@@ -51,3 +51,34 @@ export async function detectFirewall(ctx) {
         : "nftables ruleset not readable (needs root)";
   return { active, determined, evidence };
 }
+
+/**
+ * Kernel lines that mention MCE/EDAC but are routine, not faults:
+ *   "mce: CPU supports 32 MCE banks"  — printed once per CPU at boot on Intel
+ *   "EDAC MC: Ver: 3.0.0"             — driver init
+ *   "EDAC ie31200: No ECC support"    — a probe result, the opposite of an error
+ * The check matches on the bare words "mce"/"edac" to catch real events, so
+ * these must be rejected before a match is treated as a hardware fault. Without
+ * this, every Intel machine gets a high finding ("Machine check exceptions") and
+ * every EDAC-capable machine gets a medium one on a perfectly healthy box.
+ */
+const BENIGN_HW_RE = /MCE banks|EDAC MC: Ver:|No ECC support|Giving out device to module|Disabling ECC|Machine check reporting (?:enabled|disabled)/i;
+
+/** A real machine check: the kernel's own "[Hardware Error]" marker, or an mce error/exception. */
+const MCE_RE = /hardware error|mce:[^\n]*\b(?:error|exception)\b|machine check exception/i;
+
+/** A real ECC event: EDAC reporting a CE/UE count or an error, or explicit wording. */
+const EDC_RE = /\bEDAC\b[^\n]*\b(?:CE|UE)\b|\bEDAC\b[^\n]*\berror\b|corrected error|ecc error/i;
+
+/**
+ * Classify one kernel log line as a real hardware event ("mce" — uncorrected,
+ * serious — or "ecc" — corrected), or null when it is routine init chatter.
+ * Shared by the hardware check (which reports it) and the journal check (which
+ * defers to the hardware check so the same root cause is not reported twice).
+ */
+export function classifyHardwareLine(line) {
+  if (BENIGN_HW_RE.test(line)) return null;
+  if (MCE_RE.test(line)) return "mce";
+  if (EDC_RE.test(line)) return "ecc";
+  return null;
+}
