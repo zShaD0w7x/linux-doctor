@@ -27,3 +27,8 @@ documentation:
       - any-glob-to-any-file:
           - "docs/**"
           - "*.md"
+
+# CI workflows, the labeler config itself, issue/PR templates.
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
