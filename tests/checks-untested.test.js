@@ -136,6 +136,31 @@ test("packages: a held apt lock is medium", async () => {
   assert.equal(findings[0].severity, "medium");
 });
 
+// Regression: `pacman -Dk` prints "No database errors have been found!" on a
+// clean database. A bare /error/ matched that sentence, so a clean Arch system
+// was reported as "Pacman database has errors" (high) with the success line as
+// its evidence. Found by the clean-image baseline gate on its first run.
+test("packages: pacman reporting no database errors is informational", async () => {
+  const ctx = stubCtx({
+    "pacman -Dk 2>&1 | head -20":
+      "warning: database file for 'core' does not exist (use '-Sy' to download)\n" +
+      "warning: database file for 'extra' does not exist (use '-Sy' to download)\n" +
+      "No database errors have been found!\n",
+  }, { id: "arch" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok");
+  assert.equal(findings[0].severity, "info");
+});
+
+test("packages: a real pacman database error is still high", async () => {
+  const ctx = stubCtx({
+    "pacman -Dk 2>&1 | head -20": "error: package libfoo: missing 'libbar' dependency\n",
+  }, { id: "arch" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/broken");
+  assert.equal(findings[0].severity, "high");
+});
+
 test("packages: a healthy apt database is informational", async () => {
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",

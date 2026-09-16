@@ -138,8 +138,16 @@ export const packages = defineCheck({
     // Arch — check pacman DB
     if (pkg === "pacman" || family === "arch") {
       const pacmanCheck = await ctx.run("pacman -Dk 2>&1 | head -20");
-      const out = pacmanCheck.stdout || "";
-      if (/error|missing|mismatch/i.test(out) && out.trim() !== "") {
+      // `pacman -Dk` prints "No database errors have been found!" when the
+      // database is fine. A bare /error/ matched that sentence, so a clean Arch
+      // system got a high "Pacman database has errors" whose evidence was the
+      // sentence saying there are none. Drop the success line and require an
+      // actual diagnostic (a real one reads "error: package x: missing ...").
+      const out = (pacmanCheck.stdout || "")
+        .split("\n")
+        .filter((l) => !/No database errors have been found!/i.test(l))
+        .join("\n");
+      if (/\berror\b|missing|mismatch/i.test(out) && out.trim() !== "") {
         findings.push(finding({
           severity: "high",
           code: "packages/broken",
