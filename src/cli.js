@@ -16,6 +16,7 @@ import { pushReport, validatePushUrl, redactUrl } from "./fleet.js";
 import { startWeb } from "./web.js";
 import { score, scoreBreakdown, loadHistory, diffSinceLast, saveRun, previousScore, changeMessage, isHistoryDisabled, cleanStreak } from "./history.js";
 import { buildSupportBundle, writeSupportBundle, supportMessage, scrub, scrubFinding, scrubDeep } from "./support.js";
+import { createRecorder, recordPath } from "./record.js";
 import { loadIgnore, loadIgnoreCodes, isIgnored, isCodeIgnored, addIgnore, addIgnoreCode, removeIgnore, removeIgnoreCode } from "./ignore.js";
 import { loadConfig } from "./config.js";
 import { loadThresholds, DEFAULT_THRESHOLDS, coerceThreshold } from "./thresholds.js";
@@ -172,9 +173,16 @@ function jsonOptions(r, extra = {}) {
  * ignore and dedupe rules. `skipStaleIgnoreWarning` silences the "pattern
  * matched nothing" check for --compare (whose stderr is reserved for the diff).
  */
-async function collectReport({ checkIds, checks, ignorePatterns, ignoreCodes, thresholds, skipStaleIgnoreWarning = false }) {
-  const [system, profile] = await Promise.all([systemInfo(), detectProfile()]);
-  const cctx = { run, osRelease: system.osRelease, dist: detectDistro(system.osRelease), thresholds, profile };
+/**
+ * Run the checks and build the report. Exported (and injectable) so a recorded
+ * machine fixture can replay through the real pipeline — applicability, atomic
+ * skips, ignore rules, dedupe — instead of a reimplementation that would drift.
+ * `run`, `system` and `profile` default to the real probes.
+ */
+export async function collectReport({ checkIds, checks, ignorePatterns, ignoreCodes, thresholds, skipStaleIgnoreWarning = false, run: runFn = run, system: injectedSystem, profile: injectedProfile }) {
+  const [system, profile] =
+    injectedSystem && injectedProfile ? [injectedSystem, injectedProfile] : await Promise.all([systemInfo(), detectProfile()]);
+  const cctx = { run: runFn, osRelease: system.osRelease, dist: detectDistro(system.osRelease), thresholds, profile };
   const selected = applicableChecks(checkIds, profile.kind, checks);
   // Atomic/immutable systems (Bazzite, Silverblue, rpm-ostree, bootc): some
   // checks draw conclusions that are false positives there (e.g. comparing the
@@ -664,16 +672,35 @@ function printIgnoreLists(titles, codes) {
     return 2;
   }
 
-  const collect = () => collectReport({
-    checkIds: args.checkIds,
-    checks,
-    ignorePatterns,
-    ignoreCodes,
-    thresholds,
-    // Web mode skips the stale-ignore warning: the dashboard re-runs checks
-    // constantly and would otherwise spam the log.
-    skipStaleIgnoreWarning: args.web || args.daemon,
-  });
+  // LINUX_DOCTOR_RECORD=<path>: capture every command output so this run can be
+  // replayed later as a regression fixture. A contribution tool (CONTRIBUTING.md),
+  // not part of the normal surface; it changes nothing a check sees.
+  const recorder = recordPath() ? createRecorder(run) : null;
+
+  const collect = async () => {
+    const report = await collectReport({
+      checkIds: args.checkIds,
+      checks,
+      ignorePatterns,
+      ignoreCodes,
+      thresholds,
+      run: recorder ? recorder.run : run,
+      // Web mode skips the stale-ignore warning: the dashboard re-runs checks
+      // constantly and would otherwise spam the log.
+      skipStaleIgnoreWarning: args.web || args.daemon,
+    });
+    if (recorder) {
+      const target = recorder.write(recordPath(), { report });
+      if (target) {
+        console.error(
+          `linux-doctor: recorded ${recorder.commandCount} command(s) to ${target} — review and justify it before committing`,
+        );
+      } else {
+        console.error("linux-doctor: could not write the recorded fixture (check the path's directory).");
+      }
+    }
+    return report;
+  };
 
   // Attach health score, severity counts, and "new since last check" flags.
   // In web mode we do NOT save a history entry (the dashboard may re-run the
