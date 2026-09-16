@@ -386,6 +386,46 @@ test("updates: dnf exit code 100 (updates available) is counted", async () => {
   assert.match(findings[0].title, /2 update/i);
 });
 
+// Regression: `dnf check-update` prints a "Upgrades" header, an indented
+// continuation line under "Obsoleting packages", and one entry per enabled
+// repo — with updates + updates-archive that is the same package twice. The old
+// fallback counted all of it, so 2 real updates read as 6.
+test("updates: dnf counts unique packages, not headers/continuations/repo duplicates", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-updates-dnf-"));
+  const prevCache = process.env.LINUX_DOCTOR_CACHE;
+  const prevTtl = process.env.LINUX_DOCTOR_UPDATES_TTL_MS;
+  process.env.LINUX_DOCTOR_CACHE = dir;
+  process.env.LINUX_DOCTOR_UPDATES_TTL_MS = "3600000";
+  try {
+    const stdout = [
+      "Upgrades",
+      "firefox.x86_64                    130.0-1.fc44        updates",
+      "firefox.x86_64                    130.0-1.fc44        updates-archive",
+      "kernel.x86_64                     6.9.0-1.fc44        updates",
+      "kernel.x86_64                     6.9.0-1.fc44        updates-archive",
+      "Obsoleting packages",
+      "    oldpkg.x86_64                 1.0-1.fc44          updates",
+    ].join("\n") + "\n";
+    const ctx = {
+      osRelease: { id: "fedora", id_like: "fedora" },
+      dist: detectDistro({ id: "fedora", id_like: "fedora" }),
+      run: async (cmd) => {
+        if (cmd.startsWith("dnf check-update")) return { ok: false, code: 100, stdout, stderr: "" };
+        return { ok: false, code: 1, stdout: "", stderr: "" };
+      },
+    };
+    const findings = await updates.run(ctx);
+    assert.equal(findings.length, 1);
+    assert.match(findings[0].title, /2 update/i);
+  } finally {
+    if (prevCache === undefined) delete process.env.LINUX_DOCTOR_CACHE;
+    else process.env.LINUX_DOCTOR_CACHE = prevCache;
+    if (prevTtl === undefined) delete process.env.LINUX_DOCTOR_UPDATES_TTL_MS;
+    else process.env.LINUX_DOCTOR_UPDATES_TTL_MS = prevTtl;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("updates: a failed check stays silent instead of claiming up to date", async () => {
   const ctx = {
     osRelease: { id: "debian", id_like: "" },

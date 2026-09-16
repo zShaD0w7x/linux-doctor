@@ -107,6 +107,22 @@ export const updates = defineCheck({
     } else if (label === "rpm-ostree") {
       // Image updates are atomic: either a new image is available or not.
       count = /Available update:/.test(res.stdout) ? 1 : 0;
+    } else if (label === "dnf") {
+      // `dnf check-update` is a report, not a clean list: a bare "Upgrades"
+      // header, an "Obsoleting packages" section whose continuation lines are
+      // indented, and — when a repo pair like updates/updates-archive is
+      // enabled — the same package once per repo. Counting every non-"0" line
+      // (the old fallback) read 314 real updates as 630 on a Bazzite box. Only
+      // a package name, once per run, is an update. Split the raw stdout so
+      // the indentation is still visible (lines() trims it away).
+      const pkgs = new Set();
+      for (const raw of String(res.stdout).split("\n")) {
+        if (!raw.trim() || /^\s/.test(raw)) continue; // blank or indented continuation
+        const cols = raw.trim().split(/\s+/);
+        if (cols.length < 3) continue; // "Upgrades" / "Obsoleting packages"
+        pkgs.add(cols[0]);
+      }
+      count = pkgs.size;
     } else {
       count = lines(res.stdout).filter((l) => l !== "0").length;
     }
