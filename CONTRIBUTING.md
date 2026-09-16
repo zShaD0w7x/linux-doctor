@@ -35,6 +35,32 @@ project — keep it that way.
    system commands in tests.
 4. Run `npm test`, update the README checks table if needed.
 
+## Recording a machine fixture (optional)
+
+CI already runs the engine against clean distro containers (`Baseline (*)` jobs).
+What no container can represent is what real tools print on a real desktop or
+laptop, and that is where false positives actually come from. If you can
+reproduce a wrong finding — or just want your distro in the corpus — record a
+fixture:
+
+```bash
+LINUX_DOCTOR_RECORD=tests/fixtures/<distro>-<version>.json node bin/doctor.js --no-history
+gzip -9 tests/fixtures/<distro>-<version>.json
+```
+
+The recorder keeps every command the run executed, with its output, scrubbed:
+hostname, username, IP addresses, home paths, MAC addresses, UUIDs, machine ids,
+serial numbers and email addresses are replaced before anything is written (in
+command strings too — the EFI variable `SecureBoot-<guid>` path is a real
+example). Read the file once before committing: the scrubber is best effort and
+`tests/fixtures-privacy.test.js` is a backstop, not a guarantee.
+
+Then open the fixture and justify every high/medium code under `expected`. A
+freshly recorded entry carries a `TODO: ...` reason, and `tests/fixtures.test.js`
+fails until you either fix the check or say why a healthy machine really has that
+finding. That is not a formality: it is the difference between a corpus that
+catches lies and one that enshrines them.
+
 ## Pro (premium) checks
 
 **They live in a private package, not here.** This repository is the Free

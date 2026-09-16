@@ -11,7 +11,9 @@
  * The suite has shipped this class of bug twice: `fs/btrfs-errors` fired on the
  * btrfs module load banner (#13) and `hardware/ecc` fired on the EDAC driver's
  * "No ECC support" init line (#16). Both looked like real hardware faults on a
- * healthy machine, and both would have been caught here on the first run.
+ * healthy machine. The third, `packages/broken` reporting "Pacman database has
+ * errors" on a clean Arch image with the sentence "No database errors have been
+ * found!" as its evidence, was found by this gate on its first run.
  *
  * Usage:
  *   node scripts/baseline-gate.mjs tests/baseline/<id>.json          # check
@@ -21,10 +23,8 @@
  * refuses to pass while any TODO remains. Adding a finding to the baseline is a
  * deliberate act ("this one is expected in a container"), never a rubber stamp.
  *
- * Codes whose truth depends on the host rather than the image — memory, load,
- * kernel OOM/crash events, pending updates, a missing default route — are
- * tolerated in both directions (see ENVIRONMENT). They are never pinned, so the
- * gate does not flap with whatever else the CI runner happens to be doing.
+ * The verdict rules live in scripts/baseline-lib.mjs, shared with the recorded
+ * machine fixtures (tests/fixtures.test.js).
  *
  * Exit codes: 0 clean · 1 unexpected finding (or unjustified baseline entry)
  *             2 a hardware-fault code fired on a clean image · 3 check errors
@@ -33,40 +33,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-/**
- * Codes that must never appear on a clean image, whatever the baseline says.
- * A bare container has no ECC memory to correct and no mounted filesystem to
- * corrupt, so one of these firing is the check lying about the machine. If a
- * baseline ever lists one, that is a bug in the baseline, not a permission.
- */
-const NEVER_ON_CLEAN = [
-  "hardware/ecc",
-  "hardware/mce",
-  "fs/btrfs-errors",
-  "fs/readonly-remount",
-  "smart/failing",
-];
-
-/**
- * Codes whose truth depends on the *host* or on today's repos, not on the
- * image, so they are tolerated instead of pinned. `memory/low` is the clearest
- * case: inside a container it reads the host's memory, so pinning it would make
- * the gate flap with whatever else the CI runner is doing. These are ignored in
- * both directions — they never need a baseline entry and never fail the gate.
- * Everything outside this set must be justified in the baseline, which is how
- * `packages/broken` was caught firing on a clean Arch image.
- */
-const ENVIRONMENT = new Set([
-  "memory/low", // reads the host/cgroup, not the image
-  "load/busy", // ditto
-  "load/overloaded", // ditto
-  "oom/kills", // host kernel events
-  "crash/coredumps", // host kernel events
-  "updates/pending", // depends on what the distro repos look like today
-  "network/no-route", // a bare container has no default route
-]);
-
-const TODO = "TODO";
+import { NEVER_ON_CLEAN, ENVIRONMENT, TODO, highMediumCodes, compareFindings } from "./baseline-lib.mjs";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
@@ -102,11 +69,8 @@ if (checkErrors.length) {
   process.exit(3);
 }
 
-const findings = (report.findings ?? []).filter((f) => f.severity === "high" || f.severity === "medium");
-const observed = new Map();
-for (const f of findings) if (!observed.has(f.code)) observed.set(f.code, f);
-
-const infoCount = (report.findings ?? []).length - findings.length;
+const observed = highMediumCodes(report.findings);
+const infoCount = (report.findings ?? []).length - [...observed.values()].length;
 
 if (write) {
   const previous = readBaseline(file, { quiet: true });
@@ -137,22 +101,13 @@ if (write) {
   for (const code of Object.keys(expected)) console.log(`  ${code}`);
   const envSeen = [...observed.keys()].filter((c) => ENVIRONMENT.has(c));
   if (envSeen.length) console.log(`  tolerated (host-dependent, not pinned): ${envSeen.join(", ")}`);
-  const unchanged = previous?.expected
-    ? Object.keys(previous.expected).filter((c) => !(c in expected))
-    : [];
-  if (unchanged.length) console.log(`  no longer fires: ${unchanged.join(", ")}`);
+  const dropped = previous?.expected ? Object.keys(previous.expected).filter((c) => !(c in expected)) : [];
+  if (dropped.length) console.log(`  no longer fires: ${dropped.join(", ")}`);
   process.exit(0);
 }
 
 const baseline = readBaseline(file);
-const expected = baseline.expected ?? {};
-
-const unjustified = Object.entries(expected)
-  .filter(([, reason]) => typeof reason !== "string" || reason.startsWith(TODO))
-  .map(([code]) => code);
-const never = [...observed.keys()].filter((code) => NEVER_ON_CLEAN.includes(code));
-const unexpected = [...observed.entries()].filter(([code]) => !(code in expected) && !ENVIRONMENT.has(code));
-const stale = Object.keys(expected).filter((code) => !observed.has(code));
+const { never, unexpected, unjustified, stale } = compareFindings(report.findings, baseline.expected ?? {});
 
 let failed = false;
 
@@ -180,7 +135,7 @@ if (unexpected.length) {
 
 if (unjustified.length) {
   failed = true;
-  console.error(`baseline-gate: ${unjustified.length} baseline entry(ies) still carry a TODO reason:`);
+  console.error(`baseline-gate: ${unjustified.length} baseline entr(y/ies) still carry a TODO reason:`);
   for (const code of unjustified) console.error(`  ${code}`);
   console.error(`  edit ${target} and say why each one is expected on a clean image.`);
 }
@@ -194,8 +149,8 @@ if (stale.length) {
 if (failed) process.exit(never.length ? 2 : 1);
 
 console.log(
-  `baseline-gate: ${image} ok — ${Object.keys(expected).length} expected high/medium code(s), ` +
-    `${findings.length} observed (${[...observed.keys()].filter((c) => ENVIRONMENT.has(c)).length} host-dependent tolerated), ` +
+  `baseline-gate: ${image} ok — ${Object.keys(baseline.expected ?? {}).length} expected high/medium code(s), ` +
+    `${observed.size} observed (${[...observed.keys()].filter((c) => ENVIRONMENT.has(c)).length} host-dependent tolerated), ` +
     `${infoCount} info ignored`,
 );
 
