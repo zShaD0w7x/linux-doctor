@@ -99,6 +99,43 @@ jobs:
             console.log("ok: " + r.checksRun + " checks ran, " + r.findings.length + " findings");
           '
 
+  # Clean-image baseline gate. Runs the real engine inside distro images and
+  # fails if a high/medium finding appears that tests/baseline/<id>.json does not
+  # justify. This is the job that catches the whole "check lies about a healthy
+  # machine" class: on its first run it found packages/broken reporting "Pacman
+  # database has errors" on a clean Arch image, with evidence that read
+  # "No database errors have been found!". Codes whose truth depends on the host
+  # (memory, load, pending updates) are tolerated by the script, so the gate does
+  # not flap with whatever else the runner is doing.
+  baseline:
+    name: Baseline (${{ matrix.id }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: workflow-lint
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: fedora
+            image: fedora:latest
+            install: "dnf install -y -q --setopt=install_weak_deps=False nodejs"
+          - id: debian
+            image: debian:stable-slim
+            install: "apt-get update -qq && apt-get install -y -qq nodejs"
+          - id: alpine
+            image: alpine:latest
+            install: "apk add --no-cache nodejs"
+          - id: arch
+            image: archlinux:latest
+            install: "pacman -Sy --noconfirm --quiet nodejs"
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Node.js
+        run: ${{ matrix.install }}
+      - name: No unjustified high/medium finding on a clean image
+        run: node scripts/baseline-gate.mjs tests/baseline/${{ matrix.id }}.json
+
   test-rust:
     name: Rust tests (Tauri)
     runs-on: ubuntu-latest
