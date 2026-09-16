@@ -4,6 +4,16 @@ import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 
 /**
+ * "Btrfs loaded, zoned=yes, fsverity=yes" (and the XFS equivalent) is a module
+ * load banner: the kernel prints it at boot on any build with the filesystem
+ * compiled in, whether or not one is mounted. It is not an error, and it is not
+ * evidence that the filesystem is in use.
+ */
+function isModuleBanner(line) {
+  return /\b(?:btrfs|xfs)\b[^\n]*\bloaded\b/i.test(line) && !/error/i.test(line);
+}
+
+/**
  * Filesystem errors — EXT4/XFS/BTRFS I/O errors and read-only remounts.
  * These are rare but catastrophic when they happen, and `disk` (full) does
  * not catch them — a filesystem can be 30% full and still be corrupt.
@@ -21,12 +31,12 @@ export const fs = defineCheck({
     const hasLog = hasJournal.ok || hasDmesg.ok;
     const [kmsg, dmsg, ro] = await Promise.all([
       ctx.run("journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20"),
-      ctx.run("dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS|Remounting filesystem read-only' | tail -n 20"),
+      ctx.run("dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20"),
       ctx.run("dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5"),
     ]);
 
     const combined = [...lines(kmsg.stdout), ...lines(dmsg.stdout)];
-    const uniq = [...new Set(combined)].filter(Boolean);
+    const uniq = [...new Set(combined)].filter(Boolean).filter((l) => !isModuleBanner(l));
     const roLines = lines(ro.stdout).filter(Boolean);
 
     // Read-only remount is the most user-visible symptom — promote it.

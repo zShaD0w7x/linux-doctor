@@ -178,7 +178,7 @@ test("fs: a read-only remount is high", async () => {
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v dmesg 2>/dev/null": "",
     "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20": "",
-    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS|Remounting filesystem read-only' | tail -n 20": "EXT4-fs error (device sda2): remounting filesystem read-only\n",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20": "EXT4-fs error (device sda2): remounting filesystem read-only\n",
     "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "EXT4-fs (sda2): Remounting filesystem read-only\n",
   });
   const findings = await fs.run(ctx);
@@ -191,12 +191,72 @@ test("fs: a clean kernel log is informational", async () => {
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v dmesg 2>/dev/null": "",
     "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20": "",
-    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS|Remounting filesystem read-only' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20": "",
     "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "",
   });
   const findings = await fs.run(ctx);
   assert.equal(findings[0].code, "fs/ok");
   assert.equal(findings[0].severity, "info");
+});
+
+// Regression for #13: "Btrfs loaded, zoned=yes, fsverity=yes" is the module load
+// banner. The kernel prints it at every boot on any build with btrfs compiled in,
+// whether or not a btrfs filesystem is mounted — so it is neither an error nor
+// evidence that btrfs is in use.
+
+test("fs: the btrfs module load banner is not a filesystem error", async () => {
+  const osRelease = { id: "ubuntu", id_like: "debian" };
+  const ctx = {
+    osRelease,
+    dist: detectDistro(osRelease),
+    thresholds: loadThresholds({}),
+    // Force the banner through whichever log grep the check uses, so this stays
+    // an assertion about the check's logic rather than about one command string.
+    run: async (cmd) => {
+      if (cmd.startsWith("command -v")) return { ok: true, code: 0, stdout: "/usr/bin/dmesg\n", stderr: "" };
+      if (cmd.includes("tail -n 5")) return { ok: true, code: 0, stdout: "", stderr: "" };
+      return { ok: true, code: 0, stdout: "[    2.446464] Btrfs loaded, zoned=yes, fsverity=yes\n", stderr: "" };
+    },
+  };
+  const findings = await fs.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "fs/ok", "the module load banner must not be read as an error");
+  assert.equal(findings[0].severity, "info");
+});
+
+test("fs: a real btrfs error is still reported as high", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "command -v dmesg 2>/dev/null": "",
+    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20":
+      "BTRFS error (device sda2): bdev /dev/sda2 errs: wr 0, rd 0, flush 0, corrupt 12, gen 0\n",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "",
+  });
+  const findings = await fs.run(ctx);
+  assert.equal(findings[0].code, "fs/btrfs-errors");
+  assert.equal(findings[0].severity, "high");
+});
+
+test("fs: the dmesg grep does not match BTRFS without an error keyword", async () => {
+  const seen = [];
+  const osRelease = { id: "ubuntu", id_like: "debian" };
+  const ctx = {
+    osRelease,
+    dist: detectDistro(osRelease),
+    thresholds: loadThresholds({}),
+    run: async (cmd) => {
+      seen.push(cmd);
+      return { ok: true, code: 0, stdout: "", stderr: "" };
+    },
+  };
+  await fs.run(ctx);
+  const dmesgGrep = seen.find((c) => c.startsWith("dmesg") && c.includes("tail -n 20"));
+  assert.ok(dmesgGrep, "the check must still grep dmesg for errors");
+  assert.ok(
+    !/\|BTRFS\|/.test(dmesgGrep),
+    "a bare BTRFS alternation matches the harmless module load banner",
+  );
 });
 
 // -------------------------------------------------------------- cache ---------
