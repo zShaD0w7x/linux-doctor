@@ -27,7 +27,19 @@ export const packages = defineCheck({
       const [dpkgAudit, aptCheck, lockRes] = await Promise.all([
         ctx.run("dpkg --audit 2>&1 | head -20"),
         ctx.run("apt-get check 2>&1 | head -20"),
-        ctx.run("ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1"),
+        // Lock probe. Holders in our own process group are skipped: `apt-get
+      // check` below takes the same frontend lock, and the `updates` and
+      // `orphans` checks take it too, so a plain `fuser` reported linux-doctor
+      // as "another process". Run as root on a healthy machine that produced a
+      // medium "locked by another process" naming linux-doctor itself (#24).
+      // The `[ -n "$pgid" ]` guard falls back to reporting every holder when
+      // `ps -o pgid=` is unavailable, so detection is never silently lost.
+      ctx.run(
+        "pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' '); " +
+          "for pid in $(fuser /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock 2>/dev/null); do " +
+          'holder=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d " "); ' +
+          'if [ -n "$pgid" ] && [ "$holder" = "$pgid" ]; then continue; fi; echo "$pid"; done'
+      ),
       ]);
 
       const auditOut = (dpkgAudit.stdout || "").trim();
@@ -69,22 +81,21 @@ export const packages = defineCheck({
         return findings;
       }
 
-      // Lock file present + held by another process = apt is busy/locked
-      if (lockRes.ok && lockRes.stdout.trim() !== "") {
-        const fuserOut = lines(lockRes.stdout).join(" ").trim();
-        // Only flag as locked if fuser shows a PID (actually held)
-        if (/\d/.test(fuserOut)) {
-          findings.push(finding({
-            severity: "medium",
-            code: "packages/locked",
-            title: "Package manager is locked by another process",
-            detail: "Another apt/dpkg process is holding the package lock. Updates cannot run until it finishes.",
-            evidence: `lock held by PID ${fuserOut}`,
-            fix: "Wait for the other apt process to finish, or if it is stuck, check `ps aux | grep -E 'apt|dpkg'` and close it.",
-            confidence: "medium",
-          }));
-          return findings;
-        }
+      // A lock held by a process outside our own tree = apt is busy. Only the
+      // PIDs reach the evidence: the probe's output is PIDs, so nothing else
+      // can be printed as "held by".
+      const holders = lines(lockRes.stdout).filter((l) => /^\d+$/.test(l));
+      if (lockRes.ok && holders.length > 0) {
+        findings.push(finding({
+          severity: "medium",
+          code: "packages/locked",
+          title: "Package manager is locked by another process",
+          detail: "Another apt/dpkg process is holding the package lock. Updates cannot run until it finishes.",
+          evidence: `lock held by PID ${holders.join(" ")}`,
+          fix: "Wait for the other apt process to finish, or if it is stuck, check `ps aux | grep -E 'apt|dpkg'` and close it.",
+          confidence: "medium",
+        }));
+        return findings;
       }
 
       // Check for dpkg interrupted flag
