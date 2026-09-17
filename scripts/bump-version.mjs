@@ -73,11 +73,22 @@ bumpText("packaging/linux-doctor.1", (s) =>
   s.replace(/^\.TH LINUX-DOCTOR 1 ".*?" "linux-doctor .*?"/m, `.TH LINUX-DOCTOR 1 "${date}" "linux-doctor ${version}"`)
 );
 
-// 6. packaging/PKGBUILD  -> pkgver=X.Y.Z + sha256sums=('SKIP')
-bumpText("packaging/PKGBUILD", (s) => {
+// 6. packaging/aur/PKGBUILD  -> pkgver=X.Y.Z + pkgrel=1 + sha256sums=('SKIP')
+bumpText("packaging/aur/PKGBUILD", (s) => {
   let out = s.replace(/^pkgver=.*$/m, `pkgver=${version}`);
+  out = out.replace(/^pkgrel=.*$/m, "pkgrel=1");
   // reset hash to SKIP — real hash is computed from the published tarball
   out = out.replace(/^sha256sums=\(.*?\)/m, `sha256sums=('SKIP')`);
+  return out;
+});
+
+// 6b. packaging/aur/.SRCINFO must match the PKGBUILD, or makepkg and the AUR
+// both reject the pair. Regenerated from PKGBUILD after the real hash is known;
+// until then both files carry SKIP.
+bumpText("packaging/aur/.SRCINFO", (s) => {
+  let out = s.replace(/^\tpkgver = .*$/m, `\tpkgver = ${version}`);
+  out = out.replace(/^\tpkgrel = .*$/m, "\tpkgrel = 1");
+  out = out.replace(/^\tsha256sums = .*$/m, "\tsha256sums = SKIP");
   return out;
 });
 
@@ -87,7 +98,7 @@ bumpText("packaging/linux-doctor.spec", (s) => {
   // Add changelog entry if not already present for this version
   const tag = `${version}-1`;
   if (!out.includes(tag)) {
-    const entry = `* ${new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "2-digit", year: "numeric" })} Linux Doctor <maintainer@example.com> - ${tag}\n- Sync to ${version}\n`;
+    const entry = `* ${new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "2-digit", year: "numeric" })} zShaD0w7x <zshadow7x@users.noreply.github.com> - ${tag}\n- Sync to ${version}\n`;
     out = out.replace(/^%changelog/m, `%changelog\n${entry}`);
   }
   return out;
