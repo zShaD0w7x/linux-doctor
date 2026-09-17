@@ -7,7 +7,7 @@
     "frontendDist": "../src-gui"
   },
   "app": {
-    "withGlobalTauri": false,
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",

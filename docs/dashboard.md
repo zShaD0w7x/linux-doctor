@@ -86,7 +86,9 @@ sharp corners, flat surfaces) for sysadmins; same layout and the same
 contrast budget as the other themes, only variables change.
 **Keyboard navigation:** `↑`/`↓` move between findings, `Enter`/`Space`
 opens/closes the focused one, `/` focuses search, `?` shows all shortcuts,
-`Esc` closes dialogs/menus/panels or clears search and filters. Every
+`Esc` closes dialogs/menus/panels or clears search and filters, and `F11`
+toggles fullscreen in the desktop app (in the browser dashboard the browser
+keeps that key for itself). Every
 severity has an icon plus a text label, never color alone; status changes
 and confirmations are announced through live regions, and motion honors
 `prefers-reduced-motion`. While checks re-run, a spinner shows progress and
