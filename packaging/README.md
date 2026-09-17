@@ -144,6 +144,7 @@ manifest on top of that. The same reasoning applies to strict Snap
 confinement; a **classic** Snap could work but needs store approval and a
 Snapcraft account.
 
-The supported desktop channels are **AppImage**, **`.deb`/`.rpm`**, **AUR**
-and **COPR** — all of which run with normal host access.
+The supported desktop channels are **AppImage**, **`.deb`/`.rpm`**, the
+**OBS repository** for Fedora/RHEL/openSUSE, and **AUR** once it is published —
+all of which run with normal host access.
 

@@ -123,7 +123,7 @@ npm install -g linux-doctor && linux-doctor
 
 Prefer a native CLI package?
 
-- **Arch / AUR:** `makepkg -si` from the [PKGBUILD](packaging/aur/PKGBUILD) (AUR package `linux-doctor`)
+- **Arch:** build it from the [PKGBUILD](packaging/aur/PKGBUILD) in this repo with `makepkg -si`. It is not in the AUR yet — registration there is closed at the moment, so the PKGBUILD in this repository is the only Arch path for now.
 - **Fedora / RHEL / Bazzite / openSUSE:** add the [OBS repository](https://build.opensuse.org/project/show/home:7sh1d0w7x:linux-doctor) and `sudo dnf install linux-doctor`, or build with the [linux-doctor.spec](packaging/linux-doctor.spec)
 - **Debian / Ubuntu:** `.deb` from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)
 - **Any glibc distro:** AppImage or `npx github:zShaD0w7x/linux-doctor`
@@ -251,7 +251,7 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - ~~Report history and change detection~~: shipped (health score, NEW/FIXED diff)
 - ~~More checks (Bluetooth, Wayland, backup, hardware errors, LUKS)~~: shipped
 - Auto-generated, distro-specific fix instructions
-- Signed packages on AUR/COPR and AppStream metadata in every package (Flatpak is not a fit; see [packaging/README.md](packaging/README.md))
+- The AUR package, once registration there reopens (the PKGBUILD is ready); AppStream metadata already ships in every package (Flatpak is not a fit; see [packaging/README.md](packaging/README.md))
 - Maintenance: single maintainer, AI-assisted. Roadmap lives in the CHANGELOG and
   in GitHub issues. Security fixes within days, contributions welcome.
 
