@@ -22,6 +22,13 @@ project — keep it that way.
   CI, and if it fires on a recorded machine the fixture needs a written reason.
   Defaults must be conservative and thresholds tunable, not hard-coded. See the
   noise policy in [docs/doctrine.md](docs/doctrine.md).
+- **Some things are a public API.** Flag names, exit codes, the JSON schema,
+  finding codes, config keys and the check/plugin shape are what users script
+  against: renaming a finding code breaks their ignore lists and history, and a
+  new required JSON field needs a `schemaVersion` bump. What counts as
+  user-visible and how it is announced is in
+  [docs/compatibility.md](docs/compatibility.md) — read it before changing a
+  code name or a flag.
 - **Issues and PRs get an answer**, including "no" or "not yet". If a PR of
   yours goes quiet for a while, ping it — silence is a queue problem, not a
   verdict on your patch.

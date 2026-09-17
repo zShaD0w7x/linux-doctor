@@ -6,6 +6,16 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Two public documents about trust rather than features.**
+  [docs/limitations.md](docs/limitations.md) lists what the tool does not
+  detect and every false positive it has shipped and fixed, with the regression
+  test that guards each one;
+  [docs/compatibility.md](docs/compatibility.md) defines what counts as a
+  public API (flags, exit codes, the JSON schema, finding codes, config keys,
+  the check shape) and how a change to it is announced.
+
 ### Fixed
 
 - **`packages/locked` accused linux-doctor of holding the dpkg lock.** The lock
