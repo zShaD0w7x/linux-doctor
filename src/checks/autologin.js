@@ -16,9 +16,14 @@ import { finding } from "../findings.js";
  *   - a bare "[Autologin]" section header, which sets nothing on its own.
  * A section header only counts once a User= line follows it, and GDM only
  * autologins when AutomaticLoginEnable is true.
+ *
+ * Both GDM layouts are searched: Fedora/RHEL/openSUSE keep their config in
+ * /etc/gdm/custom.conf, while Debian/Ubuntu/Mint use /etc/gdm3 (the file there
+ * is daemon.conf, which `grep -r` reaches). Listing only /etc/gdm meant an
+ * enabled autologin on the Debian family was never read at all.
  */
 const AUTOLOGIN_GREP =
-  "grep -rEn 'AutomaticLoginEnable|AutologinUser|autologin-user|\\[Autologin\\]|^[[:space:]]*User[[:space:]]*=' /etc/gdm /etc/sddm.conf /etc/sddm.conf.d/ /etc/lightdm/ /etc/lxdm/ 2>/dev/null";
+  "grep -rEn 'AutomaticLoginEnable|AutologinUser|autologin-user|\\[Autologin\\]|^[[:space:]]*User[[:space:]]*=' /etc/gdm /etc/gdm3 /etc/sddm.conf /etc/sddm.conf.d/ /etc/lightdm/ /etc/lxdm/ 2>/dev/null";
 
 export const autologin = defineCheck({
   id: "autologin",
