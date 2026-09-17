@@ -136,6 +136,63 @@ test("packages: a held apt lock is medium", async () => {
   assert.equal(findings[0].severity, "medium");
 });
 
+// Regression for #14: `apt-get check` needs the dpkg frontend lock, which an
+// unprivileged run cannot take. `2>&1` folds its refusal into the same string,
+// and the bare `E:` / `error` predicate then read that refusal as broken
+// dependencies — so every non-root run on a perfectly healthy Debian box got a
+// high "Package manager reports broken dependencies" whose evidence was apt
+// complaining it is not root.
+const APT_LOCK_REFUSAL =
+  "E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)\n" +
+  "E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?\n";
+
+test("packages: a non-root apt lock refusal is not a broken package", async () => {
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": APT_LOCK_REFUSAL,
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok");
+  assert.equal(findings[0].severity, "info");
+});
+
+test("packages: the healthy finding records that apt-get check needed root", async () => {
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": APT_LOCK_REFUSAL,
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+  });
+  const findings = await packages.run(ctx);
+  // Claiming "apt-get check: ok" would be a lie — it never ran.
+  assert.match(findings[0].evidence, /needs root/i);
+  assert.doesNotMatch(findings[0].evidence, /apt-get check: ok/);
+});
+
+test("packages: real unmet dependencies are still high", async () => {
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20":
+      "Reading package lists...\nBuilding dependency tree...\n" +
+      "E: Unmet dependencies. Try 'apt --fix-broken install' with no packages (or specify a solution).\n",
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/broken");
+  assert.equal(findings[0].severity, "high");
+});
+
+test("packages: a lock refusal does not mask a genuinely broken dpkg database", async () => {
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "The following packages are in a mess due to serious problems during installation:\n libfoo\n",
+    "apt-get check 2>&1 | head -20": APT_LOCK_REFUSAL,
+    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/broken");
+  assert.equal(findings[0].severity, "high");
+});
+
 // Regression: `pacman -Dk` prints "No database errors have been found!" on a
 // clean database. A bare /error/ matched that sentence, so a clean Arch system
 // was reported as "Pacman database has errors" (high) with the success line as

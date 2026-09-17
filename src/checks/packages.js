@@ -4,6 +4,12 @@ import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 
 /**
+ * `apt-get check` refusing the dpkg frontend lock. These lines say nothing
+ * about dependency health — only that the run was unprivileged.
+ */
+const APT_NEEDS_ROOT = /are you root|permission denied|could not open lock|unable to acquire/i;
+
+/**
  * Package manager health — detects a broken/locked package system that
  * makes `updates` lie ("up to date" when apt/dnf is actually blocked).
  * Checks dpkg audit, apt lock, and dnf/rpm DB. Read-only.
@@ -27,7 +33,15 @@ export const packages = defineCheck({
       const auditOut = (dpkgAudit.stdout || "").trim();
       const checkOut = (aptCheck.stdout || "").trim();
       const hasAudit = auditOut !== "" && !/no packages/i.test(auditOut);
-      const hasCheckError = /E:|error|broken|unmet dependencies/i.test(checkOut);
+      // `apt-get check` takes the dpkg frontend lock, which an unprivileged run
+      // cannot get. `2>&1` folds that refusal into the same string, and a bare
+      // `E:` / `error` predicate read it as broken dependencies — so every
+      // non-root run on a healthy system produced a high whose evidence was apt
+      // saying it is not root. Drop the refusal and require an actual dependency
+      // diagnostic (a real one reads "E: Unmet dependencies.").
+      const checkNeedsRoot = APT_NEEDS_ROOT.test(checkOut);
+      const checkDiag = lines(checkOut).filter((l) => !APT_NEEDS_ROOT.test(l)).join("\n");
+      const hasCheckError = /unmet dependencies|broken packages/i.test(checkDiag);
 
       if (hasAudit) {
         findings.push(finding({
@@ -48,7 +62,7 @@ export const packages = defineCheck({
           code: "packages/broken",
           title: "Package manager reports broken dependencies",
           detail: "`apt-get check` reports broken packages or unmet dependencies.",
-          evidence: lines(checkOut).slice(0, 3).join("\n"),
+          evidence: lines(checkDiag).slice(0, 3).join("\n"),
           fix: "Fix with `sudo apt --fix-broken install` and `sudo apt update`.",
           confidence: "high",
         }));
@@ -95,7 +109,7 @@ export const packages = defineCheck({
         code: "packages/ok",
         title: "Package manager is healthy",
         detail: "No broken packages or locks were found. apt/dpkg is ready for updates.",
-        evidence: "dpkg --audit: clean · apt-get check: ok",
+        evidence: `dpkg --audit: clean · apt-get check: ${checkNeedsRoot ? "skipped (needs root)" : "ok"}`,
         fix: null,
         confidence: "high",
       }));
