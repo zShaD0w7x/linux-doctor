@@ -177,8 +177,8 @@ test("fs: a read-only remount is high", async () => {
   const ctx = stubCtx({
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v dmesg 2>/dev/null": "",
-    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20": "",
-    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20": "EXT4-fs error (device sda2): remounting filesystem read-only\n",
+    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|I/O stall' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|Remounting filesystem read-only' | tail -n 20": "EXT4-fs error (device sda2): remounting filesystem read-only\n",
     "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "EXT4-fs (sda2): Remounting filesystem read-only\n",
   });
   const findings = await fs.run(ctx);
@@ -190,8 +190,8 @@ test("fs: a clean kernel log is informational", async () => {
   const ctx = stubCtx({
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v dmesg 2>/dev/null": "",
-    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20": "",
-    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20": "",
+    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|I/O stall' | tail -n 20": "",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|Remounting filesystem read-only' | tail -n 20": "",
     "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "",
   });
   const findings = await fs.run(ctx);
@@ -228,17 +228,23 @@ test("fs: a real btrfs error is still reported as high", async () => {
   const ctx = stubCtx({
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v dmesg 2>/dev/null": "",
-    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20":
-      "BTRFS error (device sda2): bdev /dev/sda2 errs: wr 0, rd 0, flush 0, corrupt 12, gen 0\n",
-    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20": "",
+    "journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|I/O stall' | tail -n 20":
+      "BTRFS error (device sda2): bdev /dev/sda2 errs: wr 0, rd 0, flush 0, corrupt 12, gen 0\n" +
+      "BTRFS critical (device sda2): corrupt leaf: root=5 block=12345 slot=0\n" +
+      "BTRFS: failed to read chunk tree on sda2\n",
+    "dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|Remounting filesystem read-only' | tail -n 20": "",
     "dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5": "",
   });
   const findings = await fs.run(ctx);
   assert.equal(findings[0].code, "fs/btrfs-errors");
   assert.equal(findings[0].severity, "high");
+  // "critical" and "failed" carry no literal "error" — the corruption case must
+  // survive the banner fix, not just the lines that happen to say "error".
+  assert.match(findings[0].evidence, /BTRFS critical/);
+  assert.match(findings[0].evidence, /failed to read chunk tree/);
 });
 
-test("fs: the dmesg grep does not match BTRFS without an error keyword", async () => {
+test("fs: the dmesg grep never matches BTRFS on its own", async () => {
   const seen = [];
   const osRelease = { id: "ubuntu", id_like: "debian" };
   const ctx = {
@@ -256,6 +262,11 @@ test("fs: the dmesg grep does not match BTRFS without an error keyword", async (
   assert.ok(
     !/\|BTRFS\|/.test(dmesgGrep),
     "a bare BTRFS alternation matches the harmless module load banner",
+  );
+  assert.match(
+    dmesgGrep,
+    /BTRFS\.\*\((?=[^)]*error)(?=[^)]*critical)(?=[^)]*failed)(?=[^)]*corrupt)[^)]*\)/,
+    "BTRFS must be qualified by the severity keywords, not dropped entirely",
   );
 });
 

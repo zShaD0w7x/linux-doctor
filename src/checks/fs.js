@@ -4,13 +4,14 @@ import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 
 /**
- * "Btrfs loaded, zoned=yes, fsverity=yes" (and the XFS equivalent) is a module
- * load banner: the kernel prints it at boot on any build with the filesystem
- * compiled in, whether or not one is mounted. It is not an error, and it is not
- * evidence that the filesystem is in use.
+ * "Btrfs loaded, zoned=yes, fsverity=yes" is a module load banner: the kernel
+ * prints it at boot on any build with btrfs compiled in, whether or not a btrfs
+ * filesystem is mounted. It is not an error, and it is not evidence that btrfs
+ * is in use. XFS has no equivalent — it announces itself as "SGI XFS with ACLs,
+ * security attributes, ... enabled", which carries none of these keywords.
  */
 function isModuleBanner(line) {
-  return /\b(?:btrfs|xfs)\b[^\n]*\bloaded\b/i.test(line) && !/error/i.test(line);
+  return /\bbtrfs\b[^\n]*\bloaded\b/i.test(line) && !/error|critical|failed|corrupt/i.test(line);
 }
 
 /**
@@ -30,8 +31,8 @@ export const fs = defineCheck({
     ]);
     const hasLog = hasJournal.ok || hasDmesg.ok;
     const [kmsg, dmsg, ro] = await Promise.all([
-      ctx.run("journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|I/O stall' | tail -n 20"),
-      ctx.run("dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*error|btrfs.*error|XFS.*error|xfs.*error|Remounting filesystem read-only' | tail -n 20"),
+      ctx.run("journalctl -k --no-pager -n 500 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|I/O stall' | tail -n 20"),
+      ctx.run("dmesg 2>/dev/null | grep -iE 'EXT4-fs error|I/O error|buffer I/O error|BTRFS.*(error|critical|failed|corrupt)|XFS.*error|Remounting filesystem read-only' | tail -n 20"),
       ctx.run("dmesg 2>/dev/null | grep -i 'Remounting filesystem read-only' | tail -n 5"),
     ]);
 
