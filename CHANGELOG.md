@@ -23,6 +23,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **`security/autologin` never read the Debian GDM config.** The probe listed
+  `/etc/gdm` (the Red Hat, openSUSE and Fedora layout) but not `/etc/gdm3`,
+  which Debian, Ubuntu and Mint use, so an enabled autologin there was read as
+  nothing at all. Both layouts are searched now, and a test pins the Debian
+  path. Adding it is only safe because the comment filter below stops the
+  commented examples that Debian's `daemon.conf` ships by default.
 - **Five more wrong results, found by auditing every check against real input.**
   Each one was reproduced before it was changed, and each has a regression test
   that fails without the fix:

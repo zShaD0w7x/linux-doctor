@@ -169,7 +169,29 @@ test("locales: healthy locale is silent", async () => {
 // config, an explicit `false`, and a bare `[Autologin]` section header. All
 // three used to be reported as "Automatic login is enabled".
 const AUTOLOGIN_GREP =
-  "grep -rEn 'AutomaticLoginEnable|AutologinUser|autologin-user|\\[Autologin\\]|^[[:space:]]*User[[:space:]]*=' /etc/gdm /etc/sddm.conf /etc/sddm.conf.d/ /etc/lightdm/ /etc/lxdm/ 2>/dev/null";
+  "grep -rEn 'AutomaticLoginEnable|AutologinUser|autologin-user|\\[Autologin\\]|^[[:space:]]*User[[:space:]]*=' /etc/gdm /etc/gdm3 /etc/sddm.conf /etc/sddm.conf.d/ /etc/lightdm/ /etc/lxdm/ 2>/dev/null";
+
+// Debian/Ubuntu/Mint keep the GDM config in /etc/gdm3 (Red Hat uses /etc/gdm),
+// so a check that only listed /etc/gdm never read an enabled autologin there.
+test("autologin: the Debian GDM path (/etc/gdm3) is read", async () => {
+  const ctx = stubCtx({
+    [AUTOLOGIN_GREP]:
+      "/etc/gdm3/daemon.conf:3:AutomaticLoginEnable=true\n/etc/gdm3/daemon.conf:4:AutomaticLogin=jane\n",
+  });
+  const findings = await autologin.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+});
+
+// The file Debian ships is full of commented examples, including
+// "#  AutomaticLoginEnable = true". Adding the path is only safe together with
+// the comment filter above.
+test("autologin: the commented example in Debian's daemon.conf is not enabled", async () => {
+  const ctx = stubCtx({
+    [AUTOLOGIN_GREP]: "/etc/gdm3/daemon.conf:10:#  AutomaticLoginEnable = true\n/etc/gdm3/daemon.conf:11:#  AutomaticLogin = user1\n",
+  });
+  assert.deepEqual(await autologin.run(ctx), []);
+});
 
 test("autologin: enabled automatic login is medium", async () => {
   const ctx = stubCtx({
