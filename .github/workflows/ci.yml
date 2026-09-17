@@ -122,6 +122,9 @@ jobs:
           - id: debian
             image: debian:stable-slim
             install: "apt-get update -qq && apt-get install -y -qq nodejs"
+          - id: ubuntu
+            image: ubuntu:24.04
+            install: "apt-get update -qq && apt-get install -y -qq nodejs"
           - id: alpine
             image: alpine:latest
             install: "apk add --no-cache nodejs"
