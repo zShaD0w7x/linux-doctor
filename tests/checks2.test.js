@@ -164,15 +164,53 @@ test("locales: healthy locale is silent", async () => {
   assert.deepEqual(await locales.run(ctx), []);
 });
 
+// The check greps widely and decides in JS, so the raw matches include things
+// that are not autologin: commented examples that ship in the default GDM
+// config, an explicit `false`, and a bare `[Autologin]` section header. All
+// three used to be reported as "Automatic login is enabled".
+const AUTOLOGIN_GREP =
+  "grep -rEn 'AutomaticLoginEnable|AutologinUser|autologin-user|\\[Autologin\\]|^[[:space:]]*User[[:space:]]*=' /etc/gdm /etc/sddm.conf /etc/sddm.conf.d/ /etc/lightdm/ /etc/lxdm/ 2>/dev/null";
+
 test("autologin: enabled automatic login is medium", async () => {
   const ctx = stubCtx({
-    "grep -rEn 'AutomaticLoginEnable|AutologinUser|Autologin|autologin-user' /etc/gdm /etc/sddm.conf /etc/sddm.conf.d/ /etc/lightdm/ /etc/lxdm/ 2>/dev/null":
-      "/etc/sddm.conf.d/autologin.conf:3:AutologinUser=jane\n",
+    [AUTOLOGIN_GREP]: "/etc/sddm.conf.d/autologin.conf:3:AutologinUser=jane\n",
   });
   const findings = await autologin.run(ctx);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "medium");
   assert.match(findings[0].code, /security\/autologin/);
+});
+
+test("autologin: a commented example is not enabled", async () => {
+  const ctx = stubCtx({
+    [AUTOLOGIN_GREP]: "/etc/gdm/custom.conf:12:# AutomaticLoginEnable=true\n",
+  });
+  assert.deepEqual(await autologin.run(ctx), []);
+});
+
+test("autologin: an explicit false is not enabled", async () => {
+  const ctx = stubCtx({
+    [AUTOLOGIN_GREP]: "/etc/gdm/custom.conf:12:AutomaticLoginEnable=false\n",
+  });
+  assert.deepEqual(await autologin.run(ctx), []);
+});
+
+test("autologin: a bare [Autologin] section header sets nothing", async () => {
+  const ctx = stubCtx({
+    [AUTOLOGIN_GREP]: "/etc/sddm.conf.d/autologin.conf:1:[Autologin]\n",
+  });
+  assert.deepEqual(await autologin.run(ctx), []);
+});
+
+test("autologin: SDDM User= inside an [Autologin] section is medium", async () => {
+  const ctx = stubCtx({
+    [AUTOLOGIN_GREP]:
+      "/etc/sddm.conf.d/autologin.conf:1:[Autologin]\n/etc/sddm.conf.d/autologin.conf:2:User=jane\n",
+  });
+  const findings = await autologin.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "medium");
+  assert.match(findings[0].evidence, /User=jane/);
 });
 
 test("autologin: no autologin config is silent", async () => {

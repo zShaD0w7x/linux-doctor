@@ -23,6 +23,29 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Five more wrong results, found by auditing every check against real input.**
+  Each one was reproduced before it was changed, and each has a regression test
+  that fails without the fix:
+  - **`security/autologin` fired on a commented example** (the
+    `# AutomaticLoginEnable=true` line several distros ship by default), on an
+    explicit `false`, and on a bare `[Autologin]` section header. Comments are
+    ignored now, GDM needs a true value, and SDDM needs a `User=` line inside
+    the section.
+  - **`flatpak` reported "apps are up to date" with updates pending.** The
+    default `remote-ls --updates` output is a column table whose fields contain
+    no `/`, and that is what the old count looked for. It asks for
+    `--columns=application,version` now, with a table fallback for older
+    flatpak.
+  - **A `FAULTED`, `UNAVAIL`, `REMOVED` or `SUSPENDED` ZFS pool was reported as
+    "RAID arrays are healthy".** Only the word "degraded" was recognised, so
+    everything worse fell through to the healthy branch. Only `ONLINE` counts as
+    healthy now, and a running scrub is no longer called a rebuild.
+  - **A full root filesystem was reported as a full `/boot`.** `df -P /boot`
+    prints the root row when `/boot` is a directory on `/`, and the columns look
+    identical. The row is only used when its mount point is the requested one.
+  - **`crash` could report a kernel panic from the Intel machine-check boot
+    banner** (`Intel machine check reporting enabled on CPU#N`) on machines that
+    reboot often. It defers to the same classifier the hardware check uses.
 - **`packages/locked` accused linux-doctor of holding the dpkg lock.** The lock
   probe ran beside the tool's own `apt-get check`, and the `updates` and
   `orphans` checks take the same frontend lock, so `fuser` found linux-doctor

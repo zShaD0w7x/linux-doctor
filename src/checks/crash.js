@@ -2,6 +2,7 @@
 import { lines } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { classifyHardwareLine } from "./shared.js";
 
 /**
  * Crash and reboot history: unexpected restarts and coredumps are the #1
@@ -65,7 +66,13 @@ export const crash = defineCheck({
           'journalctl -k --since "7 days ago" --no-pager 2>/dev/null | grep -iE "Kernel panic|Oops:|BUG: kernel|kernel BUG|machine check|Hardware Error|watchdog: BUG"'
         );
         const crashLines = kernelLog.ok && kernelLog.stdout.trim()
-          ? lines(kernelLog.stdout).slice(0, 3)
+          ? lines(kernelLog.stdout)
+              // "Intel machine check reporting enabled on CPU#N" is a per-CPU
+              // boot banner, and the hardware check already knows how to reject
+              // it. Without this filter a reboot-heavy Intel machine reported
+              // crash/panic (high) with a boot banner as its evidence.
+              .filter((l) => classifyHardwareLine(l) !== null || !/machine check|hardware error/i.test(l))
+              .slice(0, 3)
           : [];
 
         const autoUpdate = await detectAutoUpdate(ctx);
