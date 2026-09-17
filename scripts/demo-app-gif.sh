@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Render docs/screenshots/app.gif from the REAL desktop app window.
+# Render a GIF (and optionally an MP4) from the REAL desktop app window.
 #
 # The app runs on an isolated Xvfb display (not your desktop session), is
 # driven with the dashboard's keyboard shortcuts, captured frame by frame with
@@ -8,11 +8,19 @@
 #
 # Requirements: Xvfb, openbox, xdotool, ImageMagick (import), ffmpeg, and a
 # built app binary (src-tauri/target/release/linux-doctor, or APP=...).
-# On immutable distros, install those in a toolbox and run with TOOLBOX=<name>.
+# On immutable distros, install the first four in a toolbox and run with
+# TOOLBOX=<name>; ffmpeg runs on the host.
 #
 # Usage:
 #   scripts/demo-app-gif.sh [output.gif]
 #   TOOLBOX=ldbuild scripts/demo-app-gif.sh
+#
+# Knobs (env):
+#   SCREEN=1400x860   Xvfb screen size
+#   WINDOW=           force the app window size (e.g. 1820x1120); empty lets the app decide
+#   SCALE=940         output width in pixels
+#   MP4=              also write an MP4 from the same frames (Reddit prefers video)
+#   EXTRACT=          override the crop geometry, e.g. "1600:1000:120:20"
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -20,14 +28,46 @@ OUT=${1:-"$ROOT/docs/screenshots/app.gif"}
 APP=${APP:-"$ROOT/src-tauri/target/release/linux-doctor"}
 FRAMES_DIR="$ROOT/.demo-app-frames"
 FPS=8
-# Window region inside the Xvfb root, measured from the capture margins.
-CROP="1322:807:78:53"
+SCREEN=${SCREEN:-1400x860}
+WINDOW=${WINDOW:-}
+SCALE=${SCALE:-940}
+MP4=${MP4:-}
+EXTRACT=${EXTRACT:-}
+# Fallback crop (window region inside the default Xvfb root), used when the
+# window geometry cannot be read. Measured from the capture margins.
+FALLBACK_CROP="1322:807:78:53"
 
 rm -rf "$FRAMES_DIR"; mkdir -p "$FRAMES_DIR"
 
+# The desktop app needs a session bus: the single-instance plugin and the tray
+# both talk to one, and without it the process starts and never maps a window
+# (silent hang, no output). A container has none, and pointing the app at the
+# host's bus would register a tray icon in the user's real session, so a private
+# bus is started for the capture and torn down afterwards.
+BUS_PATH="/run/user/$(id -u)/ld-gif-bus"
+bus_start() {
+  rm -f "$BUS_PATH"
+  dbus-daemon --session --address="unix:path=$BUS_PATH" --fork 2>/dev/null || true
+  [ -S "$BUS_PATH" ] && echo "session bus: $BUS_PATH"
+}
+bus_stop() {
+  node -e '
+    const fs = require("fs");
+    const path = process.argv[1];
+    for (const p of fs.readdirSync("/proc").filter((d) => /^\d+$/.test(d))) {
+      if (Number(p) === process.pid) continue; // never match this very process
+      let c = "";
+      try { c = fs.readFileSync(`/proc/${p}/cmdline`, "utf8").replace(/\0/g, " "); } catch { continue; }
+      if (c.includes(path)) { try { process.kill(Number(p), "SIGTERM"); } catch {} }
+    }
+    try { fs.unlinkSync(path); } catch {}
+  ' "$BUS_PATH" 2>/dev/null || true
+}
+if [ -n "${TOOLBOX:-}" ]; then trap bus_stop EXIT INT TERM; bus_start; fi
+
 capture() {
   export XDG_RUNTIME_DIR=$(mktemp -d)
-  Xvfb :99 -screen 0 1400x860x24 >/tmp/ld-xvfb.log 2>&1 & local xp=$!
+  Xvfb :99 -screen 0 "$SCREEN"x24 >/tmp/ld-xvfb.log 2>&1 & local xp=$!
   sleep 2
   export DISPLAY=:99
   openbox >/tmp/ld-openbox.log 2>&1 & local op=$!
@@ -46,7 +86,23 @@ capture() {
     return 1
   fi
   xdotool windowactivate --sync "$id" 2>/dev/null || true
+  if [ -n "$WINDOW" ]; then
+    xdotool windowsize "$id" "${WINDOW%x*}" "${WINDOW#*x}" 2>/dev/null || true
+  fi
   sleep 7 # let the first report finish rendering
+
+  # Crop to the window's client area, so the frame is the app and nothing else.
+  # `getwindowgeometry` reports the client window in root coordinates even when
+  # the WM reparents it, so no titlebar sneaks into the crop.
+  local crop="$FALLBACK_CROP"
+  if geo=$(xdotool getwindowgeometry --shell "$id" 2>/dev/null); then
+    eval "$geo" # X= Y= WIDTH= HEIGHT=
+    if [ -n "${WIDTH:-}" ] && [ -n "${HEIGHT:-}" ]; then
+      crop="${WIDTH}:${HEIGHT}:${X:-0}:${Y:-0}"
+    fi
+  fi
+  [ -n "$EXTRACT" ] && crop="$EXTRACT"
+  echo "$crop" > "$FRAMES_DIR/.crop"
 
   # One frame per step; the dashboard shortcuts drive the UI:
   #   1..5 = views, ArrowDown = focus a card, Enter = open it.
@@ -67,13 +123,25 @@ capture() {
 }
 
 if [ -n "${TOOLBOX:-}" ]; then
-  toolbox run -c "$TOOLBOX" -- bash -lc "$(declare -f capture); ROOT='$ROOT' APP='$APP' FRAMES_DIR='$FRAMES_DIR' capture"
+  toolbox run -c "$TOOLBOX" -- bash -lc "$(declare -f capture); ROOT='$ROOT' APP='$APP' FRAMES_DIR='$FRAMES_DIR' SCREEN='$SCREEN' WINDOW='$WINDOW' EXTRACT='$EXTRACT' DBUS_SESSION_BUS_ADDRESS='unix:path=$BUS_PATH' capture"
 else
   capture
 fi
 
+CROP=$(cat "$FRAMES_DIR/.crop" 2>/dev/null || echo "$FALLBACK_CROP")
+
 ffmpeg -y -loglevel error -framerate "$FPS" -i "$FRAMES_DIR/%04d.png" \
-  -vf "crop=$CROP,fps=$FPS,scale=940:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4" \
+  -vf "crop=$CROP,fps=$FPS,scale=$SCALE:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4" \
   -loop 0 "$OUT"
+echo "Wrote $OUT ($(identify -format '%wx%h' "$OUT[0]") · $(du -h "$OUT" | cut -f1))"
+
+if [ -n "$MP4" ]; then
+  # Reddit prefers video: a GIF over 20 MB is rejected and anything animated is
+  # converted to video anyway. H.264 with faststart plays inline.
+  ffmpeg -y -loglevel error -framerate "$FPS" -i "$FRAMES_DIR/%04d.png" \
+    -vf "crop=$CROP,fps=$FPS,scale=$SCALE:-2:flags=lanczos" \
+    -c:v libx264 -crf 24 -preset slow -pix_fmt yuv420p -movflags +faststart -an "$MP4"
+  echo "Wrote $MP4 ($(du -h "$MP4" | cut -f1))"
+fi
+
 rm -rf "$FRAMES_DIR"
-echo "Wrote $OUT"
