@@ -3,6 +3,41 @@
 How a version goes from this repo to downloadable artifacts on
 <https://github.com/zShaD0w7x/linux-doctor/releases>.
 
+## Release checklist
+
+Patch = fixes only, minor = new checks or flags. At 0.x anything may change
+(SemVer §4), but a fixes-only release still reads as a patch.
+
+```bash
+node scripts/bump-version.mjs X.Y.Z          # 1. bump every manifest + generated docs
+# 2. CHANGELOG.md: move [Unreleased] into `## [X.Y.Z] - YYYY-MM-DD`
+npm test                                     # 3. full suite
+git commit -am "chore: release X.Y.Z"        # 4. commit, push, wait for green CI on main
+git tag -s vX.Y.Z -m "vX.Y.Z"                # 5. signed tag
+git push origin vX.Y.Z                       # 6. triggers release.yml
+```
+
+7. Watch the release workflow: it attaches the tarball, AppImage, `.deb`, `.rpm`,
+   `latest.json` and the checksums, and extracts the notes from `CHANGELOG.md`
+   verbatim (not auto-generated).
+8. **Publish to npm** (manual, next section). Skipping this leaves
+   `npx linux-doctor` on an old version: only 0.2.0, 0.2.1 and 0.6.0 ever
+   reached the registry.
+9. Bump downstream: OBS (new tarball + spec, see packaging/README.md), AUR once
+   registration reopens. AppImageHub needs nothing: it tracks channels, not
+   versions.
+10. Verify what users will get:
+
+```bash
+gh release view vX.Y.Z                      # assets
+node scripts/verify-updater-signature.mjs   # AppImage signature vs the pubkey
+npx linux-doctor@latest --version           # the registry serves X.Y.Z
+```
+
+11. Smoke test one real install path (npx or the AppImage), then announce. A
+    patch gets release notes; aggregators (Hacker News, Reddit) wait for a
+    release that adds something.
+
 ## What CI builds automatically
 
 Pushing a tag `vX.Y.Z` triggers `.github/workflows/release.yml`:
