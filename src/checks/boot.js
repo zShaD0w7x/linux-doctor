@@ -31,6 +31,11 @@ export const boot = defineCheck({
       if (!df.ok || !df.stdout.trim()) continue;
       const p = df.stdout.trim().split(/\s+/);
       if (p.length < 6) continue;
+      // `df -P /boot` prints the ROOT filesystem row when /boot is just a
+      // directory on /, with the same columns as a real boot partition. Trust
+      // the row only when it describes the mount we asked about, or a 95%-full
+      // root becomes a high "Boot partition (/boot) is nearly full".
+      if (p[5] !== mount) continue;
       const use = pct(p[4]);
       const fs = p[0];
       // Skip pseudo mounts that df reports for /boot/efi when not mounted

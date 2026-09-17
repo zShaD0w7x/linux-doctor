@@ -58,8 +58,21 @@ export const raid = defineCheck({
           const st = await ctx.run(`zpool status ${shq(pool)} 2>/dev/null`);
           if (!st.ok) continue;
           const state = (st.stdout.match(/^\s*state:\s*(\S+)/im) || [])[1] || "";
-          if (/degraded/i.test(state)) degraded.push(`zpool:${pool}`);
-          else if (/resilver|scrub in progress/i.test(st.stdout)) rebuilding.push(`zpool:${pool}`);
+          // Only ONLINE is healthy. Everything else (DEGRADED, FAULTED, UNAVAIL,
+          // REMOVED, OFFLINE, SUSPENDED) needs the user's attention now; keying
+          // on the word "degraded" alone let a FAULTED pool fall through to
+          // "RAID arrays are healthy", which is the worst thing this check can
+          // say. An unparsed state is left alone rather than called healthy.
+          if (!state) continue;
+          if (!/^online$/i.test(state)) {
+            degraded.push(`zpool:${pool} (${state.toUpperCase()})`);
+          } else if (/resilver|recovery/i.test(st.stdout)) {
+            // A resilver is the case where redundancy is gone while it runs.
+            // A plain `scrub`/`check` is routine maintenance with redundancy
+            // intact, and used to be reported as "no redundancy until it
+            // finishes".
+            rebuilding.push(`zpool:${pool}`);
+          }
         }
       }
     }

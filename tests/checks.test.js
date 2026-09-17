@@ -20,6 +20,7 @@ import { security } from "../src/checks/security.js";
 import { secureboot } from "../src/checks/secureboot.js";
 import { firmware } from "../src/checks/firmware.js";
 import { flatpak } from "../src/checks/flatpak.js";
+import { boot } from "../src/checks/boot.js";
 import { thermal } from "../src/checks/thermal.js";
 import { processes } from "../src/checks/processes.js";
 import { suspend } from "../src/checks/suspend.js";
@@ -847,6 +848,36 @@ test("firmware: fwupd not installed stays silent", async () => {
   assert.equal(findings.length, 0);
 });
 
+// Regression: `df -P /boot` prints the ROOT filesystem row when /boot is just a
+// directory on /, with the same columns as a real boot partition. A 95%-full
+// root therefore became a high "Boot partition (/boot) is nearly full". The row
+// is only trusted when its mount point is the one we asked about.
+test("boot: a plain /boot directory on the root filesystem is not a boot partition", async () => {
+  const ctx = stubCtx({
+    "df -P /boot 2>/dev/null | tail -1": "/dev/nvme0n1p2  100G  90G  5G  95% /\n",
+    "df -P /boot/efi 2>/dev/null | tail -1": "/dev/nvme0n1p1  511M  10M  501M  2% /boot/efi\n",
+    "ls /boot/grub/grub.cfg /boot/grub2/grub.cfg /boot/loader/entries/*.conf 2>/dev/null | head -1": "/boot/grub2/grub.cfg\n",
+    "ls /boot/efi/EFI/*/grub*.cfg /boot/efi/EFI/*/grubx64.efi 2>/dev/null | head -1": "/boot/efi/EFI/fedora/grubx64.efi\n",
+    "test -d /boot 2>/dev/null && echo yes": "yes\n",
+    "ls /boot/vmlinuz-* 2>/dev/null | head -1": "/boot/vmlinuz-6.9\n",
+  }, { id: "debian", id_like: "debian" });
+  const findings = await boot.run(ctx);
+  assert.ok(!findings.some((f) => f.code === "boot/full"), "the root filesystem must not be reported as /boot");
+});
+
+test("boot: a full separate /boot is high", async () => {
+  const ctx = stubCtx({
+    "df -P /boot 2>/dev/null | tail -1": "/dev/sda2  500M  480M  20M  96% /boot\n",
+    "df -P /boot/efi 2>/dev/null | tail -1": "",
+    "ls /boot/grub/grub.cfg /boot/grub2/grub.cfg /boot/loader/entries/*.conf 2>/dev/null | head -1": "/boot/grub/grub.cfg\n",
+    "test -d /boot 2>/dev/null && echo yes": "yes\n",
+  }, { id: "debian", id_like: "debian" });
+  const findings = await boot.run(ctx);
+  assert.equal(findings[0].code, "boot/full");
+  assert.equal(findings[0].severity, "high");
+  assert.match(findings[0].evidence, /\/boot$/);
+});
+
 test("secureboot: UEFI with Secure Boot enabled and TPM is informational", async () => {
   const ctx = stubCtx({
     "ls /sys/firmware/efi 2>/dev/null | head -1": "efi\n",
@@ -934,7 +965,7 @@ test("thermal: journalctl boot separators alone are NOT throttling", async () =>
 
 test("flatpak: pending updates are counted", async () => {
   const ctx = stubCtx({
-    "flatpak remote-ls --updates 2>/dev/null": "app/org.mozilla.firefox/x86_64/stable\napp/org.gnome.Calculator/x86_64/stable\napp/org.videolan.VLC/x86_64/stable\n",
+    "flatpak remote-ls --updates --columns=application,version 2>/dev/null": "org.mozilla.firefox\t115.0\norg.gnome.Calculator\t46.0\norg.videolan.VLC\t3.0.20\n",
   });
   const findings = await flatpak.run(ctx);
   assert.equal(findings.length, 1);
@@ -945,7 +976,7 @@ test("flatpak: pending updates are counted", async () => {
 
 test("flatpak: up to date is informational", async () => {
   const ctx = stubCtx({
-    "flatpak remote-ls --updates 2>/dev/null": "",
+    "flatpak remote-ls --updates --columns=application,version 2>/dev/null": "",
   });
   const findings = await flatpak.run(ctx);
   assert.equal(findings.length, 1);
@@ -960,6 +991,23 @@ test("flatpak: not installed stays silent", async () => {
   };
   const findings = await flatpak.run(ctx);
   assert.equal(findings.length, 0);
+});
+
+// Regression: `flatpak remote-ls --updates` prints a column table whose fields
+// contain no "/", so counting lines with "/" read zero and reported "Flatpak
+// apps are up to date" on a machine with pending updates. `--columns` is used
+// now; this keeps the fallback honest on flatpak versions without it.
+test("flatpak: a flatpak without --columns still counts the table rows", async () => {
+  const ctx = stubCtx({
+    // The --columns probe is unknown to this stub, so it fails, which is exactly
+    // how an older flatpak behaves.
+    "flatpak remote-ls --updates 2>/dev/null":
+      "Minecraft Bedrock Launcher\tio.mrarm.mcpelauncher\tv1.8.3\tstable\tx86_64\n" +
+      "Obsidian\tmd.obsidian.Obsidian\t1.13.7\tstable\tx86_64\n",
+  });
+  const findings = await flatpak.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /2 Flatpak update/);
 });
 
 test("bluetooth: no controller is informational and skips the rest", async () => {
@@ -1737,6 +1785,33 @@ test("crash: many reboots in a week is flagged", async () => {
   assert.ok(findings.length > 0, "expected at least one finding");
   assert.match(findings[0].title, /reboot/i);
   assert.equal(findings[0].severity, "high");
+});
+
+// Regression: "Intel machine check reporting enabled on CPU#N" is a per-CPU boot
+// banner on Intel machines and it matches the crash grep's "machine check"
+// alternative. A reboot-heavy Intel box therefore reported crash/panic (high)
+// with a boot banner as its evidence. The hardware check already rejects that
+// line; the crash check now defers to the same classifier.
+test("crash: the Intel machine-check boot banner is not a kernel panic", async () => {
+  const ctx = stubCtx({});
+  ctx.run = async (cmd) => {
+    if (cmd.includes("--list-boots")) {
+      const boots = JSON.stringify(
+        Array.from({ length: 25 }, (_, i) => ({ index: -i, boot_id: "b" + i, first_entry: (Date.now() - i * 60000) * 1000, last_entry: (Date.now() - i * 60000) * 1000 })),
+      );
+      return { ok: true, code: 0, stdout: boots + "\n", stderr: "" };
+    }
+    if (cmd.includes("coredumpctl")) return { ok: false, code: 1, stdout: "", stderr: "" };
+    if (cmd.includes("journalctl -k")) {
+      return { ok: true, code: 0, stdout: "Aug 13 03:11:22 host kernel: mce: Machine check reporting enabled on CPU#0\n", stderr: "" };
+    }
+    return { ok: false, code: 1, stdout: "", stderr: "" };
+  };
+  const findings = await crash.run(ctx);
+  assert.ok(
+    !findings.some((f) => f.code === "crash/panic"),
+    "a boot banner must not be reported as a kernel panic",
+  );
 });
 
 test("crash: many reboots explained by an auto-update mechanism are not alarming", async () => {

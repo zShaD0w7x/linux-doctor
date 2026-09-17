@@ -50,6 +50,37 @@ test("raid: a degraded ZFS pool is high severity", async () => {
   assert.match(findings[0].evidence, /zpool:tank/);
 });
 
+// Regression: only the word "degraded" was recognised, so a pool that is
+// FAULTED, UNAVAIL, REMOVED, OFFLINE or SUSPENDED fell through to
+// "RAID arrays are healthy" — the worst thing this check can say.
+for (const state of ["FAULTED", "UNAVAIL", "REMOVED", "SUSPENDED"]) {
+  test(`raid: a ZFS pool in ${state} state is high, not healthy`, async () => {
+    const ctx = stubCtx({
+      "cat /proc/mdstat 2>/dev/null": "",
+      "command -v zpool 2>/dev/null": "/usr/sbin/zpool\n",
+      "zpool list -H -o name 2>/dev/null": "tank\n",
+      "zpool status tank 2>/dev/null": `  pool: tank\n  state: ${state}\n`,
+    });
+    const findings = await raid.run(ctx);
+    assert.equal(findings[0].code, "raid/degraded");
+    assert.equal(findings[0].severity, "high");
+    assert.match(findings[0].evidence, new RegExp(state));
+  });
+}
+
+// A plain scrub is routine maintenance with redundancy intact; only a resilver
+// or recovery is the case where the array has no redundancy while it runs.
+test("raid: a running scrub is not reported as rebuilding", async () => {
+  const ctx = stubCtx({
+    "cat /proc/mdstat 2>/dev/null": "",
+    "command -v zpool 2>/dev/null": "/usr/sbin/zpool\n",
+    "zpool list -H -o name 2>/dev/null": "tank\n",
+    "zpool status tank 2>/dev/null": "  pool: tank\n  state: ONLINE\n  scan: scrub in progress since Sun\n",
+  });
+  const findings = await raid.run(ctx);
+  assert.ok(!findings.some((f) => f.code === "raid/rebuilding"), "a scrub must not be a rebuild");
+});
+
 test("raid: a healthy array reports ok (info)", async () => {
   const ctx = stubCtx({
     "cat /proc/mdstat 2>/dev/null":
