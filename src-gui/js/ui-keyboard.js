@@ -4,6 +4,18 @@ function setupKeyboard() {
   document.addEventListener("keydown", (e) => {
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "");
 
+    // F11: fullscreen, desktop app only. In a browser the key never reaches the
+    // page (the browser keeps it), so `--web` users use the browser's own
+    // fullscreen and this branch is simply absent for them.
+    if (e.key === "F11") {
+      const win = window.__TAURI__?.window?.getCurrentWindow?.();
+      if (win) {
+        e.preventDefault();
+        win.isFullscreen().then((fs) => win.setFullscreen(!fs)).catch(() => {});
+      }
+      return;
+    }
+
     // "/" focuses search (unless the user is already typing somewhere).
     if (e.key === "/" && !typing) {
       e.preventDefault();

@@ -15,6 +15,11 @@ All notable changes to Linux Doctor are documented here. The format follows
   [docs/compatibility.md](docs/compatibility.md) defines what counts as a
   public API (flags, exit codes, the JSON schema, finding codes, config keys,
   the check shape) and how a change to it is announced.
+- **`F11` toggles fullscreen in the desktop app.** Three things had to agree for
+  that to work (the key handler in the dashboard, `withGlobalTauri` so the page
+  can reach the window API, and the `set_fullscreen` capability), so a test now
+  fails if any of them goes missing. The browser dashboard keeps using the
+  browser's own fullscreen.
 
 ### Fixed
 

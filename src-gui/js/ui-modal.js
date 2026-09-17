@@ -59,6 +59,7 @@ function openHelp() {
     "<div><kbd>/</kbd></div><div>Focus the search box</div>" +
     "<div><kbd>1</kbd>–<kbd>5</kbd></div><div>Overview · History · Checks · System · Schedule views</div>" +
     "<div><kbd>Esc</kbd></div><div>Close this dialog \u00b7 clear search &amp; filters \u00b7 close thresholds</div>" +
+    '<div><kbd>F11</kbd></div><div>Fullscreen (desktop app; the browser has its own)</div>' +
     '<div><kbd>?</kbd></div><div>Show this help</div>' +
     "</div>", "Keyboard shortcuts");
 }
