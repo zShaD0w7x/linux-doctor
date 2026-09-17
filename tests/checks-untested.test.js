@@ -114,26 +114,73 @@ test("orphans: a couple of arch orphans is informational", async () => {
 
 // ----------------------------------------------------------- packages ---------
 
+// The dpkg lock probe exactly as src/checks/packages.js builds it. It compares
+// process groups, so a holder inside linux-doctor's own group (its own
+// `apt-get check`, or the `updates` / `orphans` probes) is not reported as
+// another process. That self-accusation was #24.
+const LOCK_PROBE =
+  "pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' '); " +
+  "for pid in $(fuser /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock 2>/dev/null); do " +
+  'holder=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d " "); ' +
+  'if [ -n "$pgid" ] && [ "$holder" = "$pgid" ]; then continue; fi; echo "$pid"; done';
+
+
 test("packages: a broken dpkg database is high", async () => {
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "The following packages are in a mess due to serious problems during installation:\n libfoo\n",
     "apt-get check 2>&1 | head -20": "",
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+    [LOCK_PROBE]: "",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/broken");
   assert.equal(findings[0].severity, "high");
 });
 
-test("packages: a held apt lock is medium", async () => {
+test("packages: a held apt lock is medium, and the evidence is the PID alone", async () => {
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",
     "apt-get check 2>&1 | head -20": "",
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "/var/lib/dpkg/lock\n4242\n",
+    [LOCK_PROBE]: "4242\n",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/locked");
   assert.equal(findings[0].severity, "medium");
+  // The probe prints PIDs only, so a lock path can never reach the evidence as
+  // if it were the holder.
+  assert.equal(findings[0].evidence, "lock held by PID 4242");
+});
+
+test("packages: an unheld lock file is not a lock", async () => {
+  // The old probe listed the lock paths and tested the whole output for a
+  // digit, so anything numeric-looking could pass as a holder. Only PIDs count.
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": "",
+    [LOCK_PROBE]: "/var/lib/dpkg/lock\n/var/lib/apt/lists/lock\n",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+test("packages: the lock probe skips holders in linux-doctor's own process group (#24)", async () => {
+  // `apt-get check` above, plus the `updates` and `orphans` checks, take the
+  // same dpkg lock while this check runs. A plain `fuser` therefore reported
+  // linux-doctor itself as "another process": run as root on a healthy machine,
+  // the user was told to wait for, or kill, the tool they were running.
+  const seen = [];
+  const ctx = {
+    dist: detectDistro({ id: "ubuntu", id_like: "debian" }),
+    thresholds: loadThresholds({}),
+    run: async (cmd) => {
+      seen.push(cmd);
+      return { ok: true, code: 0, stdout: "", stderr: "" };
+    },
+  };
+  await packages.run(ctx);
+  const probe = seen.find((c) => c.includes("fuser"));
+  assert.ok(probe, "the check must still probe the lock");
+  assert.match(probe, /pgid=\$\(ps -o pgid= -p \$\$/, "the probe resolves its own process group");
+  assert.match(probe, /continue/, "holders from that group are skipped");
 });
 
 // Regression for #14: `apt-get check` needs the dpkg frontend lock, which an
@@ -150,7 +197,7 @@ test("packages: a non-root apt lock refusal is not a broken package", async () =
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",
     "apt-get check 2>&1 | head -20": APT_LOCK_REFUSAL,
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+    [LOCK_PROBE]: "",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/ok");
@@ -161,7 +208,7 @@ test("packages: the healthy finding records that apt-get check needed root", asy
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",
     "apt-get check 2>&1 | head -20": APT_LOCK_REFUSAL,
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+    [LOCK_PROBE]: "",
   });
   const findings = await packages.run(ctx);
   // Claiming "apt-get check: ok" would be a lie — it never ran.
@@ -175,7 +222,7 @@ test("packages: real unmet dependencies are still high", async () => {
     "apt-get check 2>&1 | head -20":
       "Reading package lists...\nBuilding dependency tree...\n" +
       "E: Unmet dependencies. Try 'apt --fix-broken install' with no packages (or specify a solution).\n",
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+    [LOCK_PROBE]: "",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/broken");
@@ -186,7 +233,7 @@ test("packages: a lock refusal does not mask a genuinely broken dpkg database", 
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "The following packages are in a mess due to serious problems during installation:\n libfoo\n",
     "apt-get check 2>&1 | head -20": APT_LOCK_REFUSAL,
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+    [LOCK_PROBE]: "",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/broken");
@@ -222,7 +269,7 @@ test("packages: a healthy apt database is informational", async () => {
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",
     "apt-get check 2>&1 | head -20": "",
-    "ls /var/lib/dpkg/lock* /var/lib/apt/lists/lock 2>/dev/null; fuser /var/lib/dpkg/lock 2>/dev/null | head -1": "",
+    [LOCK_PROBE]: "",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/ok");

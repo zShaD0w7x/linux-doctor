@@ -4,6 +4,17 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **`packages/locked` accused linux-doctor of holding the dpkg lock.** The lock
+  probe ran beside the tool's own `apt-get check`, and the `updates` and
+  `orphans` checks take the same frontend lock, so `fuser` found linux-doctor
+  itself. Run as root on a healthy machine that produced a medium finding
+  naming the tool's own process (#24). Only holders outside linux-doctor's
+  process group are reported now, and the evidence lists the PIDs alone.
+
 ## [0.6.1] - 2026-09-17
 
 ### Fixed
