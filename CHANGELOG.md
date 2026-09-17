@@ -4,7 +4,49 @@ All notable changes to Linux Doctor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and versioning follows
 [SemVer](https://semver.org/).
 
-## [0.6.0] — 2026-09-13
+## [Unreleased]
+
+### Fixed
+
+- **`hardware/ecc` fired on machines with no ECC.** The check matched the EDAC
+  driver's own init lines (`EDAC MC: Ver: ...` and `EDAC ie31200: No ECC
+  support`), so a healthy box reported a corrected memory error; on some systems
+  that was the top item in the report. It needs a real CE/UE event now.
+- **`hardware/mce` fired on the MCE banks boot line.** `mce: CPU supports N MCE
+  banks` is printed once per CPU at boot on every Intel machine, and it was
+  reported as a machine check exception (high). Routine init lines are rejected.
+- **`fs/btrfs-errors` fired on the btrfs module load banner.** `Btrfs loaded,
+  zoned=yes, fsverity=yes` is printed at boot on any kernel with btrfs compiled
+  in, mounted or not. The pattern requires a real event and still catches
+  `BTRFS critical`, `failed` and `corrupt`.
+- **An uncorrected memory error was filed as "corrected".** An EDAC `UE` line
+  raised `hardware/ecc` at medium; it is high now, with its own wording.
+- **`packages/broken` fired on apt's own lock refusal.** Without root,
+  `apt-get check` cannot take the dpkg frontend lock, and that refusal was read
+  as broken dependencies (high). The healthy finding says "skipped (needs root)"
+  instead of claiming the check ran.
+- **`packages/broken` fired on `pacman -Dk`'s success line.** "No database
+  errors have been found!" contains the word "errors", so a clean Arch system
+  was reported as a broken package database.
+- **`updates` doubled the count on dnf.** `dnf check-update` prints a header,
+  indented obsoletion lines and one entry per enabled repo, so 314 pending
+  updates read as 630. Unique package names are counted now.
+- **`journal` counted stack-trace lines as separate entries.** One multi-line
+  entry was counted once per continuation line, which turned a few crashes into
+  "3062 unrecognized log entries".
+- **The desktop webview could come up blank** where WebKit's DMA-BUF renderer
+  fails; it is disabled by default now.
+
+### Changed
+
+- **Install instructions lead with `npx linux-doctor`**, the published package,
+  with the GitHub form kept for the current `main`. The Arch section no longer
+  claims an AUR package that does not exist yet.
+- **CI gates the checks against clean images and recorded machines.** The engine
+  runs inside Fedora, Debian, Alpine and Arch containers, and replays fixtures
+  recorded on real machines; both fail on an unjustified high or medium finding.
+
+## [0.6.0] - 2026-09-13
 
 > **Highlights:** the desktop grows into a real app — bundled Node runtime, tray + single-instance + autostart, **auto-update**, adaptive window — and the dashboard gets a wide-screen workbench (master-detail, status bar, deep-linkable state). A correctness pass fixes checks that were silently wrong or could never fire, and a hardening pass covers state files, outbound data and the release pipeline. No breaking changes; the JSON schema stays v1.
 
@@ -165,7 +207,7 @@ All notable changes to Linux Doctor are documented here. The format follows
   Node is hash-pinned (v22.23.2).
 
 
-## [0.5.0] — 2026-09-05
+## [0.5.0] - 2026-09-05
 
 > **Highlights:** 8 new server checks (TLS certs, exposed ports, fd pressure, RAID, containers, service restart loops, GPU memory, stale backups) — the catalog grows to **49 checks / 161 codes**; `--init` guided first-run setup; `--heartbeat <url>` dead-man's switch [Pro]; `--ai-local` private offline AI summaries; the dashboard becomes a five-view app (Overview / History / Checks / System / Schedule) with a Terminal theme and a machine wiki. No breaking changes — the JSON schema stays v1.
 
@@ -202,7 +244,7 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 - **AppImage runtime mounts no longer report as full disks.** FUSE mounts at `/tmp/.mount_*` (device `*.AppImage`) always read 100% because they are fixed-size images, not filling disks — same false-positive class as the excluded squashfs layers. Skipped by mount shape in the disk *and* inode checks.
 
-## [0.4.0] — 2026-08-28
+## [0.4.0] - 2026-08-28
 
 ### Added
 
@@ -226,7 +268,7 @@ All notable changes to Linux Doctor are documented here. The format follows
   any other unrecognized distro gets an honest manual-step line instead of a
   wrong `sudo dnf install` (e.g. on NixOS).
 
-## [0.3.5] — 2026-08-27
+## [0.3.5] - 2026-08-27
 
 > **Highlights:** 6 new health checks, stronger fleet/AI privacy, safer `--fix`, and a more robust dashboard. No breaking changes.
 
@@ -259,7 +301,7 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 - **Processes: header row no longer shifts the top-3.** `ps -o rss` leaves a `RSS` header even with `args=`; the parser now filters it explicitly. `processes/ok` correctly shows the real top consumers.
 
-## [0.3.4] — 2026-08-26
+## [0.3.4] - 2026-08-26
 
 ### Security
 
@@ -296,27 +338,7 @@ All notable changes to Linux Doctor are documented here. The format follows
 - **Completions drift**: `completions/*.bash|zsh|fish` now include `--history-clear` (caught by `completions.test.js`).
 - **Web test**: `web.test.js` still matches `Re-run checks` after header refresh.
 
-## [0.3.2] — 2026-08-25
-
-### Added
-
-- **Desktop: complete loopback API**: the shell's report server now answers
-  `/checks` (check → category map: category grouping and the checks matrix
-  work in the installed app), `/history` (score trend section), and
-  `GET/POST /thresholds` plus `POST /api/ignore` (thresholds panel and the
-  per-finding Ignore button persist). Backed by three new hidden CLI flags
-  (`--history-json`, `--thresholds-json`, `--thresholds-set`) so the Rust
-  shell keeps delegating all logic to Node.
-
-### Fixed
-
-- **Desktop (AppImage): empty report**: the AppRun environment pointed
-  `LD_LIBRARY_PATH` at the bundled libraries, which made the host's `node`
-  abort with a symbol/version error — `/report` came back with an empty
-  body. The shell now strips `LD_LIBRARY_PATH`/`LD_PRELOAD` from every Node
-  child process.
-
-## [0.3.3] — 2026-08-26
+## [0.3.3] - 2026-08-26
 
 ### Fixed
 
@@ -526,6 +548,26 @@ All notable changes to Linux Doctor are documented here. The format follows
 - **Dashboard Auto-refresh paused state is visible**: the button previously
   kept its active styling while paused; it now renders amber/dimmed.
 
+## [0.3.2] - 2026-08-25
+
+### Added
+
+- **Desktop: complete loopback API**: the shell's report server now answers
+  `/checks` (check → category map: category grouping and the checks matrix
+  work in the installed app), `/history` (score trend section), and
+  `GET/POST /thresholds` plus `POST /api/ignore` (thresholds panel and the
+  per-finding Ignore button persist). Backed by three new hidden CLI flags
+  (`--history-json`, `--thresholds-json`, `--thresholds-set`) so the Rust
+  shell keeps delegating all logic to Node.
+
+### Fixed
+
+- **Desktop (AppImage): empty report**: the AppRun environment pointed
+  `LD_LIBRARY_PATH` at the bundled libraries, which made the host's `node`
+  abort with a symbol/version error — `/report` came back with an empty
+  body. The shell now strips `LD_LIBRARY_PATH`/`LD_PRELOAD` from every Node
+  child process.
+
 ## [0.3.0] - 2026-08-18
 
 ### Added
@@ -684,3 +726,8 @@ All notable changes to Linux Doctor are documented here. The format follows
   header's column offsets.
 - `tests/web.test.js` flaked (server banner corrupted the TAP stream) —
   `startWeb` gained a `quiet` option used by tests.
+
+[Unreleased]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.3.5...v0.4.0
