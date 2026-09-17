@@ -23,9 +23,11 @@ git push origin vX.Y.Z                       # 6. triggers release.yml
 8. **Publish to npm** (manual, next section). Skipping this leaves
    `npx linux-doctor` on an old version: only 0.2.0, 0.2.1 and 0.6.0 ever
    reached the registry.
-9. Bump downstream: OBS (new tarball + spec, see packaging/README.md), AUR once
-   registration reopens. AppImageHub needs nothing: it tracks channels, not
-   versions.
+9. Bump downstream: OBS (new tarball + spec, see packaging/README.md). For AUR
+   (once registration reopens): put the tarball's real sha256 into
+   `packaging/aur/PKGBUILD` and regenerate the pair with
+   `makepkg --printsrcinfo > packaging/aur/.SRCINFO`, since both ship SKIP until
+   then. AppImageHub needs nothing: it tracks channels, not versions.
 10. Verify what users will get:
 
 ```bash
