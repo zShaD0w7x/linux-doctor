@@ -28,9 +28,8 @@
     "docs/screenshots/dashboard-dark.png",
     "docs/screenshots/dashboard-light.png"
   ],
-
   "scripts": {
-    "test": "node --test",
+    "test": "node --test tests/*.test.js tests/golden/*.test.js",
     "goldens:update": "node scripts/update-goldens.mjs",
     "demo:gif": "node scripts/demo-gif.mjs",
     "demo:app": "bash scripts/demo-app-gif.sh",
