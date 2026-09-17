@@ -12,6 +12,10 @@ actually matter. Each finding comes with an explanation and a copy-paste fix. It
 remembers your last run, so every report tells you what's new, what got fixed,
 and what stayed the same.
 
+```bash
+npx linux-doctor        # one run, nothing to install
+```
+
 > Its own code never modifies your system. Drop-in checks
 > (`~/.config/linux-doctor/checks/`) and the Pro add-on are code that **you**
 > install and run with your own privileges. See
@@ -116,17 +120,19 @@ use the WebKitGTK shipped by your distribution, which matches the host.
 Needs Node.js ≥ 20.
 
 ```bash
-npx github:zShaD0w7x/linux-doctor     # no install, straight from GitHub
-# or:
-npm install -g linux-doctor && linux-doctor
+npx linux-doctor                      # one run, nothing installed
+npm install -g linux-doctor           # or install it, then run `linux-doctor`
 ```
+
+Want the current `main` instead of the latest release?
+`npx github:zShaD0w7x/linux-doctor`.
 
 Prefer a native CLI package?
 
 - **Arch:** build it from the [PKGBUILD](packaging/aur/PKGBUILD) in this repo with `makepkg -si`. It is not in the AUR yet — registration there is closed at the moment, so the PKGBUILD in this repository is the only Arch path for now.
 - **Fedora / RHEL / Bazzite / openSUSE:** add the [OBS repository](https://build.opensuse.org/project/show/home:7sh1d0w7x:linux-doctor) and `sudo dnf install linux-doctor`, or build with the [linux-doctor.spec](packaging/linux-doctor.spec)
 - **Debian / Ubuntu:** `.deb` from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)
-- **Any glibc distro:** AppImage or `npx github:zShaD0w7x/linux-doctor`
+- **Any glibc distro:** AppImage from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest), or `npx linux-doctor` if you have Node.js
 
 ```
 STATUS   0 high, 2 medium, 19 info · health 74/100
