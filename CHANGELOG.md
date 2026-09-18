@@ -63,6 +63,11 @@ All notable changes to Linux Doctor are documented here. The format follows
   itself. Run as root on a healthy machine that produced a medium finding
   naming the tool's own process (#24). Only holders outside linux-doctor's
   process group are reported now, and the evidence lists the PIDs alone.
+- **`packages/locked` reports nothing when it cannot read its own process
+  group.** Without `ps` to tell linux-doctor's own package-manager processes
+  apart from another process, every lock holder would look foreign — exactly the
+  false positive #24 removed. The attribution moved from the shell pipeline into
+  JS, where a test pins the quiet fallback (#25).
 
 ## [0.6.1] - 2026-09-17
 
