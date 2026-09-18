@@ -9,7 +9,7 @@ Patch = fixes only, minor = new checks or flags. At 0.x anything may change
 (SemVer §4), but a fixes-only release still reads as a patch.
 
 ```bash
-node scripts/bump-version.mjs X.Y.Z          # 1. bump every manifest + generated docs
+node scripts/bump-version.mjs X.Y.Z          # 1. bump every manifest, the AppStream release entry, and generated docs
 # 2. CHANGELOG.md: move [Unreleased] into `## [X.Y.Z] - YYYY-MM-DD`
 npm test                                     # 3. full suite
 git commit -am "chore: release X.Y.Z"        # 4. commit, push, wait for green CI on main

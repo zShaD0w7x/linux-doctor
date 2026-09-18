@@ -16,6 +16,7 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { addRelease } from "./bump-appstream.mjs";
 import { execSync } from "node:child_process";
 
 const version = process.argv[2];
@@ -104,7 +105,12 @@ bumpText("packaging/linux-doctor.spec", (s) => {
   return out;
 });
 
-// 8. Regenerate derived docs
+// 8. packaging/com.zshadow7x.linuxdoctor.metainfo.xml — the AppStream
+// <releases> list is read by app stores and appstreamcli, and it used to drift:
+// after 0.6.1 the file still advertised 0.6.0. Newest entry first, idempotent.
+bumpText("packaging/com.zshadow7x.linuxdoctor.metainfo.xml", (s) => addRelease(s, version, date));
+
+// 9. Regenerate derived docs
 console.log("\n→ Regenerating docs/checks.md ...");
 try {
   execSync("node scripts/generate-check-docs.mjs", { stdio: "inherit" });

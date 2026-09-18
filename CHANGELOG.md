@@ -23,6 +23,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **The packaged AppStream metadata no longer lags a release behind.** The
+  `<releases>` list in the metainfo that app stores and `appstreamcli` read was
+  updated by hand, and it drifted: after 0.6.1 shipped the file still advertised
+  0.6.0. The release script adds the entry now (newest first, idempotent), the
+  0.6.1 entry is in place, and tests hold the rule.
 - **`security/autologin` never read the Debian GDM config.** The probe listed
   `/etc/gdm` (the Red Hat, openSUSE and Fedora layout) but not `/etc/gdm3`,
   which Debian, Ubuntu and Mint use, so an enabled autologin there was read as
