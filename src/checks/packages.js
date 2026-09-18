@@ -10,6 +10,29 @@ import { finding } from "../findings.js";
 const APT_NEEDS_ROOT = /are you root|permission denied|could not open lock|unable to acquire/i;
 
 /**
+ * Lock holders that belong to something other than this run.
+ *
+ * Checks run concurrently (`RUN_CONCURRENCY` in cli.js) and `packages`,
+ * `updates` and `orphans` all shell out to apt, so one of our own apt-get
+ * processes can hold the dpkg lock while this probe reads it. Those share our
+ * process group and are not "another process" (#24).
+ *
+ * Input is one row per line: a leading `self <pgid>` for this run, then
+ * `<pid> <pgid>` per holder. A holder whose group could not be read exited
+ * between `fuser` and `ps` and is holding nothing. If our own group is unknown
+ * nothing can be attributed, so nothing is reported: calling every holder
+ * foreign there would reinstate the false positive this removed.
+ */
+export function foreignLockHolders(stdout) {
+  const rows = lines(stdout || "")
+    .map((l) => l.trim().split(/\s+/))
+    .filter((r) => r[0]);
+  const ours = rows.find((r) => r[0] === "self")?.[1];
+  if (!ours) return [];
+  return rows.filter((r) => /^\d+$/.test(r[0]) && r[1] && r[1] !== ours).map((r) => r[0]);
+}
+
+/**
  * Package manager health — detects a broken/locked package system that
  * makes `updates` lie ("up to date" when apt/dnf is actually blocked).
  * Checks dpkg audit, apt lock, and dnf/rpm DB. Read-only.
@@ -32,13 +55,12 @@ export const packages = defineCheck({
       // `orphans` checks take it too, so a plain `fuser` reported linux-doctor
       // as "another process". Run as root on a healthy machine that produced a
       // medium "locked by another process" naming linux-doctor itself (#24).
-      // The `[ -n "$pgid" ]` guard falls back to reporting every holder when
-      // `ps -o pgid=` is unavailable, so detection is never silently lost.
+      // The probe reports groups and `foreignLockHolders` decides, so the rule
+      // is unit-testable instead of living in the shell's comparison semantics.
       ctx.run(
-        "pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' '); " +
+        "printf 'self %s\\n' \"$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')\"; " +
           "for pid in $(fuser /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock 2>/dev/null); do " +
-          'holder=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d " "); ' +
-          'if [ -n "$pgid" ] && [ "$holder" = "$pgid" ]; then continue; fi; echo "$pid"; done'
+          'printf \'%s %s\\n\' "$pid" "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d \' \')"; done'
       ),
       ]);
 
@@ -82,9 +104,9 @@ export const packages = defineCheck({
       }
 
       // A lock held by a process outside our own tree = apt is busy. Only the
-      // PIDs reach the evidence: the probe's output is PIDs, so nothing else
-      // can be printed as "held by".
-      const holders = lines(lockRes.stdout).filter((l) => /^\d+$/.test(l));
+      // PIDs reach the evidence: `foreignLockHolders` returns PIDs, so nothing
+      // else can be printed as "held by".
+      const holders = foreignLockHolders(lockRes.stdout);
       if (lockRes.ok && holders.length > 0) {
         findings.push(finding({
           severity: "medium",

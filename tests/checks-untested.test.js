@@ -13,7 +13,7 @@ import { loadThresholds } from "../src/thresholds.js";
 import { oom } from "../src/checks/oom.js";
 import { wifi } from "../src/checks/wifi.js";
 import { orphans } from "../src/checks/orphans.js";
-import { packages } from "../src/checks/packages.js";
+import { foreignLockHolders, packages } from "../src/checks/packages.js";
 import { fs } from "../src/checks/fs.js";
 import { cache } from "../src/checks/cache.js";
 
@@ -119,10 +119,9 @@ test("orphans: a couple of arch orphans is informational", async () => {
 // `apt-get check`, or the `updates` / `orphans` probes) is not reported as
 // another process. That self-accusation was #24.
 const LOCK_PROBE =
-  "pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' '); " +
+  "printf 'self %s\\n' \"$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')\"; " +
   "for pid in $(fuser /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock 2>/dev/null); do " +
-  'holder=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d " "); ' +
-  'if [ -n "$pgid" ] && [ "$holder" = "$pgid" ]; then continue; fi; echo "$pid"; done';
+  'printf \'%s %s\\n\' "$pid" "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d \' \')"; done';
 
 
 test("packages: a broken dpkg database is high", async () => {
@@ -140,7 +139,7 @@ test("packages: a held apt lock is medium, and the evidence is the PID alone", a
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",
     "apt-get check 2>&1 | head -20": "",
-    [LOCK_PROBE]: "4242\n",
+    [LOCK_PROBE]: "self 77\n4242 5150\n",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/locked");
@@ -156,31 +155,58 @@ test("packages: an unheld lock file is not a lock", async () => {
   const ctx = stubCtx({
     "dpkg --audit 2>&1 | head -20": "",
     "apt-get check 2>&1 | head -20": "",
-    [LOCK_PROBE]: "/var/lib/dpkg/lock\n/var/lib/apt/lists/lock\n",
+    [LOCK_PROBE]: "self 77\n/var/lib/dpkg/lock\n/var/lib/apt/lists/lock\n",
   });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/ok");
 });
 
-test("packages: the lock probe skips holders in linux-doctor's own process group (#24)", async () => {
-  // `apt-get check` above, plus the `updates` and `orphans` checks, take the
-  // same dpkg lock while this check runs. A plain `fuser` therefore reported
-  // linux-doctor itself as "another process": run as root on a healthy machine,
-  // the user was told to wait for, or kill, the tool they were running.
-  const seen = [];
-  const ctx = {
-    dist: detectDistro({ id: "ubuntu", id_like: "debian" }),
-    thresholds: loadThresholds({}),
-    run: async (cmd) => {
-      seen.push(cmd);
-      return { ok: true, code: 0, stdout: "", stderr: "" };
-    },
-  };
-  await packages.run(ctx);
-  const probe = seen.find((c) => c.includes("fuser"));
-  assert.ok(probe, "the check must still probe the lock");
-  assert.match(probe, /pgid=\$\(ps -o pgid= -p \$\$/, "the probe resolves its own process group");
-  assert.match(probe, /continue/, "holders from that group are skipped");
+// `apt-get check` above, plus the `updates` and `orphans` checks, take the same
+// dpkg lock while this check runs. A plain `fuser` therefore reported
+// linux-doctor itself as "another process": run as root on a healthy machine,
+// the user was told to wait for, or kill, the tool they were running (#24).
+//
+// The probe reports groups (`self <pgid>`, then `<pid> <pgid>`) and
+// `foreignLockHolders` applies the rule, so these assert the behaviour rather
+// than the spelling of the shell pipeline.
+
+test("packages: a holder in linux-doctor's own process group is not a lock (#24)", async () => {
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": "",
+    [LOCK_PROBE]: "self 77\n4242 77\n",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok", "the tool must not report itself as a lock holder");
+});
+
+test("packages: a holder whose process group cannot be read is not a lock", async () => {
+  // No group means it exited between `fuser` and `ps`, so it holds nothing.
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": "",
+    [LOCK_PROBE]: "self 77\n4242\n",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+test("packages: an unreadable own process group reports nothing rather than guessing", async () => {
+  // Without `ps -o pgid=` every holder would look foreign — which is exactly
+  // the false positive #24 removed. Stay quiet instead of reinstating it.
+  const ctx = stubCtx({
+    "dpkg --audit 2>&1 | head -20": "",
+    "apt-get check 2>&1 | head -20": "",
+    [LOCK_PROBE]: "self\n4242 5150\n",
+  });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+test("foreignLockHolders: keeps outside pids and drops our own", () => {
+  assert.deepEqual(foreignLockHolders("self 77\n4242 5150\n9001 77\n"), ["4242"]);
+  assert.deepEqual(foreignLockHolders("self 77\n"), []);
+  assert.deepEqual(foreignLockHolders(""), []);
 });
 
 // Regression for #14: `apt-get check` needs the dpkg frontend lock, which an
