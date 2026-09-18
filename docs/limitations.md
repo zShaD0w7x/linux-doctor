@@ -1,7 +1,8 @@
-# Limitations, and the false positives we have fixed
+# Limitations, and what it got wrong
 
 Two lists, because both matter when you decide how much to trust a
-diagnostic: what it does not do, and what it got wrong and now has a test for.
+diagnostic: what it does not do, and what it got wrong (in both directions)
+and now has a test for.
 
 ## What it does not do
 
@@ -29,10 +30,13 @@ diagnostic: what it does not do, and what it got wrong and now has a test for.
   check does this), and a check whose tool is missing stays silent or reports a
   skip.
 
-## False positives we have shipped, and fixed
+## What it got wrong, and how it is guarded now
 
-All of these were reported by users or caught by CI, and each one now has a
-regression test. Listed oldest first.
+All of these were reported by users, caught by CI, or found by auditing every
+check against real input, and each one now has a regression test. Listed
+oldest first within each table.
+
+### False positives (a problem reported where there is none)
 
 | What you saw | Why the check was wrong | What guards it now |
 |---|---|---|
@@ -44,10 +48,23 @@ regression test. Listed oldest first.
 | `packages/locked` accusing the tool itself, only when run as root ([#24](https://github.com/zShaD0w7x/linux-doctor/issues/24)) | the lock probe ran beside linux-doctor's own `apt-get check` (and the `updates` / `orphans` probes), so `fuser` found linux-doctor holding the lock and the user was told to wait for, or kill, a process that was the tool | holders inside linux-doctor's own process group are ignored, and the evidence lists PIDs only |
 | `updates` reporting roughly double the real number on dnf | `dnf check-update` prints a header, indented obsoletion lines and one entry per enabled repo, so 314 pending updates read as 630 | unique package names are counted |
 | `journal` reporting thousands of "unrecognized entries" after a few crashes | a multi-line entry (a crash plus its stack trace) was counted once per continuation line | only timestamped head lines count as entries |
+| `security/autologin` on a machine with autologin disabled | the commented `# AutomaticLoginEnable=true` example that several distros ship was read as config, and an explicit `false` or a bare `[Autologin]` header counted too | comments are ignored, GDM needs an actual true value, and SDDM needs a `User=` line inside the section |
+| a full root filesystem reported as a full `/boot` | `df -P /boot` prints the root row when `/boot` is a directory on `/` and the columns are identical, so a 95%-full root was filed against `/boot` | a row is only used when its mount point is the one requested |
+| `crash` reporting a kernel panic on machines that reboot often | the Intel machine-check boot banner (`Intel machine check reporting enabled on CPU#N`) was read as a panic | it defers to the same classifier as `hardware/mce`, which rejects routine init lines |
 
-Two more that were fixed before anyone reported them: the webview could come up
-blank where WebKit's DMA-BUF renderer fails, and `updates` could claim "up to
-date" when the package manager was actually locked.
+Three more that were fixed before anyone reported them: the webview could come
+up blank where WebKit's DMA-BUF renderer fails, `updates` could claim "up to
+date" when the package manager was actually locked, and an uncorrected memory
+error (an EDAC `UE` line) was filed at medium as if it had been corrected — it
+is high now, with its own wording.
+
+### False negatives (a real problem the check missed)
+
+| What you did not see | Why the check was blind | What guards it now |
+|---|---|---|
+| `security/autologin` said nothing on Debian, Ubuntu and Mint | the probe listed `/etc/gdm` (the Red Hat, openSUSE and Fedora layout) but not `/etc/gdm3`, which the Debian family uses, so an enabled autologin read as no autologin | both layouts are searched, which is only safe because the comment filter above drops the commented examples Debian ships |
+| `flatpak` said "apps are up to date" with updates pending | the default `remote-ls --updates` output is a column table whose fields contain no `/`, and that is what the count looked for | it asks for `--columns=application,version`, with a table fallback for older flatpak |
+| `raid` called a `FAULTED`, `UNAVAIL`, `REMOVED` or `SUSPENDED` ZFS pool healthy | only the word "degraded" was recognised, so anything worse fell through to the healthy branch | only `ONLINE` counts as healthy, and a running scrub is no longer called a rebuild |
 
 ## How we catch these now
 
@@ -58,6 +75,9 @@ date" when the package manager was actually locked.
   and every high/medium finding they produce needs a written reason.
 - The **severity rubric and the code registry** stop a severity from drifting
   silently.
+- **Every check is audited against real input**, and a wrong result is
+  reproduced before it is changed: no fix lands without a regression test that
+  fails first.
 - See [docs/doctrine.md](doctrine.md) for the full list of what is enforced,
   and [docs/compatibility.md](compatibility.md) for what counts as a
   user-visible change.
