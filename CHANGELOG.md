@@ -8,6 +8,18 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
+- **The report names everything that needs a human now, not just the first
+  thing.** Findings carry a derived urgency (`now` / `watch` / `fyi`), and a
+  machine with a full disk and a degraded array at the same time lists both
+  under `NEEDS YOU NOW` instead of hiding the second behind `START HERE`.
+  Membership is a reviewed list of codes: an unknown or plugin code can never be
+  `now`, urgency never re-grades the score, and the rubric is in
+  [docs/severity.md](docs/severity.md).
+- **`--todo` leads with the urgent steps.** The list claims to be "in priority
+  order" and used to order by severity alone; the findings that need a human now
+  come first. A deadline is not urgency: an expiring certificate or a disk
+  filling up has a date, not a slope, so they stay watch items with a date
+  rather than crowding out the things to do today.
 - **Two public documents about trust rather than features.**
   [docs/limitations.md](docs/limitations.md) lists what the tool does not
   detect and every false positive it has shipped and fixed, with the regression
@@ -23,6 +35,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **A single corrected ECC error no longer costs score.** One corrected bit flip
+  in a week is ECC doing its job — the check said so in its own detail text while
+  grading it medium, so a healthy machine lost 8 points for normal operation.
+  The single case is informational now, repeated corrections stay medium, and an
+  uncorrected error (UE) is still high.
 - **The packaged AppStream metadata no longer lags a release behind.** The
   `<releases>` list in the metainfo that app stores and `appstreamcli` read was
   updated by hand, and it drifted: after 0.6.1 shipped the file still advertised
