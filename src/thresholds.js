@@ -32,8 +32,10 @@ export const DEFAULT_THRESHOLDS = {
   // containerdisk.js — container image storage in GB
   containerWarnGB: 20,
   containerHighGB: 50,
-  // network.js — DNS resolution time in ms before it is flagged as slow
+  // network.js — DNS resolution and conntrack capacity thresholds
   dnsSlowMs: 500,
+  conntrackWarnPct: 80,
+  conntrackHighPct: 95,
   // certs.js — days of TLS certificate lifetime left before it is flagged
   certWarnDays: 30,
   certCritDays: 7,

@@ -9,6 +9,7 @@ import { zram } from "../src/checks/zram.js";
 import { locales } from "../src/checks/locales.js";
 import { autologin } from "../src/checks/autologin.js";
 import { fstrim } from "../src/checks/fstrim.js";
+import { conntrackFinding } from "../src/checks/network.js";
 
 function stubCtx(map, osRelease = { id: "bazzite", id_like: "fedora" }) {
   return {
@@ -285,4 +286,48 @@ test("fstrim: zram/loop ROTA=0 devices are not treated as SSDs", async () => {
   const ctx = stubCtx({ "lsblk -dno NAME,ROTA 2>/dev/null": "zram0 0\nloop0 0\n" });
   const findings = await fstrim.run(ctx);
   assert.equal(findings.length, 0, "no trimmable storage means TRIM is not applicable");
+});
+
+function procReader(files) {
+  return (path) => {
+    if (!(path in files)) {
+      const error = new Error(`ENOENT: ${path}`);
+      error.code = "ENOENT";
+      throw error;
+    }
+    return files[path];
+  };
+}
+
+test("network conntrack: absent proc files produce no finding", () => {
+  const finding = conntrackFinding(stubCtx({}), procReader({}));
+  assert.equal(finding, null);
+});
+
+test("network conntrack: 85% usage is medium severity", () => {
+  const finding = conntrackFinding(
+    stubCtx({}),
+    procReader({
+      "/proc/sys/net/netfilter/nf_conntrack_count": "850\n",
+      "/proc/sys/net/netfilter/nf_conntrack_max": "1000\n",
+    }),
+  );
+  assert.ok(finding);
+  assert.equal(finding.code, "network/conntrack");
+  assert.equal(finding.severity, "medium");
+  assert.match(finding.evidence, /850\/1000/);
+});
+
+test("network conntrack: 96% usage is high severity", () => {
+  const finding = conntrackFinding(
+    stubCtx({}),
+    procReader({
+      "/proc/sys/net/netfilter/nf_conntrack_count": "960\n",
+      "/proc/sys/net/netfilter/nf_conntrack_max": "1000\n",
+    }),
+  );
+  assert.ok(finding);
+  assert.equal(finding.code, "network/conntrack");
+  assert.equal(finding.severity, "high");
+  assert.match(finding.fix, /nf_conntrack_max/);
 });
