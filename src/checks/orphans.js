@@ -80,6 +80,7 @@ export const orphans = defineCheck({
         fix: family === "arch" ? "Remove them with `sudo pacman -Rns $(pacman -Qtdq)` (review the list first with `pacman -Qtd`)."
           : family === "debian" ? "Remove them with `sudo apt autoremove`."
           : family === "fedora" ? "Remove them with `sudo dnf autoremove`."
+          : family === "suse" ? "openSUSE has no bulk autoremove. Remove packages one at a time with `sudo zypper rm -u <package>`, which also cleans up the dependencies they pulled in."
           : "Remove them with your package manager's autoremove command.",
         confidence: "high",
       })];
@@ -93,7 +94,9 @@ export const orphans = defineCheck({
       evidence: sample ? `${evidence}\n${sample}` : evidence,
       fix: family === "arch" ? "Remove with `sudo pacman -Rns $(pacman -Qtdq)` after reviewing `pacman -Qtd`."
         : family === "debian" ? "Remove with `sudo apt autoremove`."
-        : "Remove with `sudo dnf autoremove` or your distro's equivalent.",
+        : family === "fedora" ? "Remove with `sudo dnf autoremove`."
+        : family === "suse" ? "openSUSE has no bulk autoremove. Remove one at a time with `sudo zypper rm -u <package>`."
+        : "Remove with your package manager's autoremove command.",
       confidence: "high",
     })];
   },

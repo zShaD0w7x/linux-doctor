@@ -135,6 +135,7 @@ export const reportSchema = {
         sessionType: { type: ["string", "null"], description: "session type from XDG_SESSION_TYPE (wayland/x11/tty…)" },
         immutable: { type: "boolean" },
         imageBased: { type: "boolean" },
+        hasSystemd: { type: "boolean", description: "true when the running init is systemd (/run/systemd/system exists); some fix commands are systemd-only and are withheld when false" },
         atomicVariant: { type: ["string", "null"], description: "specific atomic variant (bazzite, silverblue, ...) or null" },
         osRelease: {
           type: "object",

@@ -81,8 +81,18 @@ const CATALOG = {
    * Pending updates. Command follows the detected package family — on
    * image-based systems the transactional updater is used instead.
    */
-  "updates/pending": (_f, { family, imageBased } = {}) => {
+  "updates/pending": (_f, { family, id, imageBased } = {}) => {
     if (imageBased) return [{ cmd: "rpm-ostree upgrade", tier: "apply" }];
+    // openSUSE ships two release models under one family. Leap is a fixed
+    // release (routine updates); Tumbleweed is rolling, where the normal
+    // update is a distribution upgrade. `dup` on Leap is a release upgrade
+    // and `update` on Tumbleweed leaves a half-synced system — so without the
+    // variant there is no safe command, only silence.
+    if (family === "suse" || id === "opensuse-leap" || id === "opensuse-tumbleweed") {
+      if (id === "opensuse-tumbleweed") return [{ cmd: "sudo zypper dup", tier: "apply" }];
+      if (id === "opensuse-leap") return [{ cmd: "sudo zypper up", tier: "apply" }];
+      return [];
+    }
     switch (family) {
       // detectDistro normalizes RHEL/CentOS/Rocky/Fedora to "fedora"; "rhel"
       // is kept for callers/tests that pass it directly.
@@ -90,7 +100,7 @@ const CATALOG = {
       case "rhel": return [{ cmd: "sudo dnf upgrade", tier: "apply" }];
       case "debian": return [{ cmd: "sudo apt update && sudo apt upgrade", tier: "apply" }];
       case "arch": return [{ cmd: "sudo pacman -Syu", tier: "apply" }];
-      case "suse": return [{ cmd: "sudo zypper dup", tier: "apply" }];
+      case "alpine": return [{ cmd: "sudo apk -U upgrade", tier: "apply" }];
       default: return []; // unknown family → nothing is better than a guess
     }
   },
@@ -98,8 +108,13 @@ const CATALOG = {
   "flatpak/pending": () => [{ cmd: "flatpak update", tier: "apply" }],
   "snap/pending": () => [{ cmd: "sudo snap refresh", tier: "apply" }],
 
-  /** fstrim disabled: re-enable the shipped weekly timer. */
-  "fstrim/disabled": () => [{ cmd: "sudo systemctl enable --now fstrim.timer", tier: "apply" }],
+  /**
+   * fstrim disabled: re-enable the shipped weekly timer. systemd-only — on
+   * OpenRC/runit systems the distro ships no schedule and the remedy is a
+   * hand-written cron entry, which is not a command we can hand out.
+   */
+  "fstrim/disabled": (_f, { hasSystemd } = {}) =>
+    hasSystemd ? [{ cmd: "sudo systemctl enable --now fstrim.timer", tier: "apply" }] : [],
 
   /** Oversized journal: cap it at 200M (old entries are dropped, config intact). */
   "journald/large": () => [{ cmd: "sudo journalctl --vacuum-size=200M", tier: "apply" }],
@@ -108,44 +123,41 @@ const CATALOG = {
   "containerdisk/high": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "manual" }],
   "containerdisk/warn": () => [{ cmd: "podman system prune -f 2>/dev/null || docker system prune -f 2>/dev/null", tier: "manual" }],
 
-  /**
-   * No firewall: enable firewalld (Fedora/RHEL) or ufw (Debian) based on
-   * family. ufw's default policy denies new incoming connections, so SSH
-   * MUST be allowed before enabling — otherwise a headless machine refuses
-   * its next login. `--force` skips ufw's interactive y/n prompt (this tool
-   * runs commands non-interactively; an unattended prompt would hang until
-   * the timeout). Existing established sessions survive via conntrack.
-   */
-  "security/no-firewall": (_f, { family } = {}) => {
-    // Manual on purpose: enabling a firewall can cut the SSH session that is
-    // running --fix if the allow-rule does not match the real SSH setup.
-    if (family === "debian") {
-      return [
-        { cmd: "sudo ufw allow OpenSSH", tier: "manual" },
-        { cmd: "sudo ufw --force enable", tier: "manual" },
-      ];
-    }
-    if (family === "arch") return [{ cmd: "sudo pacman -S --needed ufw && sudo ufw allow OpenSSH && sudo ufw --force enable", tier: "manual" }];
-    return [{ cmd: "sudo systemctl enable --now firewalld", tier: "manual" }];
-  },
+  // `security/no-firewall` deliberately has no catalog entry. There is no
+  // firewall command that is safe on every family: the front end differs
+  // (firewalld, ufw, nftables, awall), enabling one can cut the SSH session
+  // that is running --fix, and on Alpine `awall activate` rolls back unless
+  // confirmed within seconds. The finding reports the state; enabling a
+  // firewall stays the admin's call, on the distro's own tool.
 
   /** Pending firmware: fwupd refresh. */
   "firmware/pending": () => [{ cmd: "sudo fwupdmgr refresh && sudo fwupdmgr update", tier: "manual" }],
 
-  /** Broken locales: regenerate. */
+  /** Broken locales: regenerate with the tool the family actually ships. */
   "locales/broken": (_f, { family } = {}) => {
     if (family === "debian") return [{ cmd: "sudo locale-gen && sudo update-locale", tier: "apply" }];
-    if (family === "arch") return [{ cmd: "sudo locale-gen", tier: "apply" }];
-    return [{ cmd: "sudo localectl set-locale LANG=en_US.UTF-8", tier: "apply" }];
+    if (family === "arch" || family === "gentoo") return [{ cmd: "sudo locale-gen", tier: "apply" }];
+    if (family === "fedora" || family === "rhel" || family === "suse") {
+      // Fedora/RHEL/openSUSE have no locale-gen: they install prebuilt
+      // langpacks and set the locale through systemd.
+      return [{ cmd: "sudo localectl set-locale LANG=en_US.UTF-8", tier: "apply" }];
+    }
+    // Void must edit /etc/default/libc-locales before anything is generated,
+    // and musl (Alpine) has no locale generation. Neither gets a command.
+    return [];
   },
 
   /** Disk nearly full: offer safe cleanups per family. */
-  "disk/full": (_f, { family } = {}) => {
-    const cmds = [{ cmd: "sudo journalctl --vacuum-size=500M", tier: "apply" }];
+  "disk/full": (_f, { family, hasSystemd } = {}) => {
+    const cmds = [];
+    // Only a systemd host has a journal that can be vacuumed.
+    if (hasSystemd) cmds.push({ cmd: "sudo journalctl --vacuum-size=500M", tier: "apply" });
     if (family === "debian") cmds.push({ cmd: "sudo apt clean", tier: "apply" });
     else if (family === "arch") cmds.push({ cmd: "sudo pacman -Sc --noconfirm", tier: "apply" });
     else if (family === "fedora" || family === "rhel") cmds.push({ cmd: "sudo dnf clean all", tier: "apply" });
     else if (family === "suse") cmds.push({ cmd: "sudo zypper clean", tier: "apply" });
+    else if (family === "alpine") cmds.push({ cmd: "sudo apk cache clean", tier: "apply" });
+    else if (family === "void") cmds.push({ cmd: "sudo xbps-remove -O", tier: "apply" });
     return cmds;
   },
 
@@ -185,15 +197,13 @@ const CATALOG = {
   "hardware/ecc": () => [{ cmd: "sudo journalctl -k --since '1 day ago' | grep -i ecc | tail -10", tier: "manual" }],
 
   /** Autologin: manual — needs display-manager edit */
-  "security/autologin": () => [{ cmd: "sudo sed -i 's/^AutomaticLoginEnable=.*/AutomaticLoginEnable=false/' /etc/gdm/custom.conf 2>/dev/null; echo 'Disable autologin in /etc/gdm/custom.conf or /etc/sddm.conf'", tier: "manual" }],
+  "security/autologin": () => [{ cmd: "sudo sed -i 's/^AutomaticLoginEnable=.*/AutomaticLoginEnable=false/' /etc/gdm/custom.conf 2>/dev/null; echo 'Disable autologin in /etc/gdm/custom.conf, /etc/gdm3/daemon.conf or /etc/sddm.conf'", tier: "manual" }],
 
-  /** Backup none: manual — install suggestion per family */
-  "backup/none": (_f, { family } = {}) => {
-    if (family === "debian") return [{ cmd: "sudo apt install timeshift borgbackup", tier: "manual" }];
-    if (family === "arch") return [{ cmd: "sudo pacman -S timeshift borg", tier: "manual" }];
-    if (family === "suse") return [{ cmd: "sudo zypper install snapper borgbackup", tier: "manual" }];
-    return [{ cmd: "sudo dnf install timeshift borgbackup 2>/dev/null || sudo dnf install snapper", tier: "manual" }];
-  },
+  // `backup/none` deliberately has no catalog entry. Telling someone which
+  // backup tool to install is product advice, not a repair of a detected
+  // fault, and the package names are not portable (Void calls it `borg`,
+  // Alpine and Gentoo do not package timeshift at all, and on RHEL it is
+  // EPEL-only). The finding keeps the generic advice; the catalog stays out.
 
   /** Inodes nearly full: same cleanup as disk, plus hunt for tiny-file spam. */
   "inodes/full": () => [{ cmd: "sudo journalctl --vacuum-size=500M; echo 'Hunt tiny files: sudo find / -xdev -type f | cut -d/ -f3 | sort | uniq -c | sort -rn | head -20'", tier: "manual" }],
@@ -203,32 +213,56 @@ const CATALOG = {
   "orphans/many": (_f, { family } = {}) => {
     if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "manual" }];
     if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "manual" }];
-    if (family === "suse") return [{ cmd: "sudo zypper packages --unneeded | grep '^i' && sudo zypper remove --clean-deps $(zypper packages --unneeded | awk '/^i/ {print $5}')", tier: "manual" }];
-    return [{ cmd: "sudo dnf autoremove", tier: "manual" }];
+    if (family === "fedora" || family === "rhel") return [{ cmd: "sudo dnf autoremove", tier: "manual" }];
+    // openSUSE has no bulk autoremove at all (only per-package
+    // `zypper rm -u <pkg>`), and no other family's orphan check runs.
+    return [];
   },
   "orphans/some": (_f, { family } = {}) => {
     if (family === "arch") return [{ cmd: "sudo pacman -Rns $(pacman -Qtdq)", tier: "manual" }];
     if (family === "debian") return [{ cmd: "sudo apt autoremove", tier: "manual" }];
-    return [{ cmd: "sudo dnf autoremove", tier: "manual" }];
+    if (family === "fedora" || family === "rhel") return [{ cmd: "sudo dnf autoremove", tier: "manual" }];
+    return [];
   },
 
-  /** Unused Flatpak runtimes */
-  "flatpak/unused-runtimes": () => [{ cmd: "flatpak uninstall --unused", tier: "apply" }],
+  // `flatpak/unused-runtimes` has no catalog entry either, because the finding
+  // itself is gone: the CLI cannot answer the question read-only (see the
+  // comment in src/checks/flatpak.js).
 
-  /** Boot partition nearly full / missing grub.cfg */
-  "boot/full": () => [{ cmd: "sudo dnf remove --oldinstallonly --setopt installonly_limit=2 kernel 2>/dev/null || sudo apt autoremove --purge 2>/dev/null; sudo grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || sudo grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null", tier: "manual" }],
+  /** Boot partition nearly full: remove old kernels with the family's tool. */
+  "boot/full": (_f, { family } = {}) => {
+    // Freeing /boot means deleting old kernels, and every family ships a
+    // different helper (or none). Guessing here is how an Arch user was once
+    // told to run dnf.
+    if (family === "debian") return [{ cmd: "sudo apt autoremove --purge", tier: "manual" }];
+    if (family === "fedora" || family === "rhel") return [{ cmd: "sudo dnf remove --oldinstallonly --setopt installonly_limit=2 kernel", tier: "manual" }];
+    if (family === "suse") return [{ cmd: "sudo zypper purge-kernels", tier: "manual" }];
+    if (family === "void") return [{ cmd: "sudo vkpurge rm all", tier: "manual" }];
+    // Arch removes a specific kernel package by hand, Alpine ships a single
+    // kernel that an upgrade replaces, Gentoo has no default-kernel layout.
+    return [];
+  },
   "boot/no-config": () => [{ cmd: "sudo grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || sudo grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || sudo bootctl install", tier: "manual" }],
 
   /** Cache and trash bloat */
   "cache/large": () => [{ cmd: "du -sh ~/.cache/* 2>/dev/null | sort -rh | head -20; echo '---'; rm -rf ~/.cache/thumbnails/* 2>/dev/null; echo 'Cleared thumbnails'", tier: "manual" }],
   "cache/trash": () => [{ cmd: "gio trash --empty 2>/dev/null || rm -rf ~/.local/share/Trash/*", tier: "manual" }],
 
-  /** WiFi blocked/disabled */
-  "wifi/blocked": () => [{ cmd: "rfkill unblock wifi && nmcli radio wifi on", tier: "apply" }],
+  /** WiFi blocked: unblocking is the fix everywhere; NetworkManager is not. */
+  "wifi/blocked": () => [{ cmd: "sudo rfkill unblock wifi", tier: "apply" }],
   "wifi/disabled": () => [{ cmd: "nmcli radio wifi on", tier: "apply" }],
 
-  /** Broken package manager */
-  "packages/broken": () => [{ cmd: "sudo dpkg --configure -a 2>/dev/null; sudo apt --fix-broken install 2>/dev/null || sudo dnf check 2>/dev/null; sudo pacman -Dk 2>/dev/null", tier: "manual" }],
+  /** Broken package database: each family repairs with its own tool. */
+  "packages/broken": (_f, { family } = {}) => {
+    if (family === "debian") return [{ cmd: "sudo dpkg --configure -a; sudo apt --fix-broken install", tier: "manual" }];
+    if (family === "fedora" || family === "rhel") return [{ cmd: "sudo dnf distro-sync", tier: "manual" }];
+    if (family === "suse") return [{ cmd: "sudo zypper verify", tier: "manual" }];
+    if (family === "alpine") return [{ cmd: "sudo apk fix", tier: "manual" }];
+    if (family === "void") return [{ cmd: "sudo xbps-pkgdb -a", tier: "manual" }];
+    // Arch has no repair command (reinstall the affected packages), and
+    // Gentoo's tools need a synced tree. Silence, not a guess.
+    return [];
+  },
   "packages/locked": () => [{ cmd: "ps aux | grep -E 'apt|dpkg' | grep -v grep", tier: "manual" }],
 
   /** A pending reboot is the user's call — never schedule one from a tool. */
@@ -242,7 +276,15 @@ const CATALOG = {
 export function planFixes(findings, { system } = {}) {
   const ctx = {
     family: system?.family ?? null,
+    // os-release ID, so a family with two release models can be told apart:
+    // openSUSE Leap takes routine updates, Tumbleweed's routine update IS a
+    // distribution upgrade. Without the variant, the catalog does not guess.
+    id: system?.id ?? system?.osRelease?.ID ?? null,
     imageBased: !!system?.imageBased,
+    // The addressee's shell, not ours: a fix is only withheld when the system
+    // is positively known to not run systemd. An unknown flag keeps the old
+    // behavior rather than silently emptying the plan.
+    hasSystemd: system?.hasSystemd !== false,
   };
   const plan = [];
   for (const f of findings) {
