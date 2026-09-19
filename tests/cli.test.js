@@ -59,6 +59,20 @@ test("applicableChecks: an explicit --check list overrides appliesTo", () => {
   assert.deepEqual(ids, ["battery"], "user intent wins over gating");
 });
 
+test("applicableChecks: expands category names to checks in that category", () => {
+  const softwareChecks = applicableChecks(["software"], "desktop");
+  assert.ok(softwareChecks.length > 0, "software category must contain checks");
+  for (const c of softwareChecks) {
+    assert.equal(c.category, "software", `expected category software, got ${c.category}`);
+  }
+});
+
+test("applicableChecks: mixed id and category expands correctly", () => {
+  const mixed = applicableChecks(["memory,software"], "desktop").map((c) => c.id);
+  assert.ok(mixed.includes("memory"), "memory check must be included");
+  assert.ok(mixed.includes("services"), "services check from software category must be included");
+});
+
 test("applicableChecks: plugins participate in gating", () => {
   const plugin = { id: "ups", title: "UPS", category: "hardware", appliesTo: ["server"], run: async () => [] };
   const server = applicableChecks([], "server", [plugin]).map((c) => c.id);
