@@ -627,7 +627,12 @@ test("security: unreadable nftables without root is 'unknown', not 'no firewall'
     "systemctl is-active firewalld 2>/dev/null": "inactive\n",
     "systemctl is-active ufw 2>/dev/null": "inactive\n",
     "systemctl is-active nftables 2>/dev/null": "inactive\n",
-    // nft list ruleset intentionally unstubbed: fails (permission) without root.
+    // The binary is there; reading the ruleset needs CAP_NET_ADMIN, so the
+    // nft command itself fails. (The probe used to end in `| head -5`, whose
+    // exit code is 0 — so this case used to read as "readable and empty",
+    // i.e. "no firewall".)
+    "command -v nft 2>/dev/null": "/usr/sbin/nft\n",
+    // `nft list ruleset 2>/dev/null` intentionally unstubbed: it fails without root.
     "getenforce 2>/dev/null": "",
     "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
     "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
@@ -638,6 +643,38 @@ test("security: unreadable nftables without root is 'unknown', not 'no firewall'
   assert.equal(unknown.severity, "info");
   assert.equal(unknown.fix, null, "unknown must never carry a fix that could enable a firewall");
   assert.ok(!findings.some((f) => f.code === "security/no-firewall"), "must not claim there is no firewall");
+});
+
+test("security: nftables not installed is a determinate 'no firewall', not 'unknown'", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "inactive\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "systemctl is-active nftables 2>/dev/null": "inactive\n",
+    "command -v nft 2>/dev/null": "",
+    "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  assert.ok(findings.some((f) => f.code === "security/no-firewall"), "no nftables and no service is a determinate answer");
+  assert.ok(!findings.some((f) => f.code === "security/firewall-unknown"), "a missing tool is not an unreadable ruleset");
+});
+
+test("security: a readable, non-empty ruleset counts as an active firewall", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "inactive\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "systemctl is-active nftables 2>/dev/null": "inactive\n",
+    "command -v nft 2>/dev/null": "/usr/sbin/nft\n",
+    "nft list ruleset 2>/dev/null": "table inet filter {\n\tchain input {\n\t\ttype filter hook input priority 0; policy drop;\n\t}\n}\n",
+    "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  const fw = findings.find((f) => f.code === "security/firewall");
+  assert.ok(fw, "rules present means the firewall is active");
+  assert.match(fw.evidence, /nftables rules present/);
 });
 
 test("processes: a single app over 20% of RAM is flagged medium", async () => {

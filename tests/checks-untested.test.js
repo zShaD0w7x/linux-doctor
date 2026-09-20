@@ -272,7 +272,7 @@ test("packages: a lock refusal does not mask a genuinely broken dpkg database", 
 // its evidence. Found by the clean-image baseline gate on its first run.
 test("packages: pacman reporting no database errors is informational", async () => {
   const ctx = stubCtx({
-    "pacman -Dk 2>&1 | head -20":
+    "pacman -Dk 2>&1":
       "warning: database file for 'core' does not exist (use '-Sy' to download)\n" +
       "warning: database file for 'extra' does not exist (use '-Sy' to download)\n" +
       "No database errors have been found!\n",
@@ -284,7 +284,7 @@ test("packages: pacman reporting no database errors is informational", async () 
 
 test("packages: a real pacman database error is still high", async () => {
   const ctx = stubCtx({
-    "pacman -Dk 2>&1 | head -20": "error: package libfoo: missing 'libbar' dependency\n",
+    "pacman -Dk 2>&1": "error: package libfoo: missing 'libbar' dependency\n",
   }, { id: "arch" });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/broken");
@@ -419,4 +419,46 @@ test("cache: a small cache is silent (no false positive)", async () => {
   });
   const findings = await cache.run(ctx);
   assert.ok(!findings.some((f) => /medium|high/.test(f.severity)), "a 100 MB cache must not alarm");
+});
+
+// ------------------------------------------------- packages: dnf needs root --
+
+test("packages: dnf without root is 'skipped (needs root)', not a broken database", async () => {
+  // On Fedora an unprivileged `dnf check` cannot create its cache and exits 1
+  // with "filesystem error: cannot create directories: Permission denied".
+  // The old probe piped through `head`, so the exit status belonged to head,
+  // the failure looked successful, the /error/ predicate matched that line and
+  // a healthy machine got a HIGH "package manager reports problems" — the same
+  // false positive the apt lock refusal used to cause. Verified in a Fedora
+  // container as a non-root user.
+  const ctx = stubCtx({
+    "dnf check 2>&1": "filesystem error: cannot create directories: Permission denied [/.local/state]\n",
+  }, { id: "fedora", id_like: "fedora" });
+  const findings = await packages.run(ctx);
+  assert.ok(!findings.some((f) => f.code === "packages/broken"), `a permission refusal is not a broken database: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "packages/ok");
+  assert.match(findings[0].evidence, /skipped \(needs root\)/);
+});
+
+test("packages: a failed pacman check stays silent instead of claiming health", async () => {
+  // `pacman -Dk` does not need root (verified: it exits 0 unprivileged), so the
+  // dead exit-status gate here was benign — but a silent guard belongs in the
+  // tests, so a future edit cannot turn a failure into "database is healthy".
+  const ctx = stubCtx({
+  }, { id: "arch", id_like: "arch" });
+  const findings = await packages.run(ctx);
+  assert.deepEqual(findings, []);
+});
+
+// ------------------------------------------------------- orphans: dnf query --
+
+test("orphans: a failed dnf query is not 'no orphaned packages'", async () => {
+  // `dnf repoquery --unneeded | wc -l` always exits 0 (wc's status), so a
+  // failed query printed 0 and the check reported a tidy database. Verified
+  // in a Fedora container: unprivileged dnf exits 1 and prints the same
+  // permission error. "Could not determine" must be silence, not a clean bill.
+  const ctx = stubCtx({
+  }, { id: "fedora", id_like: "fedora" });
+  const findings = await orphans.run(ctx);
+  assert.deepEqual(findings, [], "if neither query ran, say nothing");
 });
