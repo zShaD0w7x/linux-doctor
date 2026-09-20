@@ -30,25 +30,41 @@ export async function detectSoftwareRenderer(ctx) {
  * used to drive the ufw-enable safe-fix).
  */
 export async function detectFirewall(ctx) {
-  const [firewalld, ufw, nftables, nft] = await Promise.all([
+  const [firewalld, ufw, nftables, nftBin, nftRules] = await Promise.all([
     ctx.run("systemctl is-active firewalld 2>/dev/null"),
     ctx.run("systemctl is-active ufw 2>/dev/null"),
     ctx.run("systemctl is-active nftables 2>/dev/null"),
-    ctx.run("nft list ruleset 2>/dev/null | head -5"),
+    // "Is the tool installed" and "could we read the ruleset" are two separate
+    // questions, and the old single probe `nft list ruleset | head -5` answered
+    // neither: the exit status belonged to head, so the probe always looked
+    // successful. A permission failure therefore read as "readable and empty",
+    // i.e. "no firewall" on a non-root run, and the unknown branch below could
+    // never be reached.
+    ctx.run("command -v nft 2>/dev/null"),
+    ctx.run("nft list ruleset 2>/dev/null"),
   ]);
+  const nftAvailable = nftBin.ok && nftBin.stdout.trim().length > 0;
+  // nft's own exit status now: readable-but-empty is a success with no output,
+  // a permission failure is a failure.
+  const rulesReadable = nftAvailable && nftRules.ok;
+  const rules = String(nftRules.stdout || "");
+  const rulesPresent = rulesReadable && rules.trim().length > 0;
+
   const activeUnit = [["firewalld", firewalld], ["ufw", ufw], ["nftables", nftables]]
     .find(([, r]) => r.stdout.trim() === "active");
-  const active = Boolean(activeUnit) || (nft.ok && nft.stdout.trim().length > 0);
+  const active = Boolean(activeUnit) || rulesPresent;
   // Conclusive when a service is active, when we could read the ruleset
   // (ok, even if empty), or when nftables is not installed at all.
-  const determined = active || nft.ok || nft.missing === true;
+  const determined = active || rulesReadable || !nftAvailable;
   const evidence = activeUnit
     ? `${activeUnit[0]} is active`
-    : nft.ok
-      ? (nft.stdout.trim() ? "nftables rules present" : "nftables ruleset empty, no firewall service active")
-      : nft.missing
-        ? "nftables not installed, no firewall service active"
-        : "nftables ruleset not readable (needs root)";
+    : rulesPresent
+      ? `nftables rules present (${rules.trim().split("\n").length} line(s))`
+      : rulesReadable
+        ? "nftables ruleset empty, no firewall service active"
+        : !nftAvailable
+          ? "nftables not installed, no firewall service active"
+          : "nftables ruleset not readable (needs root)";
   return { active, determined, evidence };
 }
 
