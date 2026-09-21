@@ -18,7 +18,8 @@
  *   node scripts/make-latest-json.mjs src-tauri/target/release/bundle 0.6.0 v0.6.0 zShaD0w7x/linux-doctor
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join, basename, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const [dir, version, tag, repo, outArg] = process.argv.slice(2);
 if (!dir || !version || !tag || !repo) {
@@ -59,11 +60,33 @@ if (!found) {
   process.exit(1);
 }
 
+/**
+ * The changelog section for this version, for the in-app update dialog.
+ *
+ * RELEASE_NOTES used to be the only source and the release workflow never set
+ * it, so the updater always showed an empty "what's new" while the GitHub
+ * release had the section. Read it from CHANGELOG.md instead; an explicit
+ * RELEASE_NOTES still wins so a hotfix release can override the text.
+ */
+function notesFromChangelog(v) {
+  const path = process.env.LINUX_DOCTOR_CHANGELOG || join(dirname(fileURLToPath(import.meta.url)), "..", "CHANGELOG.md");
+  if (!existsSync(path)) return "";
+  const lines = readFileSync(path, "utf8").split("\n");
+  const start = lines.findIndex((l) => new RegExp(`^## \\[${v.replace(/\./g, "\\.")}\\]`).test(l));
+  if (start < 0) return "";
+  const body = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^## \[/.test(line)) break; // next version (Unreleased or older)
+    body.push(line);
+  }
+  return body.join("\n").trim();
+}
+
 const signature = readFileSync(found.sigFile, "utf8").trim();
 const name = assetName(found.file);
 const manifest = {
   version,
-  notes: process.env.RELEASE_NOTES || "",
+  notes: process.env.RELEASE_NOTES || notesFromChangelog(version),
   pub_date: new Date().toISOString(),
   platforms: {
     "linux-x86_64": {

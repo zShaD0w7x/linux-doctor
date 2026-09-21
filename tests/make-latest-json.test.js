@@ -44,3 +44,64 @@ test("make-latest-json: fails clearly when no signed artifact exists", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("make-latest-json: the updater notes come from the CHANGELOG for that version", () => {
+  // The in-app update dialog reads latest.json's notes. They were always empty
+  // because the script only looked at RELEASE_NOTES, which the release workflow
+  // never sets — the GitHub release got the changelog section, the updater got
+  // nothing. Read the section for this version when no override is given.
+  const dir = mkdtempSync(join(tmpdir(), "ld-upd-"));
+  try {
+    const appimage = join(dir, "appimage");
+    mkdirSync(appimage);
+    writeFileSync(join(appimage, "Linux Doctor_0.7.0_amd64.AppImage"), "appimage");
+    writeFileSync(join(appimage, "Linux Doctor_0.7.0_amd64.AppImage.sig"), "SIG\n");
+    const changelog = join(dir, "CHANGELOG.md");
+    writeFileSync(changelog, [
+      "# Changelog",
+      "",
+      "## [Unreleased]",
+      "",
+      "- a thing that has not shipped",
+      "",
+      "## [0.7.0] - 2026-09-22",
+      "",
+      "### Fixed",
+      "",
+      "- the thing that changed",
+      "",
+      "## [0.6.1] - 2026-09-17",
+      "",
+      "- old news",
+      "",
+    ].join("\n"));
+    execFileSync("node", [SCRIPT, dir, "0.7.0", "v0.7.0", "o/r"], {
+      stdio: "pipe",
+      env: { ...process.env, LINUX_DOCTOR_CHANGELOG: changelog, RELEASE_NOTES: "" },
+    });
+    const m = JSON.parse(readFileSync(join(dir, "latest.json"), "utf8"));
+    assert.match(m.notes, /the thing that changed/, "the update dialog must say what changed");
+    assert.ok(!/has not shipped/.test(m.notes), "must not leak the Unreleased section");
+    assert.ok(!/old news/.test(m.notes), "must stop at the next version heading");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("make-latest-json: an explicit RELEASE_NOTES still wins", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ld-upd-"));
+  try {
+    const appimage = join(dir, "appimage");
+    mkdirSync(appimage);
+    writeFileSync(join(appimage, "Linux Doctor_0.7.0_amd64.AppImage"), "appimage");
+    writeFileSync(join(appimage, "Linux Doctor_0.7.0_amd64.AppImage.sig"), "SIG\n");
+    execFileSync("node", [SCRIPT, dir, "0.7.0", "v0.7.0", "o/r"], {
+      stdio: "pipe",
+      env: { ...process.env, RELEASE_NOTES: "typed by hand", LINUX_DOCTOR_CHANGELOG: "/nonexistent" },
+    });
+    const m = JSON.parse(readFileSync(join(dir, "latest.json"), "utf8"));
+    assert.equal(m.notes, "typed by hand");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

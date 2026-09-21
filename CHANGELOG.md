@@ -23,6 +23,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **The in-app update dialog now says what changed.** The updater manifest
+  carried an empty `notes` because the generator only looked at
+  `RELEASE_NOTES`, which the release workflow never sets: the GitHub release got
+  the changelog section and the updater got nothing. The generator reads the
+  section for the version out of `CHANGELOG.md` now, and an explicit
+  `RELEASE_NOTES` still wins.
 - **The packaged AppStream metadata no longer lags a release behind.** The
   `<releases>` list in the metainfo that app stores and `appstreamcli` read was
   updated by hand, and it drifted: after 0.6.1 shipped the file still advertised
