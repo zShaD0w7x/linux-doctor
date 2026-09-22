@@ -268,14 +268,14 @@ Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 Development is AI-assisted, and every decision is the author's. Don't take the
 README's word for it; the artifacts are public:
 
-- [616 automated tests](tests/): golden snapshots for every output format,
+- [656 automated tests](tests/): golden snapshots for every output format,
   shell-safety tests for the fix catalog, and output-parity tests that keep the
   CLI and the dashboard in agreement.
 - [CI](https://github.com/zShaD0w7x/linux-doctor/actions/workflows/ci.yml) runs
   the whole report on Fedora and on Node 20, 22 and 24, plus the Rust app on
   `fmt`, `clippy` and `cargo audit`.
-- A clean-image gate runs the engine inside Fedora, Debian, Alpine and Arch
-  containers and fails when a high or medium finding appears that the baseline
+- A clean-image gate runs the engine inside Fedora, Debian, Ubuntu, Alpine and
+  Arch containers and fails when a high or medium finding appears that the baseline
   does not justify. Recorded machine fixtures (real command outputs, scrubbed)
   replay the same way, and every finding they produce needs a written reason.
 - Read-only by construction, with a pinned safe-fix catalog. The egress paths
