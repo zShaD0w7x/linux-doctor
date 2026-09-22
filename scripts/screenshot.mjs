@@ -25,7 +25,9 @@ try {
     // of the findings — the money shot — at identical sizes in both themes.
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 1250 }, colorScheme: scheme });
     const page = await ctx.newPage();
-    await page.goto(url, { waitUntil: "networkidle" });
+    // Not networkidle: the dashboard polls for updates, so the network never
+    // goes idle and the wait times out. The rendered card is the real signal.
+    await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#report .card", { timeout: 60000 });
     await page.waitForTimeout(800);
     await page.screenshot({ path: `docs/screenshots/dashboard-${scheme}.png` });
