@@ -127,12 +127,12 @@ npm install -g linux-doctor           # or install it, then run `linux-doctor`
 Want the current `main` instead of the latest release?
 `npx github:zShaD0w7x/linux-doctor`.
 
-Prefer a native CLI package?
+Prefer a native package?
 
-- **Arch:** build it from the [PKGBUILD](packaging/aur/PKGBUILD) in this repo with `makepkg -si`. It is not in the AUR yet — registration there is closed at the moment, so the PKGBUILD in this repository is the only Arch path for now.
-- **Fedora:** the [OBS repository](https://build.opensuse.org/project/show/home:7sh1d0w7x:linux-doctor) currently publishes Fedora 42 (`sudo dnf install linux-doctor`), or build with the [linux-doctor.spec](packaging/linux-doctor.spec). RHEL, openSUSE and Debian/Ubuntu targets are not published there yet, and on immutable systems (Silverblue, Bazzite) use `npx` or the AppImage instead of layering.
-- **Debian / Ubuntu:** `.deb` from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)
-- **Any glibc distro:** AppImage from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest), or `npx linux-doctor` if you have Node.js
+- **CLI, Arch:** build the [PKGBUILD](packaging/aur/PKGBUILD) with `makepkg -si`. It is not in the AUR yet (registration there is closed at the moment), so the PKGBUILD in this repository is the only Arch path for now.
+- **CLI, Fedora:** the [OBS repository](https://build.opensuse.org/project/show/home:7sh1d0w7x:linux-doctor) currently publishes Fedora 42 (`sudo dnf install linux-doctor`), or build with the [linux-doctor.spec](packaging/linux-doctor.spec). RHEL and openSUSE targets are not published there yet.
+- **Desktop app:** the `.deb`, `.rpm` and AppImage attached to each [release](https://github.com/zShaD0w7x/linux-doctor/releases/latest) are the GUI, not the CLI. On Debian/Ubuntu that `.deb` is what you want for the app; for the CLI there, `npx linux-doctor` (or the source tarball) is the path until an apt repository exists.
+- **Immutable systems** (Silverblue, Bazzite): use `npx` or the AppImage rather than layering a package.
 
 ```
 STATUS   0 high, 2 medium, 19 info · health 74/100
