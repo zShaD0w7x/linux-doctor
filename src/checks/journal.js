@@ -21,6 +21,11 @@ const NOISE_PATTERNS = [
   /failed to retrieve rpm info/i,
   /busno=/i,
   /TDX not supported by the host platform/i,
+  // KDE's lock screen writes this when you retype a wrong password too fast,
+  // a few times in a row (seen on the maintainer's Bazzite box: 6 lines that
+  // became a medium "6 recognized errors" on a healthy desktop). The generic
+  // pattern stays meaningful, since the same string from sshd is worth seeing.
+  /kscreenlocker_greet.*Authentication attempt too soon/i,
   // Common benign kernel/firmware messages that reach priority err but are
   // routine on most distros — present on nearly every machine.
   /problem loading x\.509 certificate/i,
