@@ -6,6 +6,8 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-22
+
 ### Added
 
 - **Two public documents about trust rather than features.**
@@ -798,7 +800,8 @@ All notable changes to Linux Doctor are documented here. The format follows
 - `tests/web.test.js` flaked (server banner corrupted the TAP stream) —
   `startWeb` gained a `quiet` option used by tests.
 
-[Unreleased]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.4.0...v0.5.0
