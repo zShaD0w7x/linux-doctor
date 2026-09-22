@@ -353,7 +353,7 @@ All notable changes to Linux Doctor are documented here. The format follows
 ### Added
 
 - **6 new checks + 1 Flatpak extension (44 checks / 145 codes total):**
-  - `inodes` — inode exhaustion (`df -i`): the classic “No space left on device” when `df -h` still shows free space. Tunable `inodeFullPct` / `inodeWarnPct` (90/80).
+  - `inodes` — inode exhaustion (`df -i`): the classic "No space left on device" when `df -h` still shows free space. Tunable `inodeFullPct` / `inodeWarnPct` (90/80).
   - `orphans` — orphaned packages: `pacman -Qtdq`, `apt autoremove --dry-run`, `dnf repoquery --unneeded` / `zypper packages --unneeded`.
   - `boot` — boot partition health: space on `/boot` and `/boot/efi` plus missing `grub.cfg` / `systemd-boot` entry.
   - `cache` — user cache and trash bloat: `~/.cache` and `~/.local/share/Trash` (5/10 GB thresholds, desktop/laptop).

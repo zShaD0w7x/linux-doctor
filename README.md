@@ -66,7 +66,7 @@ alongside your monitoring stack, not instead of it.
 
 ## Download the app (recommended)
 
-Desktop app — no install, no package manager:
+Desktop app (no install, no package manager):
 
 - **[Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)** — grab `linux-doctor-<version>-x86_64.AppImage`
 
@@ -79,7 +79,7 @@ Also attached to each release: `.deb` (Debian/Ubuntu), `.rpm`
 (Fedora/RHEL/openSUSE) and the CLI tarball.
 AppImage runs on most distributions (glibc-based); on immutable systems
 (Fedora Silverblue, Bazzite) it works out of the box. **Nothing needs to be
-installed** — the desktop packages embed their own Node.js 22 runtime
+installed**: the desktop packages embed their own Node.js 22 runtime
 (`<resources>/runtime/node`), so the app's checks run even on a machine with
 no Node on `PATH`. `LINUX_DOCTOR_NODE=/path/to/node` still overrides it.
 
@@ -97,9 +97,9 @@ equally exposed; NVIDIA's proprietary driver ships its own stack.
 **Current builds handle both automatically** before any GTK/WebKit code runs:
 
 - the AppImage defaults to software GL (a diagnostics dashboard does not need
-  GPU anyway) — set `LINUX_DOCTOR_HARDWARE_GL=1` to force hardware rendering;
-- WebKit's DMA-BUF renderer is disabled (the usual cause of a white window) —
-  set `WEBKIT_DISABLE_DMABUF_RENDERER=0` to opt back in.
+  GPU anyway), so set `LINUX_DOCTOR_HARDWARE_GL=1` to force hardware rendering;
+- WebKit's DMA-BUF renderer is disabled (the usual cause of a white window),
+  so set `WEBKIT_DISABLE_DMABUF_RENDERER=0` to opt back in.
 
 On older builds, launch with either (or both):
 
@@ -111,7 +111,7 @@ LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./linux-doctor-*-x86_6
 
 If it is **still** blank, the AppImage's **bundled** WebKitGTK is incompatible
 with your host's driver stack (seen on very new Mesa and NVIDIA). Install the
-`.deb`/`.rpm` — or the [OBS package](#install--first-run-cli) — instead: those
+`.deb`/`.rpm`, or the [OBS package](#install--first-run-cli), instead: those
 use the WebKitGTK shipped by your distribution, which matches the host.
 </details>
 
@@ -151,7 +151,7 @@ Since last run: 2 new · 1 fixed · 19 unchanged
 The report leads with a **▶ START HERE** line (the single most useful
 action) and a **TREND** sparkline, and every run is diffed against the
 previous one. Read-only by default: `--fix` prints a dry-run plan of
-commands sourced only from a small built-in safe-fix catalog — running it
+commands sourced only from a small built-in safe-fix catalog, and running it
 needs a second opt-in (`--fix --yes`), and `[manual]` items always stay
 yours to run.
 
@@ -168,7 +168,7 @@ change silently.
 | `memory` | RAM pressure, swap usage |
 | `load` | CPU load vs core count |
 | `disk` | Real partitions near full (ignores virtual/immutable roots) |
-| `inodes` | Inode usage — “No space left” with free space showing in `df -h` |
+| `inodes` | Inode usage: "No space left" with free space showing in `df -h` |
 | `fs` | Filesystem errors (btrfs, read-only remounts) |
 | `raid` | Software RAID health (mdadm/ZFS) — degraded arrays, resync in progress |
 | `oom` | Out-of-memory kills |
@@ -215,8 +215,8 @@ change silently.
 | `packages` | Package manager health — broken/locked apt/dnf/pacman database |
 | `orphans` | Orphaned packages (`pacman -Qtd`, `apt autoremove`, `dnf autoremove`) |
 
-Checks that don't apply to your machine — `battery` on a desktop, `reboot`
-on immutable systems — are skipped automatically and reported honestly in a
+Checks that don't apply to your machine, like `battery` on a desktop or
+`reboot` on immutable systems, are skipped automatically and reported honestly in a
 **Skipped** section instead of producing misleading findings.
 
 ## Health score & history
@@ -224,7 +224,7 @@ on immutable systems — are skipped automatically and reported honestly in a
 Every run is saved to `~/.local/share/linux-doctor/history.json` (override
 with `LINUX_DOCTOR_HISTORY`). From that history you get a **health score
 (0–100)** with an auditable breakdown (`100 − Σpenalties`), a **TREND**
-sparkline of your last runs, and a plain-language **diff per run** — new,
+sparkline of your last runs, and a plain-language **diff per run**: new,
 fixed, unchanged. Findings that share a root cause are collapsed before
 scoring, so one problem never counts twice. History is a bonus, never a
 dependency: `--no-history` disables it, and if it cannot be written the
@@ -251,7 +251,7 @@ report still works.
 Questions, ideas and show-your-setup go to
 [GitHub Discussions](https://github.com/zShaD0w7x/linux-doctor/discussions);
 bugs and check requests to [Issues](https://github.com/zShaD0w7x/linux-doctor/issues).
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
@@ -287,7 +287,7 @@ README's word for it; the artifacts are public:
 <a id="tiers"></a>
 ## Editions
 
-This repository **is** the Free edition — the whole product for everyday
+This repository **is** the Free edition: the whole product for everyday
 users, GPL-3.0-or-later, forever. Optional paid tiers for power users and
 companies are strictly additive and described in
 [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
