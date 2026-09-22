@@ -130,7 +130,7 @@ Want the current `main` instead of the latest release?
 Prefer a native CLI package?
 
 - **Arch:** build it from the [PKGBUILD](packaging/aur/PKGBUILD) in this repo with `makepkg -si`. It is not in the AUR yet — registration there is closed at the moment, so the PKGBUILD in this repository is the only Arch path for now.
-- **Fedora / RHEL / Bazzite / openSUSE:** add the [OBS repository](https://build.opensuse.org/project/show/home:7sh1d0w7x:linux-doctor) and `sudo dnf install linux-doctor`, or build with the [linux-doctor.spec](packaging/linux-doctor.spec)
+- **Fedora:** the [OBS repository](https://build.opensuse.org/project/show/home:7sh1d0w7x:linux-doctor) currently publishes Fedora 42 (`sudo dnf install linux-doctor`), or build with the [linux-doctor.spec](packaging/linux-doctor.spec). RHEL, openSUSE and Debian/Ubuntu targets are not published there yet, and on immutable systems (Silverblue, Bazzite) use `npx` or the AppImage instead of layering.
 - **Debian / Ubuntu:** `.deb` from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest)
 - **Any glibc distro:** AppImage from [Latest release](https://github.com/zShaD0w7x/linux-doctor/releases/latest), or `npx linux-doctor` if you have Node.js
 
