@@ -23,6 +23,35 @@ All notable changes to Linux Doctor are documented here. The format follows
   fails if any of them goes missing. The browser dashboard keeps using the
   browser's own fullscreen.
 
+### Changed
+
+- **The safe-fix catalog is per family now, and stays silent where it cannot be
+  right.** Every command was checked against each family's own documentation;
+  openSUSE was being told to run `dnf autoremove`, Alpine `systemctl enable
+  firewalld`, and any OpenRC or runit host to enable `fstrim.timer`. Leap gets
+  `zypper up` and Tumbleweed `zypper dup`; `fstrim` and the journal vacuum are
+  only offered on systemd. Two entries no longer produce commands at all:
+  `security/no-firewall` (there is no safe universal command, and enabling one
+  can cut the SSH session running `--fix`) and `backup/none` (installing a
+  backup tool is advice, and the package names differ or do not exist per
+  family). The findings themselves are unchanged.
+- **`fstrim` sees the mechanisms that are not systemd.** A cron or periodic
+  `fstrim`, and openSUSE's `btrfs-trim.timer`, now count as scheduled, so a
+  working setup is no longer reported as "SSDs are never trimmed".
+
+### Removed
+
+- **The `flatpak/unused-runtimes` finding code is gone, and that is breaking for
+  anyone who referenced it.** It never appeared in a report: the probe asked for
+  `flatpak uninstall --unused --dry-run`, an option that has never existed, and
+  the error was swallowed. The read-only replacement was implemented and then
+  rejected on real data, where it reported 30 unused runtimes on a machine that
+  flatpak says has none (extensions such as VAAPI drivers, audio plugins and
+  locales are not any app's runtime). The CLI exposes no correct read-only
+  answer, so the code is removed rather than guessed at. Migration: drop it from
+  any `--ignore-code` list or integration; `flatpak uninstall --unused` still
+  tells you the truth interactively.
+
 ### Fixed
 
 - **The in-app update dialog now says what changed.** The updater manifest
