@@ -11,6 +11,12 @@ import { dirname, join } from "node:path";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(root, "bin", "doctor.js");
 
+// The CLI records a run in history by default, and every spawned child inherits
+// this process's environment. Without a throwaway path the suite writes into the
+// developer's real ~/.local/share/linux-doctor/history.json and churns the
+// new/fixed story. Tests that want their own file still pass LINUX_DOCTOR_HISTORY.
+process.env.LINUX_DOCTOR_HISTORY = join(tmpdir(), `ld-cli-test-history-${process.pid}.json`);
+
 function run(...args) {
   return spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", timeout: 60000 });
 }
