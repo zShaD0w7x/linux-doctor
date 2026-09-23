@@ -6,6 +6,16 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The KDE lock screen's retry message is no longer counted as a system error.**
+  `kscreenlocker_greet` logs `Authentication attempt too soon` when you retype a
+  wrong password quickly, and repeats it a few times, so a healthy desktop got a
+  medium "6 recognized errors" worth 8 points of health score. Only the screen
+  locker's copy is noise: the same string from `sshd` stays an error, because
+  that one is worth seeing. Also fixes `scripts/screenshot.mjs`, which waited
+  for a selector that does not exist and therefore never ran.
+
 ## [0.7.0] - 2026-09-22
 
 ### Added

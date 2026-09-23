@@ -205,6 +205,35 @@ test("journal: known noise is filtered into an informational finding", async () 
   assert.match(findings[0].title, /routine noise/i);
 });
 
+test("journal: the KDE screen locker's retry message is noise, not a fault", async () => {
+  // kscreenlocker_greet logs "[PAM worker kde] Authentication attempt too soon"
+  // when you retype a wrong password quickly, and repeats it a few times. Our
+  // /Authentication attempt too soon/ pattern read that as a recognized error,
+  // so a normal desktop got a medium "6 recognized errors" worth 8 points on
+  // the health score. Seen on the maintainer's own Bazzite box.
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": [
+      "Sep 22 16:41:02 bazzite kscreenlocker_greet[12697]: [PAM worker kde] Authentication attempt too soon.",
+      "Sep 22 16:41:05 bazzite kscreenlocker_greet[12697]: [PAM worker kde] Authentication attempt too soon.",
+      "Sep 22 16:41:09 bazzite kscreenlocker_greet[12697]: [PAM worker kde] Authentication attempt too soon.",
+    ].join("\n") + "\n",
+  });
+  const findings = await journal.run(ctx);
+  assert.ok(
+    !findings.some((f) => f.code === "journal/errors"),
+    `a screen-locker retry is not a system error: ${JSON.stringify(findings.map((f) => f.code))}`
+  );
+});
+
+test("journal: 'Authentication attempt too soon' outside the screen locker is still an error", async () => {
+  // The signal the pattern exists for: something hammering authentication.
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": "Sep 22 16:41:02 bazzite sshd[9001]: pam_unix(sshd:auth): Authentication attempt too soon.\n",
+  });
+  const findings = await journal.run(ctx);
+  assert.ok(findings.some((f) => f.code === "journal/errors"), "keep the brute-force signal");
+});
+
 test("journal: system-sleep failures are deferred to the suspend check", async () => {
   const ctx = stubCtx({
     "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 15:49:09 bazzite (system-sleep)[11514]: /usr/lib/systemd/system-sleep/fw-fanctrl-suspend failed with exit status 1.`,

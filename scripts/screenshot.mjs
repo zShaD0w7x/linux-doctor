@@ -25,8 +25,17 @@ try {
     // of the findings — the money shot — at identical sizes in both themes.
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 1250 }, colorScheme: scheme });
     const page = await ctx.newPage();
-    await page.goto(url, { waitUntil: "networkidle" });
-    await page.waitForSelector("#report .card", { timeout: 60000 });
+    // Not networkidle (the dashboard polls) and not `#report .card` (that
+    // container does not exist in the current markup). The score number is
+    // filled once the report has rendered, so it is the honest signal.
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector("#scorenum");
+        return el && el.textContent.trim() !== "";
+      },
+      { timeout: 60000 }
+    );
     await page.waitForTimeout(800);
     await page.screenshot({ path: `docs/screenshots/dashboard-${scheme}.png` });
     console.log(`Saved docs/screenshots/dashboard-${scheme}.png`);
