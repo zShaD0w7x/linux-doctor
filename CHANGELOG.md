@@ -20,6 +20,21 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Three update checks were answering a question no one asked.** Found by
+  running the engine against real package managers, not by reading code.
+  `zypper` counted through `awk`, which is not installed on a minimal openSUSE
+  image: the pipeline produced nothing and Tumbleweed reported "System is up
+  to date" with thirteen lines of updates on screen. `apk info -u` is not a
+  valid command (it exits 1 with "unrecognized option 'u'"), so Alpine
+  silently reported nothing at all. Void had no update branch, so a machine
+  with 54 pending updates was skipped and scored as current. All three read
+  the raw output and parse it in JS now, with no `awk`/`wc` dependency.
+- **apt with an empty package index no longer claims "up to date".** A fresh
+  image, or a machine that never ran `apt update`, answers "0 upgraded" with a
+  zero exit status. That is not being up to date, and reporting it as such is
+  the dangerous direction of being wrong: the check says it could not
+  determine the state and points at `apt update`.
+
 - **The KDE lock screen's retry message is no longer counted as a system error.**
   `kscreenlocker_greet` logs `Authentication attempt too soon` when you retype a
   wrong password quickly, and repeats it a few times, so a healthy desktop got a
