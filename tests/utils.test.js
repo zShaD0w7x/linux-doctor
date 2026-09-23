@@ -7,6 +7,16 @@ import { run, runPool, slugify, plural, journalLines, shq, withDeadline, setDebu
 
 const execP = promisify(exec);
 
+test("run: a command that does not exist is marked missing, not just failed", async () => {
+  // exec runs commands through a shell, so a missing binary exits 127 rather
+  // than raising ENOENT. `missing` was only set on ENOENT (the shell itself
+  // missing), so it never fired and every check that gates a skip on `.missing`
+  // stayed silent instead of saying it could not run.
+  const res = await run("definitely-not-a-real-command-xyz 2>/dev/null");
+  assert.equal(res.ok, false);
+  assert.equal(res.missing, true, `expected missing: ${JSON.stringify(res)}`);
+});
+
 test("shq: plain values are single-quoted", () => {
   assert.equal(shq("sda1"), "'sda1'");
   assert.equal(shq("/dev/sda"), "'/dev/sda'");

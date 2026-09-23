@@ -2,6 +2,7 @@
 import { lines, num, fmtBytes } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { pkgInstall } from "../distro.js";
 
 /** Friendly names for common app processes. */
 const FRIENDLY = {
@@ -26,6 +27,22 @@ export const processes = defineCheck({
   async run(ctx) {
     const findings = [];
     const t = ctx.thresholds;
+    // `ps ... | head` is a pipeline, so a missing ps exits 0 through head and
+    // the empty result looked like "no consumers". Probe the tool instead.
+    const psBin = await ctx.run("command -v ps 2>/dev/null");
+    if (!psBin.ok || !psBin.stdout.trim()) {
+      findings.push(finding({
+        severity: "info",
+        code: "processes/skipped",
+        title: "Memory-consumer check skipped",
+        detail: "`ps` is not available on this system, so the top memory consumers could not be listed.",
+        evidence: "ps: not found",
+        fix: `Install procps (${pkgInstall(ctx.dist, { fedora: "procps-ng", arch: "procps-ng", "*": "procps" })}) and re-run.`,
+        confidence: "high",
+      }));
+      return findings;
+    }
+
     const [psRes, memRes] = await Promise.all([ctx.run(`ps -eo args=,rss --sort=-rss 2>/dev/null | head -8`), ctx.run(`free -b`),
     ]);
     if (!psRes.ok) return findings;

@@ -20,6 +20,18 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Checks that could not run now say so instead of staying silent.** The
+  `missing` flag was only set when the shell itself was absent, which never
+  happens: a missing tool exits 127 through the shell instead. So every check
+  that gated a "could not check" skip on `missing` stayed silent, and a
+  minimal system scored as if those checks had passed. `run()` marks 127 as
+  missing now, which activates the skip findings that were already written
+  (`memory/skipped`, `journald/skipped`, `smart/skipped`, and more), and
+  `processes`, `ports` and `certs` gained the explicit skips they lacked.
+  A score now comes with the list of what could not be checked: on a minimal
+  Debian image that is memory, processes, ports and the systemd checks, each
+  naming the package that would fix it.
+
 - **Three update checks were answering a question no one asked.** Found by
   running the engine against real package managers, not by reading code.
   `zypper` counted through `awk`, which is not installed on a minimal openSUSE

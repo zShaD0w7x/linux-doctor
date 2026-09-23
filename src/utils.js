@@ -105,6 +105,13 @@ export async function run(cmd, { timeoutMs = TIMEOUT_MS.DEFAULT, maxBuffer = 4 *
       result = { ok: false, code: 1, stdout: err.stdout || "", stderr: err.stderr || "", timedOut: true };
     } else if (err.code === "ENOENT" || (err.message && err.message.includes("spawn"))) {
       result = { ok: false, code: -1, stdout: "", stderr: "", missing: true };
+    } else if (err.code === 127) {
+      // The shell ran, but the command it was asked to run does not exist:
+      // POSIX shells exit 127 for "command not found". exec only raises ENOENT
+      // when /bin/sh itself is absent, which never happens, so `missing` was
+      // effectively dead and every check that gates a skip on `.missing`
+      // stayed silent instead of saying it could not run.
+      result = { ok: false, code: 127, stdout: err.stdout || "", stderr: err.stderr || "", missing: true };
     } else {
       result = {
         ok: false,

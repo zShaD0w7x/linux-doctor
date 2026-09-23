@@ -98,7 +98,8 @@ test("certs: healthy certs report ok, nothing found stays silent", async () => {
   assert.equal((await certs.run(empty)).length, 0);
 
   const noOpenssl = stubCtx({});
-  assert.equal((await certs.run(noOpenssl)).length, 0);
+  const skipped = await certs.run(noOpenssl);
+  assert.equal(skipped[0].code, "certs/skipped", "a missing tool is an explicit skip, not silence");
 });
 
 // --------------------------------------------------------------- ports ---------------------------------------------------------------

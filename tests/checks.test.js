@@ -23,6 +23,8 @@ import { flatpak } from "../src/checks/flatpak.js";
 import { boot } from "../src/checks/boot.js";
 import { thermal } from "../src/checks/thermal.js";
 import { processes } from "../src/checks/processes.js";
+import { certs } from "../src/checks/certs.js";
+import { ports } from "../src/checks/ports.js";
 import { suspend } from "../src/checks/suspend.js";
 import { battery } from "../src/checks/battery.js";
 import { bluetooth } from "../src/checks/bluetooth.js";
@@ -312,6 +314,53 @@ test("bringup: a device that is fine is not flagged", async () => {
   const findings = await bringup.run(ctx);
   assert.equal(findings.length, 1, `expected just the ok: ${JSON.stringify(findings.map((x) => x.code))}`);
   assert.equal(findings[0].code, "bringup/ok");
+});
+
+test("processes: a missing ps is an explicit skip, not 'no consumers'", async () => {
+  // `ps ... | head` exits 0 through head even when ps is absent, so the empty
+  // result looked like a healthy machine. procps is not installed on minimal
+  // Debian and Fedora images.
+  const ctx = stubCtx({});
+  const findings = await processes.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "processes/skipped");
+  assert.match(findings[0].fix, /procps/);
+});
+
+test("certs: a missing openssl is an explicit skip", async () => {
+  const ctx = stubCtx({});
+  const findings = await certs.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "certs/skipped");
+  assert.match(findings[0].fix, /openssl/);
+});
+
+test("ports: a missing ss is an explicit skip", async () => {
+  // ss is iproute2, which minimal Debian and Fedora images do not ship. The
+  // check used to return silently, so a machine exposing a database on 0.0.0.0
+  // got no signal that the check had not run.
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("ss ") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
+  const findings = await ports.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "ports/skipped");
+  assert.match(findings[0].fix, /iproute2/);
+});
+
+test("memory: a missing free is an explicit skip (the .missing flag now fires)", async () => {
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("free ") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
+  const findings = await memory.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "memory/skipped");
 });
 
 test("journal: known noise is filtered into an informational finding", async () => {
@@ -890,6 +939,7 @@ test("security: a readable, non-empty ruleset counts as an active firewall", asy
 test("processes: a single app over 20% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // ps -o rss reports KiB: 4000000 KiB ≈ 3.8 GB of 15 GB (~25%).
+    "command -v ps 2>/dev/null": "/usr/bin/ps\n",
     "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       4000000\nfirefox       800000\nplasma        500000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 12000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
@@ -902,6 +952,7 @@ test("processes: a single app over 20% of RAM is flagged medium", async () => {
 test("processes: a single app over 40% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // 8000000 KiB ≈ 7.6 GB of 15 GB (~50%).
+    "command -v ps 2>/dev/null": "/usr/bin/ps\n",
     "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       8000000\nfirefox       800000\nplasma        500000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 14000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
@@ -912,6 +963,7 @@ test("processes: a single app over 40% of RAM is flagged medium", async () => {
 
 test("processes: healthy memory usage produces an info finding", async () => {
   const ctx = stubCtx({
+    "command -v ps 2>/dev/null": "/usr/bin/ps\n",
     "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `plasma        500000\nfirefox       400000\nbrave         300000\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360  5000000000 1000000000  300000000  7000000000  11000000000\nSwap:   8267812045         0 8267812045`,
   });

@@ -55,9 +55,11 @@ export const REGISTRY = {
   "certs/critical": { sev: ["high"], cat: "security" },
   "certs/expiring": { sev: ["medium"], cat: "security" },
   "certs/ok": { sev: ["info"], cat: "security" },
+  "certs/skipped": { sev: ["info"], cat: "security" },
   // ports
   "ports/exposed-risky": { sev: ["medium"], cat: "security" },
   "ports/ok": { sev: ["info"], cat: "security" },
+  "ports/skipped": { sev: ["info"], cat: "security" },
   // fds
   "fds/exhausted": { sev: ["high", "medium"], cat: "system" },
   // battery
@@ -174,6 +176,7 @@ export const REGISTRY = {
   "orphans/some": { sev: ["info"], cat: "system" },
   "processes/high": { sev: ["medium"], cat: "performance" }, // degradation, not data risk — docs/severity.md rule 3
   "processes/ok": { sev: ["info"], cat: "performance" },
+  "processes/skipped": { sev: ["info"], cat: "performance" },
   "processes/warn": { sev: ["medium"], cat: "performance" },
   // packages
   "packages/broken": { sev: ["high"], cat: "system" },
