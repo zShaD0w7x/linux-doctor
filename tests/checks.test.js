@@ -232,6 +232,42 @@ test("timers: an enabled timer with no condition problem is still broken", async
   assert.ok(findings.some((f) => f.code === "timers/broken"), "keep the real signal");
 });
 
+test("network: no iproute2 is a skip, not 'no default route'", async () => {
+  // Debian, Fedora and Ubuntu minimal images do not ship `ip`. run() only sets
+  // `missing` when the spawn itself fails, and these commands go through a
+  // shell, so a missing `ip` looked like an empty route table: the check
+  // reported a medium "No default network route" on a machine with a perfectly
+  // good route.
+  const ctx = stubCtx({}); // nothing stubbed: `command -v ip` finds nothing
+  const findings = await network.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip finding: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "network/skipped");
+  assert.ok(!findings.some((f) => f.code === "network/no-route"), "a missing tool is not a missing route");
+});
+
+test("load: inside a container the check is skipped, not called overloaded", async () => {
+  // /proc/loadavg is not namespaced: in a container it is the HOST's load
+  // average while nproc reports the container's CPUs, so the ratio invents an
+  // overloaded system out of an idle container (all five test images did it).
+  const ctx = stubCtx({
+    "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n",
+    "cat /proc/loadavg": "6.00 5.50 5.00 1/200 4242\n",
+    "nproc": "2\n",
+  });
+  const findings = await load.run(ctx);
+  assert.ok(findings.some((f) => f.code === "load/skipped"), `expected a skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.ok(!findings.some((f) => f.code === "load/overloaded"), "the host's load is not this container's");
+});
+
+test("load: a real host with a high load is still reported", async () => {
+  const ctx = stubCtx({
+    "cat /proc/loadavg": "6.00 5.50 5.00 1/200 4242\n",
+    "nproc": "2\n",
+  });
+  const findings = await load.run(ctx);
+  assert.ok(findings.some((f) => f.code === "load/overloaded"), "keep the real signal");
+});
+
 test("journal: known noise is filtered into an informational finding", async () => {
   const ctx = stubCtx({
     "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite systemd-udevd[465]: /usr/lib/udev/rules.d/50-udev-default.rules:105 Failed to resolve group 'disk', ignoring: Unknown group\nAug 15 14:33:01 bazzite setroubleshoot[1807]: SELinux is preventing bootupctl from read access on the directory /proc.\nAug 15 14:36:58 bazzite cupsd[1512]: Returning IPP client-error-bad-request for Create-Printer-Subscriptions (ipp://localhost/) from localhost.`,
@@ -1396,6 +1432,7 @@ test("luks: no lsblk stays silent", async () => {
 
 test("network: no default route is medium", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "lo               UNKNOWN        127.0.0.1/8 ::1/128\nwlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "",
   });
@@ -1409,6 +1446,7 @@ test("network: no default route is medium", async () => {
 
 test("network: DNS failure is medium when a route exists", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
     "getent ahostsv4 kernel.org 2>&1 | head -1": "",
@@ -1422,6 +1460,7 @@ test("network: DNS failure is medium when a route exists", async () => {
 
 test("network: route + working DNS is informational", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
     "getent ahostsv4 kernel.org 2>&1 | head -1": "151.101.1.69     STREAM kernel.org\n",
