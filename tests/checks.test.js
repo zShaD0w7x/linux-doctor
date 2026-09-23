@@ -416,6 +416,19 @@ test("bringup: without a readable kernel log it says the check was partial", asy
   assert.equal(findings[0].code, "bringup/skipped", `expected a partial-check note: ${JSON.stringify(findings.map((f) => f.code))}`);
 });
 
+test("packages: Alpine (apk) checks package health read-only", async () => {
+  const ctx = stubCtx({ "apk fix --simulate 2>&1": "OK: 76.2 MiB in 30 packages\n" }, { id: "alpine", id_like: "" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+test("packages: apk reports broken packages", async () => {
+  const ctx = stubCtx({ "apk fix --simulate 2>&1": "OK: 76.2 MiB in 30 packages\nfixing missing dependency: foo needs bar\n" }, { id: "alpine", id_like: "" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/broken", `expected broken: ${JSON.stringify(findings)}`);
+});
+
 test("journal: known noise is filtered into an informational finding", async () => {
   const ctx = stubCtx({
     "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite systemd-udevd[465]: /usr/lib/udev/rules.d/50-udev-default.rules:105 Failed to resolve group 'disk', ignoring: Unknown group\nAug 15 14:33:01 bazzite setroubleshoot[1807]: SELinux is preventing bootupctl from read access on the directory /proc.\nAug 15 14:36:58 bazzite cupsd[1512]: Returning IPP client-error-bad-request for Create-Printer-Subscriptions (ipp://localhost/) from localhost.`,
