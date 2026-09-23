@@ -6,6 +6,21 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Flatpak app caches are measured now.** The cache check looked at `~/.cache`
+  and Trash only, so the per-app caches under `~/.var/app/<id>/cache` were
+  invisible, which on a Flatpak-heavy distro is the larger half: on the
+  maintainer's Bazzite box `~/.cache` held 3.5 GB while `~/.var/app` held
+  5.3 GB, and the report said nothing about it. Both are measured and counted
+  toward the same thresholds now, and the biggest offenders are named.
+- **`zram` no longer calls a half-full compressed swap "healthy".** High
+  occupancy is not a fault by itself (zram is meant to be used and cold pages
+  sit there for days), so the severity stays informational. What changed is
+  the wording: it reports how much is compressed, says the kernel is working
+  to keep up, and points at the `processes` and `cache` findings. Inflating it
+  to medium would be grading by distance from normal.
+
 ## [0.7.0] - 2026-09-22
 
 ### Added
