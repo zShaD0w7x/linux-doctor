@@ -8,6 +8,40 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **Checks that could not run now say so instead of staying silent.** The
+  `missing` flag was only set when the shell itself was absent, which never
+  happens: a missing tool exits 127 through the shell instead. So every check
+  that gated a "could not check" skip on `missing` stayed silent, and a
+  minimal system scored as if those checks had passed. `run()` marks 127 as
+  missing now, which activates the skip findings that were already written
+  (`memory/skipped`, `journald/skipped`, `smart/skipped`, and more), and
+  `processes`, `ports` and `certs` gained the explicit skips they lacked.
+  A score now comes with the list of what could not be checked: on a minimal
+  Debian image that is memory, processes, ports and the systemd checks, each
+  naming the package that would fix it.
+
+- **Three update checks were answering a question no one asked.** Found by
+  running the engine against real package managers, not by reading code.
+  `zypper` counted through `awk`, which is not installed on a minimal openSUSE
+  image: the pipeline produced nothing and Tumbleweed reported "System is up
+  to date" with thirteen lines of updates on screen. `apk info -u` is not a
+  valid command (it exits 1 with "unrecognized option 'u'"), so Alpine
+  silently reported nothing at all. Void had no update branch, so a machine
+  with 54 pending updates was skipped and scored as current. All three read
+  the raw output and parse it in JS now, with no `awk`/`wc` dependency.
+- **apt with an empty package index no longer claims "up to date".** A fresh
+  image, or a machine that never ran `apt update`, answers "0 upgraded" with a
+  zero exit status. That is not being up to date, and reporting it as such is
+  the dangerous direction of being wrong: the check says it could not
+  determine the state and points at `apt update`.
+
+- **The KDE lock screen's retry message is no longer counted as a system error.**
+  `kscreenlocker_greet` logs `Authentication attempt too soon` when you retype a
+  wrong password quickly, and repeats it a few times, so a healthy desktop got a
+  medium "6 recognized errors" worth 8 points of health score. Only the screen
+  locker's copy is noise: the same string from `sshd` stays an error, because
+  that one is worth seeing. Also fixes `scripts/screenshot.mjs`, which waited
+  for a selector that does not exist and therefore never ran.
 - **Flatpak app caches are measured now.** The cache check looked at `~/.cache`
   and Trash only, so the per-app caches under `~/.var/app/<id>/cache` were
   invisible, which on a Flatpak-heavy distro is the larger half: on the

@@ -3,6 +3,7 @@ import { lines } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 import { detectFirewall } from "./shared.js";
+import { pkgInstall } from "../distro.js";
 
 /**
  * Risky services listening on non-loopback interfaces. A database that
@@ -37,6 +38,18 @@ export const ports = defineCheck({
     const findings = [];
 
     const ss = await ctx.run("ss -tlnH 2>/dev/null");
+    if (ss.missing) {
+      findings.push(finding({
+        severity: "info",
+        code: "ports/skipped",
+        title: "Exposed-services check skipped",
+        detail: "`ss` (iproute2) is not available on this system, so listening services could not be listed.",
+        evidence: "ss: not found",
+        fix: `Install iproute2 (${pkgInstall(ctx.dist, { fedora: "iproute", "*": "iproute2" })}) and re-run.`,
+        confidence: "high",
+      }));
+      return findings;
+    }
     if (!ss.ok) return findings;
 
     let listening = 0;
