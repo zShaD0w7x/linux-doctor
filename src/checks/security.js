@@ -47,7 +47,7 @@ export const security = defineCheck({
         title: "No active firewall detected",
         detail: "No active firewall was detected (firewalld, ufw, or nftables). On many distros the firewall is off by default, which is fine on a trusted home network but risky on public Wi-Fi.",
         evidence: fw.evidence,
-        fix: "Enable one: `sudo systemctl enable --now firewalld` (Fedora-family) or `sudo ufw enable` (Debian-family).",
+        fix: "Enabling a firewall is your call, and every family has its own front end (firewalld on Fedora and openSUSE, the ufw tool on Ubuntu, nftables on Debian and Arch, awall on Alpine, nftables through runit or OpenRC on Void and Gentoo). This tool only reports the state; it never changes firewall rules.",
         confidence: "medium",
       }));
     }

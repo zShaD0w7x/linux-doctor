@@ -47,19 +47,18 @@ export const flatpak = defineCheck({
       count = rows.length;
     }
 
-    // Unused runtimes — the hidden disk hog: `flatpak uninstall --unused`
-    // lists runtimes no app needs any more (old Freedesktop/GNOME/KDE SDKs).
-    // Pure dry-run, never removes anything. Rows are matched by runtime id
-    // rather than by a column header: the numbering/format changed across
-    // flatpak versions, and matching the header reported a phantom runtime.
-    let unusedCount = 0;
-    let unusedSample = "";
-    try {
-      const unused = await ctx.run("flatpak uninstall --unused --dry-run 2>/dev/null", { timeoutMs: TIMEOUT_MS.DAEMON });
-      const runtimes = lines(unused.stdout).filter((l) => /\borg\./.test(l));
-      unusedCount = runtimes.length;
-      unusedSample = runtimes.slice(0, 3).join("\n");
-    } catch { /* flatpak dry-run failure is not a finding */ }
+    // Unused runtimes are deliberately NOT reported. flatpak's CLI exposes no
+    // read-only way to ask: `flatpak uninstall` has never had `--dry-run`
+    // (absent in every release, so the old probe could only error and be
+    // swallowed by its catch), `--noninteractive`/`-y` delete, and the prompt
+    // defaults to yes. The obvious shell approximation — installed runtimes
+    // minus the runtimes apps reference — was tried and is wrong: on the
+    // maintainer's box it said "30 unused" where flatpak itself says "Nothing
+    // unused to uninstall", because extensions (LinuxAudio plugins, VAAPI
+    // drivers, locales, KStyle) are not listed as any app's runtime. Telling
+    // someone to delete runtimes flatpak considers in use is exactly the kind
+    // of false alarm this tool exists to avoid, so it stays silent and leaves
+    // `flatpak uninstall --unused` to the user.
 
     if (count === 0) {
       findings.push(finding({
@@ -89,18 +88,6 @@ export const flatpak = defineCheck({
         detail: `There are ${count} Flatpak app updates waiting. A large backlog means security fixes are also pending.`,
         evidence: `flatpak: ${count} pending`,
         fix: "Apply them with: `flatpak update`",
-        confidence: "high",
-      }));
-    }
-
-    if (unusedCount > 0) {
-      findings.push(finding({
-        severity: unusedCount >= 3 ? "medium" : "info",
-        code: "flatpak/unused-runtimes",
-        title: `${plural(unusedCount, "unused Flatpak runtime")} can be removed`,
-        detail: `${unusedCount} Flatpak runtime${unusedCount === 1 ? " is" : "s are"} installed but no app uses them any more (old SDKs). They waste disk space silently.`,
-        evidence: unusedSample || `flatpak uninstall --unused --dry-run: ${unusedCount} removable`,
-        fix: "Remove them with `flatpak uninstall --unused` and re-run.",
         confidence: "high",
       }));
     }

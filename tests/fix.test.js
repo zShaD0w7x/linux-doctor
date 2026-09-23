@@ -49,7 +49,11 @@ test("planFixes: updates/pending follows the package family", () => {
   assert.equal(planFixes(f, { system: { family: "rhel" } })[0].commands[0].cmd, "sudo dnf upgrade");
   assert.equal(planFixes(f, { system: { family: "debian" } })[0].commands[0].cmd, "sudo apt update && sudo apt upgrade");
   assert.equal(planFixes(f, { system: { family: "arch" } })[0].commands[0].cmd, "sudo pacman -Syu");
-  assert.equal(planFixes(f, { system: { family: "suse" } })[0].commands[0].cmd, "sudo zypper dup");
+  // openSUSE has two release models; the variant decides, and without it the
+  // catalog stays silent rather than picking a release upgrade by accident.
+  assert.equal(planFixes(f, { system: { family: "suse", id: "opensuse-leap" } })[0].commands[0].cmd, "sudo zypper up");
+  assert.equal(planFixes(f, { system: { family: "suse", id: "opensuse-tumbleweed" } })[0].commands[0].cmd, "sudo zypper dup");
+  assert.equal(planFixes(f, { system: { family: "suse" } }).length, 0);
   // Image-based systems use the transactional updater; unknown families stay silent.
   assert.equal(planFixes(f, { system: { imageBased: true } })[0].commands[0].cmd, "rpm-ostree upgrade");
   assert.equal(planFixes(f, { system: {} }).length, 0);
@@ -66,18 +70,18 @@ test("planFixes: network/no-route is manual — cycling the link can cut the ver
   assert.match(plan[0].commands[0].cmd, /nmcli networking off/);
 });
 
-test("planFixes: debian firewall is manual — enabling ufw can cut the running SSH session", () => {
-  const plan = planFixes([{ id: 1, code: "security/no-firewall", severity: "info", title: "t" }], { system: { family: "debian" } });
-  assert.deepEqual(
-    plan[0].commands.map((c) => c.cmd),
-    ["sudo ufw allow OpenSSH", "sudo ufw --force enable"]
-  );
-  assert.ok(plan[0].commands.every((c) => c.tier === "manual"), "enabling a firewall must never be auto-executed");
-});
-
-test("planFixes: non-debian firewall enables firewalld", () => {
-  const plan = planFixes([{ id: 1, code: "security/no-firewall", severity: "info", title: "t" }], { system: { family: "fedora" } });
-  assert.deepEqual(plan[0].commands.map((c) => c.cmd), ["sudo systemctl enable --now firewalld"]);
+test("planFixes: no firewall command for any family — there is no safe universal one", () => {
+  // The catalog used to emit firewalld/ufw; the front end differs per family
+  // and enabling one can cut the SSH session running --fix (and on Alpine
+  // `awall activate` rolls back unless confirmed in seconds). The finding
+  // still reports the firewall state; the remedy is the admin's, not ours.
+  for (const family of ["debian", "fedora", "suse", "arch", "alpine", "void", "gentoo"]) {
+    assert.deepEqual(
+      planFixes([{ id: 1, code: "security/no-firewall", severity: "info", title: "t" }], { system: { family } }),
+      [],
+      `firewall command offered for ${family}`
+    );
+  }
 });
 
 test("planFixes: unknown codes and findings without a catalog entry are skipped", () => {

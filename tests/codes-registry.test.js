@@ -112,7 +112,8 @@ export const REGISTRY = {
   "firmware/pending": { sev: ["medium"], cat: "system" },
   "flatpak/none": { sev: ["info"], cat: "packages" },
   "flatpak/pending": { sev: ["info", "medium"], cat: "packages" },
-  "flatpak/unused-runtimes": { sev: ["info", "medium"], cat: "packages" },
+  // flatpak/unused-runtimes is intentionally absent: the CLI exposes no
+  // read-only way to know which runtimes are unused (see src/checks/flatpak.js).
   "fstrim/disabled": { sev: ["medium"], cat: "storage" },
   "fstrim/ok": { sev: ["info"], cat: "storage" },
   "fstrim/ok-discard": { sev: ["info"], cat: "storage" },

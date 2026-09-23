@@ -50,6 +50,14 @@ async function computeSystemInfo() {
   // disagree, which suppressed the report note and the atomic skips.
   const rootFs = await run(`findmnt -no FSTYPE -T / 2>/dev/null`);
 
+  // systemd presence, for the fix catalog: fstrim.timer, the journal vacuum
+  // and localectl only exist on systemd hosts, and OpenRC/runit systems
+  // (Alpine, Void, Gentoo) must not be handed them. /run/systemd/system is
+  // the init's own runtime dir, so it stays absent on a host that merely has
+  // the systemctl client installed.
+  const systemdRes = await run("test -d /run/systemd/system 2>/dev/null && echo 1");
+  const hasSystemd = systemdRes.ok && /1/.test(systemdRes.stdout);
+
   // bootc is the newer atomic engine (CentOS/Fedora bootc, RHEL bootc). It
   // presents like ostree: a virtual root and image-based updates. Detect it
   // cheaply via the runtime state dir or the bootc binary.
@@ -93,6 +101,7 @@ async function computeSystemInfo() {
     cores: nproc.stdout.trim() || "unknown",
     immutable,
     atomic,
+    hasSystemd,
     arch: arch.stdout.trim() || null,
     hostname,
     cpuModel: cpu.stdout.trim() || null,
