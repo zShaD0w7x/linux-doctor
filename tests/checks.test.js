@@ -587,7 +587,7 @@ test("updates: a failed check stays silent instead of claiming up to date", asyn
 
 test("updates: unknown distro family is skipped with info", async () => {
   const ctx = stubCtx({});
-  ctx.osRelease = { id: "void", id_like: "" };
+  ctx.osRelease = { id: "plan9", id_like: "" };
   ctx.dist = detectDistro(ctx.osRelease);
   const findings = await updates.run(ctx);
   assert.equal(findings.length, 1);
@@ -630,7 +630,13 @@ test("updates: openSUSE (zypper) counts pending updates", async () => {
     dist: detectDistro({ id: "opensuse-tumbleweed", id_like: "suse" }),
     run: async (cmd) => {
       if (cmd.startsWith("zypper -q lu")) {
-        return { ok: true, code: 0, stdout: "4\n", stderr: "" };
+        return { ok: true, code: 0, stdout:
+          "S  | Repository                 | Name     | Current Version | Available Version | Arch\n" +
+          "---+----------------------------+----------+-----------------+-------------------+-------\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | aaa_base | 1.0-1           | 1.1-1             | x86_64\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | bbb      | 1.0-1           | 1.1-1             | x86_64\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | ccc      | 1.0-1           | 1.1-1             | x86_64\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | ddd      | 1.0-1           | 1.1-1             | x86_64\n", stderr: "" };
       }
       return { ok: false, code: 1, stdout: "", stderr: "" };
     },
@@ -639,6 +645,58 @@ test("updates: openSUSE (zypper) counts pending updates", async () => {
   assert.equal(findings.length, 1);
   assert.match(findings[0].title, /4 update/i);
   assert.match(findings[0].fix, /zypper update/);
+});
+
+test("updates: the apk header is not counted as a package", async () => {
+  // `apk version -l '<'` always prints "Installed: ... Available:" first. Counting
+  // every non-empty line would make an up-to-date Alpine report "1 update".
+  const ctx = {
+    osRelease: { id: "alpine", id_like: "" },
+    dist: detectDistro({ id: "alpine", id_like: "" }),
+    run: async (cmd) => {
+      if (cmd.startsWith("apk version -l")) return { ok: true, code: 0, stdout: "Installed:                                Available:\n", stderr: "" };
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "updates/none", `header must not become a finding: ${JSON.stringify(findings)}`);
+});
+
+test("updates: Void (xbps) counts pending updates", async () => {
+  // Void had no update branch at all, so a machine with 54 pending updates was
+  // silently skipped and scored as if it were current.
+  const ctx = {
+    osRelease: { id: "void", id_like: "" },
+    dist: detectDistro({ id: "void", id_like: "" }),
+    run: async (cmd) => {
+      if (cmd.startsWith("xbps-install -un")) {
+        return { ok: true, code: 0, stdout:
+          "acl-2.4.0_1 update x86_64 https://repo-default.voidlinux.org/current 43080 20653\n" +
+          "attr-2.6.0_1 update x86_64 https://repo-default.voidlinux.org/current 27348 9495\n" +
+          "bzip2-1.0.8_2 update x86_64 https://repo-default.voidlinux.org/current 150551 61517\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /3 update/i);
+  assert.match(findings[0].fix, /xbps-install -Su/);
+});
+
+test("updates: apt with an empty index says 'could not check', not 'up to date'", async () => {
+  // A fresh minimal image (and a machine that never ran `apt update`) answers
+  // "0 upgraded" with a zero exit status. That is not being up to date, and
+  // reporting it as such is the dangerous direction of being wrong.
+  const ctx = stubCtx({
+    "apt-get -s upgrade 2>&1": "Reading state information...\nCalculating upgrade...\n0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n",
+  });
+  ctx.osRelease = { id: "debian", id_like: "" };
+  ctx.dist = detectDistro(ctx.osRelease);
+  const findings = await updates.run(ctx);
+  assert.equal(findings[0].code, "updates/stale", `an empty index is not 'up to date': ${JSON.stringify(findings)}`);
+  assert.match(findings[0].fix, /apt update/);
 });
 
 test("updates: results are cached within the TTL (second run does not re-exec)", async () => {
@@ -712,8 +770,12 @@ test("updates: Alpine (apk) counts upgradable packages", async () => {
     osRelease: { id: "alpine", id_like: "" },
     dist: detectDistro({ id: "alpine", id_like: "" }),
     run: async (cmd) => {
-      if (cmd.startsWith("apk info -u")) {
-        return { ok: true, code: 0, stdout: "musl\nopenssl\nbusybox\n", stderr: "" };
+      if (cmd.startsWith("apk version -l")) {
+        return { ok: true, code: 0, stdout:
+          "Installed:                                Available:\n" +
+          "musl-1.2.4-r2                            < 1.2.5-r0\n" +
+          "openssl-3.0.1-r0                         < 3.0.2-r0\n" +
+          "busybox-1.36.0-r0                        < 1.36.1-r0\n", stderr: "" };
       }
       return { ok: false, code: 1, stdout: "", stderr: "" };
     },
