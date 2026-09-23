@@ -286,3 +286,19 @@ test("fstrim: zram/loop ROTA=0 devices are not treated as SSDs", async () => {
   const findings = await fstrim.run(ctx);
   assert.equal(findings.length, 0, "no trimmable storage means TRIM is not applicable");
 });
+
+test("zram: substantial compressed swap in use is described honestly, not called healthy", async () => {
+  // 4.6 GiB of 7.7 GiB is 60%: normal over a long uptime, so the severity must
+  // not be inflated (that would be grading by distance from normal). But
+  // "healthy" hides that the kernel is compressing a lot of memory and the
+  // machine can feel slow because of it, and says nothing about what to do.
+  const ctx = stubCtx({
+    "cat /proc/sys/vm/swappiness": "60",
+    "swapon --show --bytes": "NAME       TYPE      SIZE        USED      PRIO\n/dev/zram0 partition 8271224832 4939212390 100",
+  });
+  const findings = await zram.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "info", "60% is not a risk level; do not inflate it");
+  assert.ok(!/healthy/i.test(findings[0].title), `do not call 60% occupancy healthy: ${findings[0].title}`);
+  assert.match(findings[0].detail, /processes|cache|reclaimable|compressing/i, "point at what is actionable");
+});
