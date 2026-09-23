@@ -42,14 +42,24 @@ export const zram = defineCheck({
         confidence: "high",
       }));
     } else if (zramTotal > 0) {
+      // High occupancy is not a fault by itself: zram is meant to be used, and
+      // cold pages stay compressed there for days. But calling 60% "healthy"
+      // hides the thing that matters, which is that the kernel is compressing
+      // a lot of memory to keep up. Say what it means and where to look,
+      // without inflating the severity (that would be grading by distance
+      // from normal).
+      const pct = Math.round((zramUsed / zramTotal) * 100);
+      const busy = zramUsed / zramTotal >= 0.5;
       findings.push(finding({
         severity: "info",
         code: "zram/ok",
-        title: "zram swap is healthy",
-        detail: sw !== null && sw > 60
-          ? "Compressed swap has room. Swappiness is above 60, so consider lowering it to keep the kernel in RAM."
-          : "Compressed swap has room and swappiness looks sensible.",
-        evidence: `${fmtMiB(zramUsed)} used of ${fmtMiB(zramTotal)} zram, swappiness ${sw ?? "?"}`,
+        title: busy ? "Compressed swap is doing real work" : "zram swap is healthy",
+        detail: busy
+          ? `Compressed swap is holding ${fmtMiB(zramUsed)} of ${fmtMiB(zramTotal)} (${pct}%). zram is meant to be used and pages stay compressed until something touches them, so this is not a fault by itself. It does mean the kernel is compressing a lot of memory to keep up, so if the machine feels slow, this is why: the processes check names the biggest consumers and cache shows what is reclaimable.`
+          : sw !== null && sw > 60
+            ? "Compressed swap has room. Swappiness is above 60, so consider lowering it to keep the kernel in RAM."
+            : "Compressed swap has room and swappiness looks sensible.",
+        evidence: `${fmtMiB(zramUsed)} used of ${fmtMiB(zramTotal)} zram (${pct}%), swappiness ${sw ?? "?"}`,
         fix: null,
         confidence: "high",
       }));
