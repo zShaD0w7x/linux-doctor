@@ -195,6 +195,43 @@ test("services: only user-scope failures are medium, not high", async () => {
   assert.match(findings[0].title, /5 services failed to start/);
 });
 
+test("timers: a timer whose start condition is unmet is not a broken schedule", async () => {
+  // Bazzite (immutable): dnf-makecache.timer is enabled, has never run and is
+  // not scheduled, because its start condition is unmet by design on an atomic
+  // system (systemctl status says "Condition: start condition unmet"). Calling
+  // that a broken schedule blames the user for a timer that cannot run at all.
+  const cols = (vals) => vals.map((v) => String(v).padEnd(20)).join("");
+  const ctx = stubCtx({
+    "systemctl list-timers --all --no-pager --plain 2>/dev/null": [
+      cols(["NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES"]),
+      cols(["-", "-", "-", "-", "dnf-makecache.timer", "dnf-makecache.service"]),
+      "",
+    ].join("\n"),
+    "systemctl is-enabled dnf-makecache.timer 2>/dev/null": "enabled\n",
+    "systemctl show dnf-makecache.timer -p ConditionResult --value 2>/dev/null": "no\n",
+  });
+  const findings = await timers.run(ctx);
+  assert.ok(
+    !findings.some((f) => f.code === "timers/broken"),
+    `a timer that cannot run is not broken: ${JSON.stringify(findings.map((f) => f.code))}`
+  );
+});
+
+test("timers: an enabled timer with no condition problem is still broken", async () => {
+  const cols = (vals) => vals.map((v) => String(v).padEnd(20)).join("");
+  const ctx = stubCtx({
+    "systemctl list-timers --all --no-pager --plain 2>/dev/null": [
+      cols(["NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES"]),
+      cols(["-", "-", "-", "-", "backup.timer", "backup.service"]),
+      "",
+    ].join("\n"),
+    "systemctl is-enabled backup.timer 2>/dev/null": "enabled\n",
+    "systemctl show backup.timer -p ConditionResult --value 2>/dev/null": "yes\n",
+  });
+  const findings = await timers.run(ctx);
+  assert.ok(findings.some((f) => f.code === "timers/broken"), "keep the real signal");
+});
+
 test("journal: known noise is filtered into an informational finding", async () => {
   const ctx = stubCtx({
     "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite systemd-udevd[465]: /usr/lib/udev/rules.d/50-udev-default.rules:105 Failed to resolve group 'disk', ignoring: Unknown group\nAug 15 14:33:01 bazzite setroubleshoot[1807]: SELinux is preventing bootupctl from read access on the directory /proc.\nAug 15 14:36:58 bazzite cupsd[1512]: Returning IPP client-error-bad-request for Create-Printer-Subscriptions (ipp://localhost/) from localhost.`,
@@ -1196,13 +1233,29 @@ test("hardware: an uncorrected (UE) memory error is high, not medium", async () 
 
 test("hardware: clean kernel log is informational", async () => {
   const ctx = stubCtx({
-    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /No hardware errors/);
+});
+
+test("hardware: a readable log with no matches is 'no errors', not silence", async () => {
+  // `journalctl -k ... | grep ...` exits 1 when nothing matches, so `.ok` meant
+  // "grep found nothing", not "I could not read the log". On a healthy machine
+  // with no MCE/EDAC line at all, the check said nothing instead of reporting
+  // "No hardware errors logged". (A benign EDAC banner made grep exit 0 on the
+  // maintainer's box, which hid this.)
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    // the grep itself is left unstubbed: it fails with no output, exactly like
+    // the real command when nothing matches
+  });
+  const findings = await hardware.run(ctx);
+  assert.equal(findings.length, 1, `a readable log must produce an answer: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "hardware/ok");
 });
 
 test("hardware: boot separators alone are NOT hardware errors", async () => {
@@ -1220,6 +1273,7 @@ test("hardware: boot separators alone are NOT hardware errors", async () => {
 // exception, i.e. a permanent high finding on healthy hardware.
 test("hardware: the MCE banks boot line is not a machine check exception", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': [
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
