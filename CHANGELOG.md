@@ -29,6 +29,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **A Re-run could be swallowed by a background poll and record no
+  history.** With stale-while-revalidate, the background scan and the blocking
+  path shared one single-flight promise, so a Re-run that arrived while a
+  background poll was running awaited that non-saving scan and never advanced
+  history. An explicit Re-run now runs on its own, then refreshes the cache.
+
 - **The dashboard refreshes live.** Auto-refresh polls every 5s instead of
   20s, and the server answers a stale request instantly with the last report
   while it regenerates in the background (stale-while-revalidate), so a poll
