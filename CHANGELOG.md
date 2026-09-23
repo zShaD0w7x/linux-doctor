@@ -29,6 +29,12 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **A dashboard refresh could get an empty response.** The stale-while-
+  revalidate background scan resolved to `undefined`; a blocking request that
+  arrived while it was in flight awaited it and served that `undefined` as an
+  empty body ("Unexpected end of JSON input"), and poisoned the cache with
+  it. The scan now always resolves to the body string.
+
 - **A Re-run could be swallowed by a background poll and record no
   history.** With stale-while-revalidate, the background scan and the blocking
   path shared one single-flight promise, so a Re-run that arrived while a
