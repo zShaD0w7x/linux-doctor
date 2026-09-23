@@ -2,12 +2,12 @@
 
 Every finding `code` is stable — use it for `--ignore-code`, history diffing, and scripting. Generated from `src/checks/index.js` + `tests/codes-registry.test.js`; do not edit by hand.
 
-Total: **49 checks** → **164 codes**.
+Total: **50 checks** → **169 codes**.
 
 | Check | Category | Codes | Severity |
 |---|---|---|---|
 | `memory` — Memory pressure | system | `memory/low` (medium/high)<br>`memory/skipped` (info)<br>`memory/swap` (info) | desktop/laptop/server |
-| `load` — CPU load | system | `load/busy` (info)<br>`load/overloaded` (medium/high) | desktop/laptop/server |
+| `load` — CPU load | system | `load/busy` (info)<br>`load/overloaded` (medium/high)<br>`load/skipped` (info) | desktop/laptop/server |
 | `disk` — Disk space | system | `disk/full` (high/medium)<br>`disk/skipped` (info) | desktop/laptop/server |
 | `inodes` — Inode usage | system | `inodes/full` (high/medium)<br>`inodes/skipped` (info) | desktop/laptop/server |
 | `fs` — Filesystem errors | system | `fs/btrfs-errors` (high)<br>`fs/io-errors` (high)<br>`fs/ok` (info)<br>`fs/readonly-remount` (high) | desktop/laptop/server |
@@ -49,6 +49,7 @@ Total: **49 checks** → **164 codes**.
 | `wayland` — Wayland / display session | hardware | `wayland/healthy` (info)<br>`wayland/loginctl-missing` (info)<br>`wayland/no-compositor` (medium)<br>`wayland/no-session` (info)<br>`wayland/not-graphical` (info)<br>`wayland/software-rendering` (medium)<br>`wayland/x11` (info) | desktop/laptop |
 | `smart` — Disk health (SMART) | hardware | `smart/failing` (high)<br>`smart/good` (info)<br>`smart/needs-root` (info)<br>`smart/skipped` (info) | desktop/laptop/server |
 | `hardware` — Hardware errors (MCE/ECC) | hardware | `hardware/ecc` (medium/high)<br>`hardware/mce` (high)<br>`hardware/ok` (info) | desktop/laptop/server |
+| `bringup` — Hardware bring-up (firmware, drivers, USB) | hardware | `bringup/driver` (medium)<br>`bringup/firmware` (medium)<br>`bringup/ok` (info)<br>`bringup/usb` (medium) | desktop/laptop |
 | `audio` — Audio (PipeWire / PulseAudio) | hardware | `audio/no-output` (medium)<br>`audio/no-server` (medium)<br>`audio/ok` (info)<br>`audio/sinks-skipped` (info) | desktop/laptop |
 | `backup` — Backups and snapshots | data | `backup/none` (info)<br>`backup/ok` (info)<br>`backup/stale` (medium)<br>`backup/unscheduled` (info) | desktop/laptop/server |
 | `fstrim` — SSD TRIM (fstrim) | data | `fstrim/disabled` (medium)<br>`fstrim/ok` (info)<br>`fstrim/ok-discard` (info) | desktop/laptop/server |
