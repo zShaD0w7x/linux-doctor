@@ -26,6 +26,7 @@ import { processes } from "../src/checks/processes.js";
 import { suspend } from "../src/checks/suspend.js";
 import { battery } from "../src/checks/battery.js";
 import { bluetooth } from "../src/checks/bluetooth.js";
+import { bringup } from "../src/checks/bringup.js";
 import { wayland } from "../src/checks/wayland.js";
 import { backup } from "../src/checks/backup.js";
 import { hardware } from "../src/checks/hardware.js";
@@ -266,6 +267,51 @@ test("load: a real host with a high load is still reported", async () => {
   });
   const findings = await load.run(ctx);
   assert.ok(findings.some((f) => f.code === "load/overloaded"), "keep the real signal");
+});
+
+test("bringup: firmware that failed to load is a medium finding", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "Sep 23 10:00:01 host kernel: iwlwifi 0000:00:14.3: Direct firmware load for iwlwifi-so-a0-gf-a0-89.ucode failed with error -2\n",
+    "lspci -nnk 2>/dev/null": "",
+  });
+  const findings = await bringup.run(ctx);
+  const f = findings.find((x) => x.code === "bringup/firmware");
+  assert.ok(f, `expected a firmware finding: ${JSON.stringify(findings.map((x) => x.code))}`);
+  assert.equal(f.severity, "medium");
+});
+
+test("bringup: USB enumeration errors are a medium finding", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "Sep 23 10:00:01 host kernel: usb 1-4: device descriptor read/64, error -71\nSep 23 10:00:01 host kernel: usb 1-4: unable to enumerate USB device\n",
+    "lspci -nnk 2>/dev/null": "",
+  });
+  const findings = await bringup.run(ctx);
+  const f = findings.find((x) => x.code === "bringup/usb");
+  assert.ok(f, `expected a usb finding: ${JSON.stringify(findings.map((x) => x.code))}`);
+  assert.equal(f.severity, "medium");
+});
+
+test("bringup: a controller with no driver bound is a medium finding", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "",
+    "lspci -nnk 2>/dev/null": "00:14.0 USB controller [0c03]: Intel Corporation Cannon Lake PCH USB 3.1 xHCI (rev 10)\n\tSubsystem: ASUSTeK Computer Inc. Device 8694\n\tKernel modules: xhci_pci\n",
+  });
+  const findings = await bringup.run(ctx);
+  assert.ok(findings.some((x) => x.code === "bringup/driver"), `expected a driver finding: ${JSON.stringify(findings.map((x) => x.code))}`);
+});
+
+test("bringup: a device that is fine is not flagged", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "",
+    "lspci -nnk 2>/dev/null": "00:14.0 USB controller [0c03]: Intel Corporation Cannon Lake PCH USB 3.1 xHCI (rev 10)\n\tSubsystem: ASUSTeK Computer Inc. Device 8694\n\tKernel driver in use: xhci_hcd\n\tKernel modules: xhci_pci\n",
+  });
+  const findings = await bringup.run(ctx);
+  assert.equal(findings.length, 1, `expected just the ok: ${JSON.stringify(findings.map((x) => x.code))}`);
+  assert.equal(findings[0].code, "bringup/ok");
 });
 
 test("journal: known noise is filtered into an informational finding", async () => {
