@@ -29,6 +29,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **The dashboard refreshes live.** Auto-refresh polls every 5s instead of
+  20s, and the server answers a stale request instantly with the last report
+  while it regenerates in the background (stale-while-revalidate), so a poll
+  never waits on a full scan. The new report appears on the next poll.
+
 - **`processes` works on Alpine now.** The check asked `ps` for
   `--sort=-rss`, which busybox does not support, and busybox also ignores the
   column after `args=`, so the rss number was lost and the empty result read
