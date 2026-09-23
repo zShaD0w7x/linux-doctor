@@ -25,6 +25,18 @@ export const hardware = defineCheck({
     // silent on a machine with no MCE/EDAC line at all.
     const readable = await ctx.run("command -v journalctl 2>/dev/null");
     const logReadable = readable.ok && readable.stdout.trim() !== "";
+    if (!logReadable) {
+      findings.push(finding({
+        severity: "info",
+        code: "hardware/skipped",
+        title: "Hardware error check skipped",
+        detail: "`journalctl` is not available (this is not a systemd system), so the kernel log could not be read for MCE/ECC errors.",
+        evidence: "journalctl: not found",
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     // The shell grep is deliberately wide (it is one cheap read): the words
     // "mce" and "edac" are also carried by routine boot lines, so the

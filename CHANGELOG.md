@@ -8,6 +8,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Added
 
+- **Package-health checks for openSUSE and Void.** `packages` covered apt,
+  dnf and pacman only, so those two families got no package-manager check at
+  all. openSUSE uses `zypper verify -D` (the dry run, so it cannot fix
+  anything) and Void uses `xbps-pkgdb -a`; both read-only.
+
 - **A bring-up check for devices that never appear.** `hardware` looks for
   errors on devices that are working; this looks at the devices that are
   missing. Three causes, one story: firmware the kernel could not load
@@ -19,6 +24,17 @@ All notable changes to Linux Doctor are documented here. The format follows
   (`bringup/ok`) instead of staying silent.
 
 ### Fixed
+
+- **`processes` works on Alpine now.** The check asked `ps` for
+  `--sort=-rss`, which busybox does not support, and busybox also ignores the
+  column after `args=`, so the rss number was lost and the empty result read
+  as "no consumers". It uses `ps -eo rss,args` (the one column order that
+  works on both procps and busybox) and sorts in JS.
+- **`timers`, `fstrim`, `hardware` and `bringup` say when they cannot run.**
+  On a non-systemd system they returned silently, which read as "nothing
+  wrong". They emit an explicit skip now (`timers/skipped`, `fstrim/skipped`,
+  `hardware/skipped`, `bringup/skipped`), and `bringup` keeps running its
+  driver check even when the kernel log is not readable.
 
 - **Checks that could not run now say so instead of staying silent.** The
   `missing` flag was only set when the shell itself was absent, which never

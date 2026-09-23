@@ -2,6 +2,7 @@
 import { lines } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { pkgInstall } from "../distro.js";
 
 /**
  * SSD TRIM health. Without periodic TRIM an SSD slowly loses write
@@ -21,7 +22,18 @@ export const fstrim = defineCheck({
     // Only relevant when at least one non-rotational device exists. ROTA=1 is
     // spinning rust; ROTA=0 covers SSDs and NVMe.
     const rota = await ctx.run("lsblk -dno NAME,ROTA 2>/dev/null");
-    if (!rota.ok) return findings; // lsblk missing — nothing we can say
+    if (!rota.ok) {
+      findings.push(finding({
+        severity: "info",
+        code: "fstrim/skipped",
+        title: "TRIM check skipped",
+        detail: "`lsblk` is not available, so the disk rotation type could not be determined and TRIM could not be checked.",
+        evidence: "lsblk: not found",
+        fix: `Install util-linux (${pkgInstall(ctx.dist, { fedora: "util-linux", "*": "util-linux" })}) and re-run.`,
+        confidence: "high",
+      }));
+      return findings;
+    }
     const ssds = lines(rota.stdout).filter((l) => {
       const name = l.trim().split(/\s+/)[0];
       // zram (RAM-backed swap), loop, ram, optical and floppy devices report

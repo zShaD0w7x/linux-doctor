@@ -32,6 +32,8 @@ import { bringup } from "../src/checks/bringup.js";
 import { wayland } from "../src/checks/wayland.js";
 import { backup } from "../src/checks/backup.js";
 import { hardware } from "../src/checks/hardware.js";
+import { packages } from "../src/checks/packages.js";
+import { fstrim } from "../src/checks/fstrim.js";
 import { smart } from "../src/checks/smart.js";
 import { luks } from "../src/checks/luks.js";
 import { audio } from "../src/checks/audio.js";
@@ -317,10 +319,14 @@ test("bringup: a device that is fine is not flagged", async () => {
 });
 
 test("processes: a missing ps is an explicit skip, not 'no consumers'", async () => {
-  // `ps ... | head` exits 0 through head even when ps is absent, so the empty
-  // result looked like a healthy machine. procps is not installed on minimal
-  // Debian and Fedora images.
-  const ctx = stubCtx({});
+  // procps is not installed on minimal Debian and Fedora images, and a
+  // pipeline through head used to hide it.
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("ps ") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
   const findings = await processes.run(ctx);
   assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
   assert.equal(findings[0].code, "processes/skipped");
@@ -361,6 +367,53 @@ test("memory: a missing free is an explicit skip (the .missing flag now fires)",
   const findings = await memory.run(ctx);
   assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
   assert.equal(findings[0].code, "memory/skipped");
+});
+
+test("packages: openSUSE (zypper) verifies dependencies read-only", async () => {
+  const ctx = stubCtx({
+    "zypper --non-interactive verify -D 2>&1": "Loading repository data...\nReading installed packages...\nDependencies of all installed packages are satisfied.\n",
+  }, { id: "opensuse-tumbleweed", id_like: "suse" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+test("packages: zypper reports broken dependencies", async () => {
+  const ctx = stubCtx({
+    "zypper --non-interactive verify -D 2>&1": "Loading repository data...\nReading installed packages...\nPackage foo has missing dependency bar\n",
+  }, { id: "opensuse-tumbleweed", id_like: "suse" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings[0].code, "packages/broken", `expected broken: ${JSON.stringify(findings)}`);
+});
+
+test("packages: Void (xbps) checks the database read-only", async () => {
+  const ctx = stubCtx({ "xbps-pkgdb -a 2>&1": "" }, { id: "void", id_like: "" });
+  const findings = await packages.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "packages/ok");
+});
+
+test("fstrim: a missing lsblk is an explicit skip", async () => {
+  const ctx = {
+    osRelease: { id: "fedora", id_like: "fedora" },
+    dist: detectDistro({ id: "fedora", id_like: "fedora" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("lsblk") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
+  const findings = await fstrim.run(ctx);
+  assert.equal(findings[0].code, "fstrim/skipped", `expected a skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+});
+
+test("hardware: a missing journalctl is an explicit skip", async () => {
+  const ctx = stubCtx({}); // command -v journalctl finds nothing
+  const findings = await hardware.run(ctx);
+  assert.equal(findings[0].code, "hardware/skipped", `expected a skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+});
+
+test("bringup: without a readable kernel log it says the check was partial", async () => {
+  const ctx = stubCtx({ "lspci -nnk 2>/dev/null": "" }); // journalctl probe unstubbed
+  const findings = await bringup.run(ctx);
+  assert.equal(findings[0].code, "bringup/skipped", `expected a partial-check note: ${JSON.stringify(findings.map((f) => f.code))}`);
 });
 
 test("journal: known noise is filtered into an informational finding", async () => {
@@ -940,7 +993,7 @@ test("processes: a single app over 20% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // ps -o rss reports KiB: 4000000 KiB ≈ 3.8 GB of 15 GB (~25%).
     "command -v ps 2>/dev/null": "/usr/bin/ps\n",
-    "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       4000000\nfirefox       800000\nplasma        500000\n`,
+    "ps -eo rss,args 2>/dev/null": `4000000 brave\n800000 firefox\n500000 plasma\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 12000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -953,7 +1006,7 @@ test("processes: a single app over 40% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // 8000000 KiB ≈ 7.6 GB of 15 GB (~50%).
     "command -v ps 2>/dev/null": "/usr/bin/ps\n",
-    "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       8000000\nfirefox       800000\nplasma        500000\n`,
+    "ps -eo rss,args 2>/dev/null": `8000000 brave\n800000 firefox\n500000 plasma\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 14000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -964,7 +1017,7 @@ test("processes: a single app over 40% of RAM is flagged medium", async () => {
 test("processes: healthy memory usage produces an info finding", async () => {
   const ctx = stubCtx({
     "command -v ps 2>/dev/null": "/usr/bin/ps\n",
-    "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `plasma        500000\nfirefox       400000\nbrave         300000\n`,
+    "ps -eo rss,args 2>/dev/null": `500000 plasma\n400000 firefox\n300000 brave\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360  5000000000 1000000000  300000000  7000000000  11000000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -1469,6 +1522,7 @@ test("backup: snapper configs count as a snapshot system", async () => {
 
 test("hardware: machine check exceptions are high", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged\n",
   });
   const findings = await hardware.run(ctx);
@@ -1483,6 +1537,7 @@ test("hardware: machine check exceptions are high", async () => {
 // as a routine correction. Here the same line must now be high.
 test("hardware: an uncorrected (UE) memory error is high, not medium", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
   });
   const findings = await hardware.run(ctx);
@@ -1495,6 +1550,7 @@ test("hardware: an uncorrected (UE) memory error is high, not medium", async () 
 
 test("hardware: clean kernel log is informational", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
@@ -1523,7 +1579,9 @@ test("hardware: a readable log with no matches is 'no errors', not silence", asy
 test("hardware: boot separators alone are NOT hardware errors", async () => {
   // journalctl -k -g prints "-- Boot ... --" separators even with no matches.
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
@@ -1535,6 +1593,7 @@ test("hardware: boot separators alone are NOT hardware errors", async () => {
 // exception, i.e. a permanent high finding on healthy hardware.
 test("hardware: the MCE banks boot line is not a machine check exception", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': [
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
@@ -1554,6 +1613,7 @@ test("hardware: a single corrected (CE) memory error is routine, not a penalty",
   // at medium made the score drop for normal operation, which is how a report
   // teaches people to stop reading it. It is still shown, as a note to watch.
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC MC0: 1 CE memory read error on CPU_SrcID#0_MC#0_Chan#0_DIMM#0\n",
   });
   const findings = await hardware.run(ctx);
@@ -1568,6 +1628,7 @@ test("hardware: repeated corrected (CE) memory errors are a medium finding", asy
   // "Occasional ones are normal, but frequent ones suggest a DIMM is starting
   // to fail" — the check's own words. Two in a week is no longer occasional.
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': [
       "Aug 14 09:41:05 bazzite kernel: EDAC MC0: 1 CE memory read error on CPU_SrcID#0_MC#0_Chan#0_DIMM#0",
       "Aug 15 11:02:44 bazzite kernel: EDAC MC0: 1 CE memory read error on CPU_SrcID#0_MC#0_Chan#0_DIMM#0",
@@ -1849,7 +1910,8 @@ test("timers: non-systemd stays silent", async () => {
     run: async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true }),
   };
   const findings = await timers.run(ctx);
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1, `a non-systemd system is an explicit skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "timers/skipped");
 });
 
 test("ntp: synchronized clock is informational", async () => {

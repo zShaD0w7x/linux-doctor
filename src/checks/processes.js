@@ -27,10 +27,9 @@ export const processes = defineCheck({
   async run(ctx) {
     const findings = [];
     const t = ctx.thresholds;
-    // `ps ... | head` is a pipeline, so a missing ps exits 0 through head and
-    // the empty result looked like "no consumers". Probe the tool instead.
-    const psBin = await ctx.run("command -v ps 2>/dev/null");
-    if (!psBin.ok || !psBin.stdout.trim()) {
+    const [psRes, memRes] = await Promise.all([ctx.run(`ps -eo rss,args 2>/dev/null`), ctx.run(`free -b`),
+    ]);
+    if (psRes.missing) {
       findings.push(finding({
         severity: "info",
         code: "processes/skipped",
@@ -42,9 +41,6 @@ export const processes = defineCheck({
       }));
       return findings;
     }
-
-    const [psRes, memRes] = await Promise.all([ctx.run(`ps -eo args=,rss --sort=-rss 2>/dev/null | head -8`), ctx.run(`free -b`),
-    ]);
     if (!psRes.ok) return findings;
 
     // `ps -o rss` leaves a "RSS" header line even when args= suppresses its
@@ -53,16 +49,23 @@ export const processes = defineCheck({
     // rss= would suppress it but breaks the existing test stubs, so filter.
     const rows = lines(psRes.stdout)
       .filter((l) => !/^\s*RSS\b/i.test(l))
-      .slice(0, 3).map((l) => {
+      .map((l) => {
       const parts = l.trim().split(/\s+/);
-      // `ps -o rss` reports KiB; convert to bytes so the ratio vs `free -b`
+      // rss first, args last: `args` is the full command line and may contain
+      // spaces, and rss-first is the only order that works on both procps and
+      // busybox. busybox ignores the column after `args=`, so `args=,rss`
+      // dropped the number and Alpine read the command's last word as rss.
+      // `ps` reports rss in KiB; convert to bytes so the ratio vs `free -b`
       // (bytes) is correct and fmtBytes displays real units.
-      const rss = num(parts[parts.length - 1]) * 1024;
-      // args= gives the full path and is NOT truncated at 15 chars the way
-      // `comm` is ("QtWebEngineProcess" would arrive as "QtWebEngineProc").
-      const bin = parts[0] ? parts[0].split("/").pop() : "unknown";
+      const rss = num(parts[0]) * 1024;
+      // The binary is the first token of args, not truncated the way `comm` is
+      // ("QtWebEngineProcess" would arrive as "QtWebEngineProc").
+      const bin = parts[1] ? parts[1].split("/").pop() : "unknown";
       return { name: bin || "unknown", rss };
-    });
+      })
+      .filter((r) => r.rss > 0)
+      .sort((a, b) => b.rss - a.rss)
+      .slice(0, 3);
     if (rows.length === 0) return findings;
 
     const memLine = lines(memRes.stdout || "").find((l) => l.startsWith("Mem:"));
