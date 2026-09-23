@@ -545,6 +545,7 @@ test("network: slow DNS resolution is flagged medium", async () => {
     dist: detectDistro({ id: "fedora", id_like: "fedora" }),
     thresholds: {},
     run: async (cmd) => {
+      if (cmd.includes("command -v ip")) return { ok: true, code: 0, stdout: "/usr/sbin/ip\n", stderr: "" };
       if (cmd.includes("ip -brief addr")) return { ok: true, code: 0, stdout: "eth0 UP 192.168.1.100/24\n", stderr: "" };
       if (cmd.includes("ip route show default")) return { ok: true, code: 0, stdout: "default via 192.168.1.1 dev eth0\n", stderr: "" };
       if (cmd.includes("getent ahostsv4")) {
@@ -570,6 +571,7 @@ test("network: fast DNS does NOT produce a slow finding", async () => {
     dist: detectDistro({ id: "fedora", id_like: "fedora" }),
     thresholds: {},
     run: async (cmd) => {
+      if (cmd.includes("command -v ip")) return { ok: true, code: 0, stdout: "/usr/sbin/ip\n", stderr: "" };
       if (cmd.includes("ip -brief addr")) return { ok: true, code: 0, stdout: "eth0 UP 192.168.1.100/24\n", stderr: "" };
       if (cmd.includes("ip route show default")) return { ok: true, code: 0, stdout: "default via 192.168.1.1 dev eth0\n", stderr: "" };
       if (cmd.includes("getent ahostsv4")) return { ok: true, code: 0, stdout: "93.184.216.34\n", stderr: "" };

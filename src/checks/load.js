@@ -11,6 +11,28 @@ export const load = defineCheck({
   async run(ctx) {
     const findings = [];
     const t = ctx.thresholds;
+
+    // /proc/loadavg is not namespaced: inside a container it is the HOST's load
+    // average, while nproc reports the container's CPUs. Comparing the two
+    // invents an overloaded system out of an idle container — all five test
+    // images did it — so the check says so and stays quiet there.
+    const virt = await ctx.run("systemd-detect-virt --container 2>/dev/null");
+    const marker = await ctx.run("test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null");
+    const virtType = virt.ok ? virt.stdout.trim() : "";
+    const inContainer = (virtType !== "" && virtType !== "none") || (marker.ok && /container/.test(marker.stdout));
+    if (inContainer) {
+      findings.push(finding({
+        severity: "info",
+        code: "load/skipped",
+        title: "CPU load check skipped (container)",
+        detail: "This looks like a container, and `/proc/loadavg` inside one is the host's load average, not this container's. Comparing it against the container's CPU count would invent an overloaded system, so the check stays quiet. Run it on the host for a real number.",
+        evidence: `container detected: ${virtType && virtType !== "none" ? virtType : "container marker"}`,
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
+
     const [loadRes, nprocRes] = await Promise.all([ctx.run("cat /proc/loadavg"), ctx.run("nproc")]);
     if (!loadRes.ok || !nprocRes.ok) return findings;
 

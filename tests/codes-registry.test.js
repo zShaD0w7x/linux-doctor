@@ -143,6 +143,7 @@ export const REGISTRY = {
   // load / locales / luks
   "load/busy": { sev: ["info"], cat: "performance" },
   "load/overloaded": { sev: ["medium", "high"], cat: "performance" },
+  "load/skipped": { sev: ["info"], cat: "performance" },
   "locales/broken": { sev: ["medium"], cat: "system" },
   "luks/encrypted": { sev: ["info"], cat: "security" },
   "luks/none": { sev: ["info"], cat: "security" },
