@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { lines, num, plural, TIMEOUT_MS } from "../utils.js";
+import { lines, plural, TIMEOUT_MS } from "../utils.js";
 import { readCache, writeCache } from "../cache.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
@@ -45,11 +45,23 @@ export const updates = defineCheck({
       cmd = "apt-get -s upgrade 2>&1";
       label = "apt";
     } else if (pkg === "zypper") {
-      cmd = "zypper -q lu 2>/dev/null | awk 'NR>4 && NF' | wc -l";
+      // Raw output, parsed in JS. The old pipeline (| awk 'NR>4 && NF' | wc -l)
+      // depended on awk being installed: on a minimal openSUSE image it is not,
+      // so the pipeline produced nothing and the check reported "up to date"
+      // with thirteen lines of updates on screen.
+      cmd = "zypper -q lu 2>/dev/null";
       label = "zypper";
     } else if (pkg === "apk") {
-      cmd = "apk info -u 2>/dev/null";
+      // `apk info -u` is not a valid command (it exits 1 with "unrecognized
+      // option 'u'"), and the empty output was read as "no updates", so Alpine
+      // silently reported nothing at all. `apk version -l '<'` is the real one.
+      cmd = "apk version -l '<' 2>/dev/null";
       label = "apk";
+    } else if (pkg === "xbps") {
+      // Void had no update check. `-un` is the dry run: list what would be
+      // updated, from the local index, without syncing or changing anything.
+      cmd = "xbps-install -un 2>/dev/null";
+      label = "xbps";
     } else if (pkg === "pacman") {
       cmd = "checkupdates 2>/dev/null || pacman -Qu 2>/dev/null";
       label = "pacman";
@@ -102,8 +114,14 @@ export const updates = defineCheck({
     if (label === "apt") {
       count = lines(res.stdout).filter((l) => /^Inst /i.test(l)).length;
     } else if (label === "zypper") {
-      // These commands print a single count number, not one line per package.
-      count = num(lines(res.stdout)[0]);
+      // One line per update, first column "v" (a package with an update).
+      count = String(res.stdout).split("\n").filter((l) => /^\s*v\s*\|/.test(l)).length;
+    } else if (label === "apk") {
+      // A fixed "Installed: ... Available:" header, then one line per package.
+      count = lines(res.stdout).filter((l) => l.trim() !== "" && !/^Installed:/i.test(l)).length;
+    } else if (label === "xbps") {
+      // One line per pending update.
+      count = lines(res.stdout).filter((l) => l.trim() !== "").length;
     } else if (label === "rpm-ostree") {
       // Image updates are atomic: either a new image is available or not.
       count = /Available update:/.test(res.stdout) ? 1 : 0;
@@ -127,7 +145,29 @@ export const updates = defineCheck({
       count = lines(res.stdout).filter((l) => l !== "0").length;
     }
 
-    const fixCmd = label === "apt" ? "apt upgrade" : label === "pacman" ? "pacman -Syu" : label === "rpm-ostree" ? "rpm-ostree upgrade" : label === "zypper" ? "zypper update" : label === "apk" ? "apk upgrade" : "dnf upgrade";
+    // apt works from the local package lists. If they were never fetched, the
+    // simulation answers "0 upgraded" with a zero exit status, and that is not
+    // "up to date" — it is "no idea". The difference matters: the fix is to
+    // fetch the index, not to do nothing.
+    if (label === "apt" && count === 0) {
+      const lists = await ctx.run("ls /var/lib/apt/lists 2>/dev/null");
+      const listFiles = lines(lists.stdout).filter((l) => l.trim() !== "").length;
+      if (listFiles === 0) {
+        findings.push(finding({
+          severity: "info",
+          code: "updates/stale",
+          title: "Could not check for updates",
+          detail: "The package index has never been fetched on this system, so there is no way to know what updates are available. That is not the same as being up to date.",
+          evidence: "apt: /var/lib/apt/lists is empty",
+          fix: "Fetch the index with: `sudo apt update`, then run the check again.",
+          confidence: "high",
+        }));
+        if (useCache) writeCache("updates", findings);
+        return findings;
+      }
+    }
+
+    const fixCmd = label === "apt" ? "apt upgrade" : label === "pacman" ? "pacman -Syu" : label === "rpm-ostree" ? "rpm-ostree upgrade" : label === "zypper" ? "zypper update" : label === "apk" ? "apk upgrade" : label === "xbps" ? "xbps-install -Su" : "dnf upgrade";
     const rebootNote = label === "rpm-ostree" ? " Reboot to activate it." : "";
 
     if (count === 0) {

@@ -209,6 +209,7 @@ export const REGISTRY = {
   "timers/ok": { sev: ["info"], cat: "system" },
   "updates/none": { sev: ["info"], cat: "packages" },
   "updates/pending": { sev: ["info", "medium"], cat: "packages" },
+  "updates/stale": { sev: ["info"], cat: "updates" },
   "updates/skipped": { sev: ["info"], cat: "packages" },
   "wayland/healthy": { sev: ["info"], cat: "desktop" },
   // wifi
