@@ -18,11 +18,17 @@ export const network = defineCheck({
   async run(ctx) {
     const findings = [];
 
-    const [addr, route] = await Promise.all([
+    const [ipBin, addr, route] = await Promise.all([
+      // `ip` missing is not "no route". run() only sets `missing` when the
+      // spawn itself fails, and these commands go through a shell, so a missing
+      // binary looked like an empty route table: minimal Debian, Fedora and
+      // Ubuntu images ship without iproute2 and got a medium "No default
+      // network route" on a machine with a perfectly good route.
+      ctx.run("command -v ip 2>/dev/null"),
       ctx.run("ip -brief addr show 2>/dev/null"),
       ctx.run("ip route show default 2>/dev/null"),
     ]);
-    if (addr.missing && route.missing) {
+    if (!(ipBin.ok && ipBin.stdout.trim() !== "")) {
       findings.push(finding({
         severity: "info",
         code: "network/skipped",

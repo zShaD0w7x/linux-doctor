@@ -26,6 +26,7 @@ import { processes } from "../src/checks/processes.js";
 import { suspend } from "../src/checks/suspend.js";
 import { battery } from "../src/checks/battery.js";
 import { bluetooth } from "../src/checks/bluetooth.js";
+import { bringup } from "../src/checks/bringup.js";
 import { wayland } from "../src/checks/wayland.js";
 import { backup } from "../src/checks/backup.js";
 import { hardware } from "../src/checks/hardware.js";
@@ -193,6 +194,124 @@ test("services: only user-scope failures are medium, not high", async () => {
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "medium");
   assert.match(findings[0].title, /5 services failed to start/);
+});
+
+test("timers: a timer whose start condition is unmet is not a broken schedule", async () => {
+  // Bazzite (immutable): dnf-makecache.timer is enabled, has never run and is
+  // not scheduled, because its start condition is unmet by design on an atomic
+  // system (systemctl status says "Condition: start condition unmet"). Calling
+  // that a broken schedule blames the user for a timer that cannot run at all.
+  const cols = (vals) => vals.map((v) => String(v).padEnd(20)).join("");
+  const ctx = stubCtx({
+    "systemctl list-timers --all --no-pager --plain 2>/dev/null": [
+      cols(["NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES"]),
+      cols(["-", "-", "-", "-", "dnf-makecache.timer", "dnf-makecache.service"]),
+      "",
+    ].join("\n"),
+    "systemctl is-enabled dnf-makecache.timer 2>/dev/null": "enabled\n",
+    "systemctl show dnf-makecache.timer -p ConditionResult --value 2>/dev/null": "no\n",
+  });
+  const findings = await timers.run(ctx);
+  assert.ok(
+    !findings.some((f) => f.code === "timers/broken"),
+    `a timer that cannot run is not broken: ${JSON.stringify(findings.map((f) => f.code))}`
+  );
+});
+
+test("timers: an enabled timer with no condition problem is still broken", async () => {
+  const cols = (vals) => vals.map((v) => String(v).padEnd(20)).join("");
+  const ctx = stubCtx({
+    "systemctl list-timers --all --no-pager --plain 2>/dev/null": [
+      cols(["NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES"]),
+      cols(["-", "-", "-", "-", "backup.timer", "backup.service"]),
+      "",
+    ].join("\n"),
+    "systemctl is-enabled backup.timer 2>/dev/null": "enabled\n",
+    "systemctl show backup.timer -p ConditionResult --value 2>/dev/null": "yes\n",
+  });
+  const findings = await timers.run(ctx);
+  assert.ok(findings.some((f) => f.code === "timers/broken"), "keep the real signal");
+});
+
+test("network: no iproute2 is a skip, not 'no default route'", async () => {
+  // Debian, Fedora and Ubuntu minimal images do not ship `ip`. run() only sets
+  // `missing` when the spawn itself fails, and these commands go through a
+  // shell, so a missing `ip` looked like an empty route table: the check
+  // reported a medium "No default network route" on a machine with a perfectly
+  // good route.
+  const ctx = stubCtx({}); // nothing stubbed: `command -v ip` finds nothing
+  const findings = await network.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip finding: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "network/skipped");
+  assert.ok(!findings.some((f) => f.code === "network/no-route"), "a missing tool is not a missing route");
+});
+
+test("load: inside a container the check is skipped, not called overloaded", async () => {
+  // /proc/loadavg is not namespaced: in a container it is the HOST's load
+  // average while nproc reports the container's CPUs, so the ratio invents an
+  // overloaded system out of an idle container (all five test images did it).
+  const ctx = stubCtx({
+    "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n",
+    "cat /proc/loadavg": "6.00 5.50 5.00 1/200 4242\n",
+    "nproc": "2\n",
+  });
+  const findings = await load.run(ctx);
+  assert.ok(findings.some((f) => f.code === "load/skipped"), `expected a skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.ok(!findings.some((f) => f.code === "load/overloaded"), "the host's load is not this container's");
+});
+
+test("load: a real host with a high load is still reported", async () => {
+  const ctx = stubCtx({
+    "cat /proc/loadavg": "6.00 5.50 5.00 1/200 4242\n",
+    "nproc": "2\n",
+  });
+  const findings = await load.run(ctx);
+  assert.ok(findings.some((f) => f.code === "load/overloaded"), "keep the real signal");
+});
+
+test("bringup: firmware that failed to load is a medium finding", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "Sep 23 10:00:01 host kernel: iwlwifi 0000:00:14.3: Direct firmware load for iwlwifi-so-a0-gf-a0-89.ucode failed with error -2\n",
+    "lspci -nnk 2>/dev/null": "",
+  });
+  const findings = await bringup.run(ctx);
+  const f = findings.find((x) => x.code === "bringup/firmware");
+  assert.ok(f, `expected a firmware finding: ${JSON.stringify(findings.map((x) => x.code))}`);
+  assert.equal(f.severity, "medium");
+});
+
+test("bringup: USB enumeration errors are a medium finding", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "Sep 23 10:00:01 host kernel: usb 1-4: device descriptor read/64, error -71\nSep 23 10:00:01 host kernel: usb 1-4: unable to enumerate USB device\n",
+    "lspci -nnk 2>/dev/null": "",
+  });
+  const findings = await bringup.run(ctx);
+  const f = findings.find((x) => x.code === "bringup/usb");
+  assert.ok(f, `expected a usb finding: ${JSON.stringify(findings.map((x) => x.code))}`);
+  assert.equal(f.severity, "medium");
+});
+
+test("bringup: a controller with no driver bound is a medium finding", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "",
+    "lspci -nnk 2>/dev/null": "00:14.0 USB controller [0c03]: Intel Corporation Cannon Lake PCH USB 3.1 xHCI (rev 10)\n\tSubsystem: ASUSTeK Computer Inc. Device 8694\n\tKernel modules: xhci_pci\n",
+  });
+  const findings = await bringup.run(ctx);
+  assert.ok(findings.some((x) => x.code === "bringup/driver"), `expected a driver finding: ${JSON.stringify(findings.map((x) => x.code))}`);
+});
+
+test("bringup: a device that is fine is not flagged", async () => {
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    "journalctl -k -b --no-pager -o short 2>/dev/null | grep -iE \"failed to load firmware|firmware load for|direct firmware load|unable to enumerate usb|device descriptor read|device not accepting address|maybe the usb cable is bad|cannot enable port\"": "",
+    "lspci -nnk 2>/dev/null": "00:14.0 USB controller [0c03]: Intel Corporation Cannon Lake PCH USB 3.1 xHCI (rev 10)\n\tSubsystem: ASUSTeK Computer Inc. Device 8694\n\tKernel driver in use: xhci_hcd\n\tKernel modules: xhci_pci\n",
+  });
+  const findings = await bringup.run(ctx);
+  assert.equal(findings.length, 1, `expected just the ok: ${JSON.stringify(findings.map((x) => x.code))}`);
+  assert.equal(findings[0].code, "bringup/ok");
 });
 
 test("journal: known noise is filtered into an informational finding", async () => {
@@ -1196,13 +1315,29 @@ test("hardware: an uncorrected (UE) memory error is high, not medium", async () 
 
 test("hardware: clean kernel log is informational", async () => {
   const ctx = stubCtx({
-    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /No hardware errors/);
+});
+
+test("hardware: a readable log with no matches is 'no errors', not silence", async () => {
+  // `journalctl -k ... | grep ...` exits 1 when nothing matches, so `.ok` meant
+  // "grep found nothing", not "I could not read the log". On a healthy machine
+  // with no MCE/EDAC line at all, the check said nothing instead of reporting
+  // "No hardware errors logged". (A benign EDAC banner made grep exit 0 on the
+  // maintainer's box, which hid this.)
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    // the grep itself is left unstubbed: it fails with no output, exactly like
+    // the real command when nothing matches
+  });
+  const findings = await hardware.run(ctx);
+  assert.equal(findings.length, 1, `a readable log must produce an answer: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "hardware/ok");
 });
 
 test("hardware: boot separators alone are NOT hardware errors", async () => {
@@ -1220,6 +1355,7 @@ test("hardware: boot separators alone are NOT hardware errors", async () => {
 // exception, i.e. a permanent high finding on healthy hardware.
 test("hardware: the MCE banks boot line is not a machine check exception", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': [
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
@@ -1276,6 +1412,7 @@ test("luks: no lsblk stays silent", async () => {
 
 test("network: no default route is medium", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "lo               UNKNOWN        127.0.0.1/8 ::1/128\nwlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "",
   });
@@ -1289,6 +1426,7 @@ test("network: no default route is medium", async () => {
 
 test("network: DNS failure is medium when a route exists", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
     "getent ahostsv4 kernel.org 2>&1 | head -1": "",
@@ -1302,6 +1440,7 @@ test("network: DNS failure is medium when a route exists", async () => {
 
 test("network: route + working DNS is informational", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
     "getent ahostsv4 kernel.org 2>&1 | head -1": "151.101.1.69     STREAM kernel.org\n",

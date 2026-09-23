@@ -69,6 +69,10 @@ export const REGISTRY = {
   "bluetooth/failed": { sev: ["medium"], cat: "hardware" },
   "bluetooth/none": { sev: ["info"], cat: "hardware" },
   "bluetooth/ok": { sev: ["info"], cat: "hardware" },
+  "bringup/driver": { sev: ["medium"], cat: "hardware" },
+  "bringup/firmware": { sev: ["medium"], cat: "hardware" },
+  "bringup/ok": { sev: ["info"], cat: "hardware" },
+  "bringup/usb": { sev: ["medium"], cat: "hardware" },
   "bluetooth/stopped": { sev: ["medium"], cat: "hardware" },
   // containerdisk / containers
   "containerdisk/high": { sev: ["high"], cat: "containers" },
@@ -143,6 +147,7 @@ export const REGISTRY = {
   // load / locales / luks
   "load/busy": { sev: ["info"], cat: "performance" },
   "load/overloaded": { sev: ["medium", "high"], cat: "performance" },
+  "load/skipped": { sev: ["info"], cat: "performance" },
   "locales/broken": { sev: ["medium"], cat: "system" },
   "luks/encrypted": { sev: ["info"], cat: "security" },
   "luks/none": { sev: ["info"], cat: "security" },

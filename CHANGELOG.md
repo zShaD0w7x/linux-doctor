@@ -6,6 +6,44 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A bring-up check for devices that never appear.** `hardware` looks for
+  errors on devices that are working; this looks at the devices that are
+  missing. Three causes, one story: firmware the kernel could not load
+  (`bringup/firmware`), USB devices that failed to enumerate (`bringup/usb`),
+  and controllers with no driver bound (`bringup/driver`). This is the "my
+  Bluetooth and USB are gone" case: on a laptop the Bluetooth adapter is an
+  internal USB device, so one controller problem takes out both. Read-only,
+  current boot only, and it says so explicitly when everything is fine
+  (`bringup/ok`) instead of staying silent.
+
+### Fixed
+
+- **`network` called a missing `iproute2` "no default route".** Minimal
+  Debian, Fedora and Ubuntu images do not ship `ip`, and the probe's failure
+  was read as an empty route table: a medium "No default network route" on a
+  machine with a perfectly good route. The tool's presence is probed
+  separately now, and a missing `ip` is an explicit skip with the install
+  hint.
+- **`load` is skipped inside a container.** `/proc/loadavg` is not namespaced:
+  in a container it is the host's load average while `nproc` reports the
+  container's CPUs, so the ratio invented an overloaded system out of an idle
+  container (all five test images reported it). The check says why it is
+  skipping and stays quiet there.
+- **`hardware` answered "no errors" only by accident.** The check used the
+  exit status of `journalctl ... | grep ...` as its readability gate, but grep
+  exits 1 when nothing matches, so its status meant "found something", not "I
+  could read the log". On a healthy machine with no MCE/EDAC line at all it
+  said nothing instead of "No hardware errors logged". A benign EDAC banner
+  made grep exit 0 on the maintainer's box, which hid it.
+- **`timers` no longer calls a timer with an unmet start condition broken.**
+  `dnf-makecache.timer` is enabled on an immutable system and can never run:
+  its start condition is unmet by design (`systemctl status` says so). The
+  check asked only whether the timer was enabled and had never fired, so it
+  reported a broken schedule the user cannot fix. It consults
+  `ConditionResult` now.
+
 ## [0.7.0] - 2026-09-22
 
 ### Added

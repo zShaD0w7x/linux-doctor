@@ -472,7 +472,14 @@ test("--summary shows a score delta vs the previous run", () => {
   const env = { ...process.env, LINUX_DOCTOR_HISTORY: join(dir, "history.json") };
   try {
     const first = spawnSync(process.execPath, [bin, "--summary"], { encoding: "utf8", timeout: 60000, env });
-    assert.equal(first.status, 1, "a full run on a real system usually has findings; exit 1 expected otherwise");
+    // The exit code is not a property of the tool, it is a property of the
+    // machine running the test: a clean CI runner has no high/medium findings
+    // and exits 0. Assert the invariant instead (1 exactly when the report has
+    // high or medium findings), so the test does not depend on host luck.
+    const json = spawnSync(process.execPath, [bin, "--json"], { encoding: "utf8", timeout: 60000, env });
+    const report = JSON.parse(json.stdout);
+    const serious = report.findings.some((f) => f.severity === "high" || f.severity === "medium");
+    assert.equal(first.status, serious ? 1 : 0, "exit code follows the findings, not the machine");
     assert.match(first.stdout, /^health \d+\/100/);
     assert.doesNotMatch(first.stdout, /delta=/, "first run has no previous score to compare against");
 
@@ -538,6 +545,7 @@ test("network: slow DNS resolution is flagged medium", async () => {
     dist: detectDistro({ id: "fedora", id_like: "fedora" }),
     thresholds: {},
     run: async (cmd) => {
+      if (cmd.includes("command -v ip")) return { ok: true, code: 0, stdout: "/usr/sbin/ip\n", stderr: "" };
       if (cmd.includes("ip -brief addr")) return { ok: true, code: 0, stdout: "eth0 UP 192.168.1.100/24\n", stderr: "" };
       if (cmd.includes("ip route show default")) return { ok: true, code: 0, stdout: "default via 192.168.1.1 dev eth0\n", stderr: "" };
       if (cmd.includes("getent ahostsv4")) {
@@ -563,6 +571,7 @@ test("network: fast DNS does NOT produce a slow finding", async () => {
     dist: detectDistro({ id: "fedora", id_like: "fedora" }),
     thresholds: {},
     run: async (cmd) => {
+      if (cmd.includes("command -v ip")) return { ok: true, code: 0, stdout: "/usr/sbin/ip\n", stderr: "" };
       if (cmd.includes("ip -brief addr")) return { ok: true, code: 0, stdout: "eth0 UP 192.168.1.100/24\n", stderr: "" };
       if (cmd.includes("ip route show default")) return { ok: true, code: 0, stdout: "default via 192.168.1.1 dev eth0\n", stderr: "" };
       if (cmd.includes("getent ahostsv4")) return { ok: true, code: 0, stdout: "93.184.216.34\n", stderr: "" };
