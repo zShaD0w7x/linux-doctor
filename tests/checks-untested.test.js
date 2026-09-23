@@ -453,6 +453,7 @@ test("cache: Flatpak caches count toward the size thresholds", async () => {
   });
   const findings = await cache.run(ctx);
   assert.ok(findings.some((f) => f.code === "cache/large"), "1 GB + 6 GB is over the warn threshold");
+});
 
 // ------------------------------------------------- packages: dnf needs root --
 
