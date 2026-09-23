@@ -472,7 +472,14 @@ test("--summary shows a score delta vs the previous run", () => {
   const env = { ...process.env, LINUX_DOCTOR_HISTORY: join(dir, "history.json") };
   try {
     const first = spawnSync(process.execPath, [bin, "--summary"], { encoding: "utf8", timeout: 60000, env });
-    assert.equal(first.status, 1, "a full run on a real system usually has findings; exit 1 expected otherwise");
+    // The exit code is not a property of the tool, it is a property of the
+    // machine running the test: a clean CI runner has no high/medium findings
+    // and exits 0. Assert the invariant instead (1 exactly when the report has
+    // high or medium findings), so the test does not depend on host luck.
+    const json = spawnSync(process.execPath, [bin, "--json"], { encoding: "utf8", timeout: 60000, env });
+    const report = JSON.parse(json.stdout);
+    const serious = report.findings.some((f) => f.severity === "high" || f.severity === "medium");
+    assert.equal(first.status, serious ? 1 : 0, "exit code follows the findings, not the machine");
     assert.match(first.stdout, /^health \d+\/100/);
     assert.doesNotMatch(first.stdout, /delta=/, "first run has no previous score to compare against");
 
