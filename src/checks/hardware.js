@@ -18,6 +18,14 @@ export const hardware = defineCheck({
   async run(ctx) {
     const findings = [];
 
+    // Two different questions: "is there a kernel log I can read" and "does it
+    // contain anything worth classifying". The content grep below exits 1 when
+    // nothing matches, so its status means "found something", not "could read
+    // the log" — and using it as the readability gate made the healthy case
+    // silent on a machine with no MCE/EDAC line at all.
+    const readable = await ctx.run("command -v journalctl 2>/dev/null");
+    const logReadable = readable.ok && readable.stdout.trim() !== "";
+
     // The shell grep is deliberately wide (it is one cheap read): the words
     // "mce" and "edac" are also carried by routine boot lines, so the
     // classification happens in JS where a benign line can be rejected instead
@@ -25,7 +33,7 @@ export const hardware = defineCheck({
     const ker = await ctx.run(
       'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"'
     );
-    const all = ker.ok ? journalLines(ker.stdout, { tail: 40 }) : [];
+    const all = journalLines(ker.stdout, { tail: 40 });
     const mceLines = all.filter((l) => classifyHardwareLine(l) === "mce").slice(-5);
     const edcLines = all.filter((l) => classifyHardwareLine(l) === "ecc").slice(-5);
 
@@ -58,7 +66,7 @@ export const hardware = defineCheck({
           : "If these repeat often, test the memory (Memtest86+) and reseat or replace the suspect DIMM.",
         confidence: uncorrected ? "high" : "medium",
       }));
-    } else if (ker.ok) {
+    } else if (logReadable) {
       findings.push(finding({
         severity: "info",
         code: "hardware/ok",

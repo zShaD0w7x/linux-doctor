@@ -20,6 +20,18 @@ All notable changes to Linux Doctor are documented here. The format follows
   the wording: it reports how much is compressed, says the kernel is working
   to keep up, and points at the `processes` and `cache` findings. Inflating it
   to medium would be grading by distance from normal.
+- **`hardware` answered "no errors" only by accident.** The check used the
+  exit status of `journalctl ... | grep ...` as its readability gate, but grep
+  exits 1 when nothing matches, so its status meant "found something", not "I
+  could read the log". On a healthy machine with no MCE/EDAC line at all it
+  said nothing instead of "No hardware errors logged". A benign EDAC banner
+  made grep exit 0 on the maintainer's box, which hid it.
+- **`timers` no longer calls a timer with an unmet start condition broken.**
+  `dnf-makecache.timer` is enabled on an immutable system and can never run:
+  its start condition is unmet by design (`systemctl status` says so). The
+  check asked only whether the timer was enabled and had never fired, so it
+  reported a broken schedule the user cannot fix. It consults
+  `ConditionResult` now.
 
 ## [0.7.0] - 2026-09-22
 
