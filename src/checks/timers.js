@@ -19,7 +19,18 @@ export const timers = defineCheck({
     const findings = [];
 
     const res = await ctx.run("systemctl list-timers --all --no-pager --plain 2>/dev/null");
-    if (res.missing || !res.ok) return findings; // non-systemd — nothing to check
+    if (res.missing || !res.ok) {
+      findings.push(finding({
+        severity: "info",
+        code: "timers/skipped",
+        title: "Timer check skipped",
+        detail: "`systemctl` is not available (this is not a systemd system), so timers could not be checked.",
+        evidence: res.missing ? "systemctl: not found" : "systemctl: failed",
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     const raw = lines(res.stdout);
     if (raw.length < 2) return findings;
