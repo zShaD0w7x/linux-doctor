@@ -8,6 +8,14 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **`processes` works on Alpine now.** The check asked `ps` for
+  `--sort=-rss`, which busybox does not support, and busybox also ignores the
+  column after `args=`, so the rss number was lost and the empty result read
+  as "no consumers". It uses `ps -eo rss,args` (the one column order that
+  works on both procps and busybox) and sorts in JS.
+- **`timers`, `fstrim` and `hardware` say when they cannot run.** On a
+  non-systemd system, or when lsblk/journalctl is missing, they returned
+  silently, which read as "nothing wrong". They emit an explicit skip now.
 - **Checks that could not run now say so instead of staying silent.** The
   `missing` flag was only set when the shell itself was absent, which never
   happens: a missing tool exits 127 through the shell instead. So every check
