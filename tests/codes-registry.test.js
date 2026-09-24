@@ -119,6 +119,7 @@ export const REGISTRY = {
   "fstrim/disabled": { sev: ["medium"], cat: "storage" },
   "fstrim/ok": { sev: ["info"], cat: "storage" },
   "fstrim/ok-discard": { sev: ["info"], cat: "storage" },
+  "fstrim/skipped": { sev: ["info"], cat: "storage" },
   // gpu
   "gpu/amd": { sev: ["info"], cat: "graphics" },
   "gpu/amd-missing": { sev: ["medium"], cat: "graphics" },
@@ -135,6 +136,7 @@ export const REGISTRY = {
   "hardware/ecc": { sev: ["medium", "high"], cat: "hardware" },
   "hardware/mce": { sev: ["high"], cat: "hardware" },
   "hardware/ok": { sev: ["info"], cat: "hardware" },
+  "hardware/skipped": { sev: ["info"], cat: "hardware" },
   // journald / journal
   "journald/large": { sev: ["medium"], cat: "system" },
   "journald/ok": { sev: ["info"], cat: "system" },
@@ -210,6 +212,7 @@ export const REGISTRY = {
   "thermal/warm": { sev: ["medium"], cat: "hardware" },
   "timers/broken": { sev: ["medium"], cat: "system" },
   "timers/ok": { sev: ["info"], cat: "system" },
+  "timers/skipped": { sev: ["info"], cat: "system" },
   "updates/none": { sev: ["info"], cat: "packages" },
   "updates/pending": { sev: ["info", "medium"], cat: "packages" },
   "updates/stale": { sev: ["info"], cat: "updates" },

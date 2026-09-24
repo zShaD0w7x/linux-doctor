@@ -461,6 +461,7 @@ test("orphans: a failed dnf query is not 'no orphaned packages'", async () => {
   }, { id: "fedora", id_like: "fedora" });
   const findings = await orphans.run(ctx);
   assert.deepEqual(findings, [], "if neither query ran, say nothing");
+});
 
 // ------------------------------------------------- cache: Flatpak caches -----
 
