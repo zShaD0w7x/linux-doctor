@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest a new check, an interface change, or an improvement.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Two constraints guide everything here:
+        **read-only by default** and **one diagnostic engine, multiple interfaces**.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should linux-doctor do?
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options:
+        - New diagnostic check
+        - Improvement to an existing check
+        - Findings / reporting output
+        - Interface (CLI / Web / Desktop)
+        - Packaging / install
+        - Documentation
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment (if relevant)
+      description: Distribution / version, or "any"
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: This keeps the tool read-only (no system modification)
+          required: true
+        - label: I searched existing issues and this isn't a duplicate
+          required: true
