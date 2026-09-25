@@ -4,6 +4,7 @@ import { pkgInstall } from "../distro.js";
 
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { detectContainer } from "./shared.js";
 
 export const memory = defineCheck({
   id: "memory",
@@ -12,6 +13,24 @@ export const memory = defineCheck({
   async run(ctx) {
     const findings = [];
     const t = ctx.thresholds;
+
+    // `/proc/meminfo` is not namespaced: inside a container `free` reports the
+    // HOST's memory, not this container's. Reporting it as the container's is
+    // the same lie `load` used to tell, so the check stays quiet there.
+    const { inContainer, virtType } = await detectContainer(ctx);
+    if (inContainer) {
+      findings.push(finding({
+        severity: "info",
+        code: "memory/skipped",
+        title: "Memory check skipped (container)",
+        detail: "`/proc/meminfo` is not namespaced: inside a container `free` reports the HOST's memory, not this container's. The container's real limit is its cgroup, which this check does not model, so it stays quiet. Run it on the host for a real number.",
+        evidence: `container detected: ${virtType && virtType !== "none" ? virtType : "container marker"}`,
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
+
     const mem = await ctx.run("free -b");
     if (mem.missing) {
       findings.push(finding({

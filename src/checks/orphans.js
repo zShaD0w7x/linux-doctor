@@ -36,17 +36,21 @@ export const orphans = defineCheck({
       if (sample) evidence += `\n${sample}`;
     } else if (pkg === "dnf" || family === "fedora") {
       // dnf5: `dnf repoquery --unneeded` ; dnf4: `package-cleanup --orphans`
-      // Try dnf5 first, fall back to dnf autoremove --assumeno parse.
-      let res = await ctx.run("dnf repoquery --unneeded --qf '%{name}' 2>/dev/null | wc -l");
-      if (res.ok && lines(res.stdout)[0] !== "") {
-        count = Number(lines(res.stdout)[0] || 0);
-        const list = await ctx.run("dnf repoquery --unneeded --qf '%{name}' 2>/dev/null | head -5");
-        sample = lines(list.stdout).slice(0, 3).join(", ");
+      // No `| wc -l` / `| head`: those statuses belong to wc/head, so a failed
+      // query printed "0" and the check reported a tidy database on a machine
+      // it never managed to read (verified: unprivileged dnf exits 1). Count
+      // and slice in JS, and if neither query runs, say nothing.
+      const res = await ctx.run("dnf repoquery --unneeded --qf '%{name}' 2>/dev/null");
+      if (res.ok) {
+        const pkgs = lines(res.stdout).filter(Boolean);
+        count = pkgs.length;
+        sample = pkgs.slice(0, 3).join(", ");
         evidence = `dnf repoquery --unneeded: ${count} orphaned`;
         if (sample) evidence += `\n${sample}`;
       } else {
-        res = await ctx.run("dnf autoremove --assumeno 2>&1 | grep -E '^ Package ' | wc -l");
-        count = Number(lines(res.stdout)[0] || 0);
+        const fallback = await ctx.run("dnf autoremove --assumeno 2>&1 | grep -E '^ Package '");
+        if (!fallback.ok && !String(fallback.stdout || "").trim()) return [];
+        count = lines(fallback.stdout).filter(Boolean).length;
         evidence = `dnf autoremove --assumeno: ${count} removable`;
       }
     } else if (pkg === "zypper" || family === "suse") {
@@ -80,6 +84,7 @@ export const orphans = defineCheck({
         fix: family === "arch" ? "Remove them with `sudo pacman -Rns $(pacman -Qtdq)` (review the list first with `pacman -Qtd`)."
           : family === "debian" ? "Remove them with `sudo apt autoremove`."
           : family === "fedora" ? "Remove them with `sudo dnf autoremove`."
+          : family === "suse" ? "openSUSE has no bulk autoremove. Remove packages one at a time with `sudo zypper rm -u <package>`, which also cleans up the dependencies they pulled in."
           : "Remove them with your package manager's autoremove command.",
         confidence: "high",
       })];
@@ -93,7 +98,9 @@ export const orphans = defineCheck({
       evidence: sample ? `${evidence}\n${sample}` : evidence,
       fix: family === "arch" ? "Remove with `sudo pacman -Rns $(pacman -Qtdq)` after reviewing `pacman -Qtd`."
         : family === "debian" ? "Remove with `sudo apt autoremove`."
-        : "Remove with `sudo dnf autoremove` or your distro's equivalent.",
+        : family === "fedora" ? "Remove with `sudo dnf autoremove`."
+        : family === "suse" ? "openSUSE has no bulk autoremove. Remove one at a time with `sudo zypper rm -u <package>`."
+        : "Remove with your package manager's autoremove command.",
       confidence: "high",
     })];
   },

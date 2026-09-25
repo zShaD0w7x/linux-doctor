@@ -7,6 +7,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checks } from "../src/checks/index.js";
 import { memory } from "../src/checks/memory.js";
+import { zram } from "../src/checks/zram.js";
+import { fstrim } from "../src/checks/fstrim.js";
 import { load } from "../src/checks/load.js";
 import { disk } from "../src/checks/disk.js";
 import { inodes } from "../src/checks/inodes.js";
@@ -23,6 +25,8 @@ import { flatpak } from "../src/checks/flatpak.js";
 import { boot } from "../src/checks/boot.js";
 import { thermal } from "../src/checks/thermal.js";
 import { processes } from "../src/checks/processes.js";
+import { certs } from "../src/checks/certs.js";
+import { ports } from "../src/checks/ports.js";
 import { suspend } from "../src/checks/suspend.js";
 import { battery } from "../src/checks/battery.js";
 import { bluetooth } from "../src/checks/bluetooth.js";
@@ -195,6 +199,156 @@ test("services: only user-scope failures are medium, not high", async () => {
   assert.match(findings[0].title, /5 services failed to start/);
 });
 
+test("timers: a timer whose start condition is unmet is not a broken schedule", async () => {
+  // Bazzite (immutable): dnf-makecache.timer is enabled, has never run and is
+  // not scheduled, because its start condition is unmet by design on an atomic
+  // system (systemctl status says "Condition: start condition unmet"). Calling
+  // that a broken schedule blames the user for a timer that cannot run at all.
+  const cols = (vals) => vals.map((v) => String(v).padEnd(20)).join("");
+  const ctx = stubCtx({
+    "systemctl list-timers --all --no-pager --plain 2>/dev/null": [
+      cols(["NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES"]),
+      cols(["-", "-", "-", "-", "dnf-makecache.timer", "dnf-makecache.service"]),
+      "",
+    ].join("\n"),
+    "systemctl is-enabled dnf-makecache.timer 2>/dev/null": "enabled\n",
+    "systemctl show dnf-makecache.timer -p ConditionResult --value 2>/dev/null": "no\n",
+  });
+  const findings = await timers.run(ctx);
+  assert.ok(
+    !findings.some((f) => f.code === "timers/broken"),
+    `a timer that cannot run is not broken: ${JSON.stringify(findings.map((f) => f.code))}`
+  );
+});
+
+test("timers: an enabled timer with no condition problem is still broken", async () => {
+  const cols = (vals) => vals.map((v) => String(v).padEnd(20)).join("");
+  const ctx = stubCtx({
+    "systemctl list-timers --all --no-pager --plain 2>/dev/null": [
+      cols(["NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES"]),
+      cols(["-", "-", "-", "-", "backup.timer", "backup.service"]),
+      "",
+    ].join("\n"),
+    "systemctl is-enabled backup.timer 2>/dev/null": "enabled\n",
+    "systemctl show backup.timer -p ConditionResult --value 2>/dev/null": "yes\n",
+  });
+  const findings = await timers.run(ctx);
+  assert.ok(findings.some((f) => f.code === "timers/broken"), "keep the real signal");
+});
+
+test("network: no iproute2 is a skip, not 'no default route'", async () => {
+  // Debian, Fedora and Ubuntu minimal images do not ship `ip`. run() only sets
+  // `missing` when the spawn itself fails, and these commands go through a
+  // shell, so a missing `ip` looked like an empty route table: the check
+  // reported a medium "No default network route" on a machine with a perfectly
+  // good route.
+  const ctx = stubCtx({}); // nothing stubbed: `command -v ip` finds nothing
+  const findings = await network.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip finding: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "network/skipped");
+  assert.ok(!findings.some((f) => f.code === "network/no-route"), "a missing tool is not a missing route");
+});
+
+test("load: inside a container the check is skipped, not called overloaded", async () => {
+  // /proc/loadavg is not namespaced: in a container it is the HOST's load
+  // average while nproc reports the container's CPUs, so the ratio invents an
+  // overloaded system out of an idle container (all five test images did it).
+  const ctx = stubCtx({
+    "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n",
+    "cat /proc/loadavg": "6.00 5.50 5.00 1/200 4242\n",
+    "nproc": "2\n",
+  });
+  const findings = await load.run(ctx);
+  assert.ok(findings.some((f) => f.code === "load/skipped"), `expected a skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.ok(!findings.some((f) => f.code === "load/overloaded"), "the host's load is not this container's");
+});
+
+test("load: a real host with a high load is still reported", async () => {
+  const ctx = stubCtx({
+    "cat /proc/loadavg": "6.00 5.50 5.00 1/200 4242\n",
+    "nproc": "2\n",
+  });
+  const findings = await load.run(ctx);
+  assert.ok(findings.some((f) => f.code === "load/overloaded"), "keep the real signal");
+});
+
+test("processes: a missing ps is an explicit skip, not 'no consumers'", async () => {
+  // `ps ... | head` exits 0 through head even when ps is absent, so the empty
+  // result looked like a healthy machine. procps is not installed on minimal
+  // Debian and Fedora images.
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("ps ") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
+  const findings = await processes.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "processes/skipped");
+  assert.match(findings[0].fix, /procps/);
+});
+
+test("certs: a missing openssl is an explicit skip", async () => {
+  const ctx = stubCtx({});
+  const findings = await certs.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "certs/skipped");
+  assert.match(findings[0].fix, /openssl/);
+});
+
+test("ports: a missing ss is an explicit skip", async () => {
+  // ss is iproute2, which minimal Debian and Fedora images do not ship. The
+  // check used to return silently, so a machine exposing a database on 0.0.0.0
+  // got no signal that the check had not run.
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("ss ") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
+  const findings = await ports.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "ports/skipped");
+  assert.match(findings[0].fix, /iproute2/);
+});
+
+test("memory: a missing free is an explicit skip (the .missing flag now fires)", async () => {
+  const ctx = {
+    osRelease: { id: "debian", id_like: "" },
+    dist: detectDistro({ id: "debian", id_like: "" }),
+    thresholds: {},
+    run: async (cmd) => (cmd.startsWith("free ") ? { ok: false, code: 127, stdout: "", stderr: "", missing: true } : { ok: false, code: 1, stdout: "", stderr: "" }),
+  };
+  const findings = await memory.run(ctx);
+  assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "memory/skipped");
+});
+
+
+test("memory: a container is an explicit skip, not the host's RAM", async () => {
+  // /proc/meminfo is not namespaced: a 256MB-limited container's `free -b`
+  // reports the host's 15GB. That is the same lie `load` used to tell.
+  const ctx = stubCtx({
+    "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n",
+    "free -b": "Mem: 16106127360 1000 2000 0 3000 14000000000\n",
+  });
+  const findings = await memory.run(ctx);
+  assert.equal(findings[0].code, "memory/skipped", `expected a container skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.match(findings[0].title, /container/i);
+});
+
+test("zram: a container is an explicit skip, not the host's swap", async () => {
+  const ctx = stubCtx({ "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n" });
+  const findings = await zram.run(ctx);
+  assert.equal(findings[0].code, "zram/skipped", `expected a container skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+});
+
+test("fstrim: a container is an explicit skip, not the host's disks", async () => {
+  const ctx = stubCtx({ "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n" });
+  const findings = await fstrim.run(ctx);
+  assert.equal(findings[0].code, "fstrim/skipped", `expected a container skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+});
+
 test("journal: known noise is filtered into an informational finding", async () => {
   const ctx = stubCtx({
     "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": `Aug 15 14:32:47 bazzite systemd-udevd[465]: /usr/lib/udev/rules.d/50-udev-default.rules:105 Failed to resolve group 'disk', ignoring: Unknown group\nAug 15 14:33:01 bazzite setroubleshoot[1807]: SELinux is preventing bootupctl from read access on the directory /proc.\nAug 15 14:36:58 bazzite cupsd[1512]: Returning IPP client-error-bad-request for Create-Printer-Subscriptions (ipp://localhost/) from localhost.`,
@@ -203,6 +357,35 @@ test("journal: known noise is filtered into an informational finding", async () 
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "info");
   assert.match(findings[0].title, /routine noise/i);
+});
+
+test("journal: the KDE screen locker's retry message is noise, not a fault", async () => {
+  // kscreenlocker_greet logs "[PAM worker kde] Authentication attempt too soon"
+  // when you retype a wrong password quickly, and repeats it a few times. Our
+  // /Authentication attempt too soon/ pattern read that as a recognized error,
+  // so a normal desktop got a medium "6 recognized errors" worth 8 points on
+  // the health score. Seen on the maintainer's own Bazzite box.
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": [
+      "Sep 22 16:41:02 bazzite kscreenlocker_greet[12697]: [PAM worker kde] Authentication attempt too soon.",
+      "Sep 22 16:41:05 bazzite kscreenlocker_greet[12697]: [PAM worker kde] Authentication attempt too soon.",
+      "Sep 22 16:41:09 bazzite kscreenlocker_greet[12697]: [PAM worker kde] Authentication attempt too soon.",
+    ].join("\n") + "\n",
+  });
+  const findings = await journal.run(ctx);
+  assert.ok(
+    !findings.some((f) => f.code === "journal/errors"),
+    `a screen-locker retry is not a system error: ${JSON.stringify(findings.map((f) => f.code))}`
+  );
+});
+
+test("journal: 'Authentication attempt too soon' outside the screen locker is still an error", async () => {
+  // The signal the pattern exists for: something hammering authentication.
+  const ctx = stubCtx({
+    "journalctl -p err --since \"-24 hours\" --no-pager -o short 2>/dev/null": "Sep 22 16:41:02 bazzite sshd[9001]: pam_unix(sshd:auth): Authentication attempt too soon.\n",
+  });
+  const findings = await journal.run(ctx);
+  assert.ok(findings.some((f) => f.code === "journal/errors"), "keep the brute-force signal");
 });
 
 test("journal: system-sleep failures are deferred to the suspend check", async () => {
@@ -439,7 +622,7 @@ test("updates: a failed check stays silent instead of claiming up to date", asyn
 
 test("updates: unknown distro family is skipped with info", async () => {
   const ctx = stubCtx({});
-  ctx.osRelease = { id: "void", id_like: "" };
+  ctx.osRelease = { id: "plan9", id_like: "" };
   ctx.dist = detectDistro(ctx.osRelease);
   const findings = await updates.run(ctx);
   assert.equal(findings.length, 1);
@@ -482,7 +665,13 @@ test("updates: openSUSE (zypper) counts pending updates", async () => {
     dist: detectDistro({ id: "opensuse-tumbleweed", id_like: "suse" }),
     run: async (cmd) => {
       if (cmd.startsWith("zypper -q lu")) {
-        return { ok: true, code: 0, stdout: "4\n", stderr: "" };
+        return { ok: true, code: 0, stdout:
+          "S  | Repository                 | Name     | Current Version | Available Version | Arch\n" +
+          "---+----------------------------+----------+-----------------+-------------------+-------\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | aaa_base | 1.0-1           | 1.1-1             | x86_64\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | bbb      | 1.0-1           | 1.1-1             | x86_64\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | ccc      | 1.0-1           | 1.1-1             | x86_64\n" +
+          "v  | openSUSE-Tumbleweed-Oss    | ddd      | 1.0-1           | 1.1-1             | x86_64\n", stderr: "" };
       }
       return { ok: false, code: 1, stdout: "", stderr: "" };
     },
@@ -491,6 +680,58 @@ test("updates: openSUSE (zypper) counts pending updates", async () => {
   assert.equal(findings.length, 1);
   assert.match(findings[0].title, /4 update/i);
   assert.match(findings[0].fix, /zypper update/);
+});
+
+test("updates: the apk header is not counted as a package", async () => {
+  // `apk version -l '<'` always prints "Installed: ... Available:" first. Counting
+  // every non-empty line would make an up-to-date Alpine report "1 update".
+  const ctx = {
+    osRelease: { id: "alpine", id_like: "" },
+    dist: detectDistro({ id: "alpine", id_like: "" }),
+    run: async (cmd) => {
+      if (cmd.startsWith("apk version -l")) return { ok: true, code: 0, stdout: "Installed:                                Available:\n", stderr: "" };
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "updates/none", `header must not become a finding: ${JSON.stringify(findings)}`);
+});
+
+test("updates: Void (xbps) counts pending updates", async () => {
+  // Void had no update branch at all, so a machine with 54 pending updates was
+  // silently skipped and scored as if it were current.
+  const ctx = {
+    osRelease: { id: "void", id_like: "" },
+    dist: detectDistro({ id: "void", id_like: "" }),
+    run: async (cmd) => {
+      if (cmd.startsWith("xbps-install -un")) {
+        return { ok: true, code: 0, stdout:
+          "acl-2.4.0_1 update x86_64 https://repo-default.voidlinux.org/current 43080 20653\n" +
+          "attr-2.6.0_1 update x86_64 https://repo-default.voidlinux.org/current 27348 9495\n" +
+          "bzip2-1.0.8_2 update x86_64 https://repo-default.voidlinux.org/current 150551 61517\n", stderr: "" };
+      }
+      return { ok: false, code: 1, stdout: "", stderr: "" };
+    },
+  };
+  const findings = await updates.run(ctx);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].title, /3 update/i);
+  assert.match(findings[0].fix, /xbps-install -Su/);
+});
+
+test("updates: apt with an empty index says 'could not check', not 'up to date'", async () => {
+  // A fresh minimal image (and a machine that never ran `apt update`) answers
+  // "0 upgraded" with a zero exit status. That is not being up to date, and
+  // reporting it as such is the dangerous direction of being wrong.
+  const ctx = stubCtx({
+    "apt-get -s upgrade 2>&1": "Reading state information...\nCalculating upgrade...\n0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n",
+  });
+  ctx.osRelease = { id: "debian", id_like: "" };
+  ctx.dist = detectDistro(ctx.osRelease);
+  const findings = await updates.run(ctx);
+  assert.equal(findings[0].code, "updates/stale", `an empty index is not 'up to date': ${JSON.stringify(findings)}`);
+  assert.match(findings[0].fix, /apt update/);
 });
 
 test("updates: results are cached within the TTL (second run does not re-exec)", async () => {
@@ -564,8 +805,12 @@ test("updates: Alpine (apk) counts upgradable packages", async () => {
     osRelease: { id: "alpine", id_like: "" },
     dist: detectDistro({ id: "alpine", id_like: "" }),
     run: async (cmd) => {
-      if (cmd.startsWith("apk info -u")) {
-        return { ok: true, code: 0, stdout: "musl\nopenssl\nbusybox\n", stderr: "" };
+      if (cmd.startsWith("apk version -l")) {
+        return { ok: true, code: 0, stdout:
+          "Installed:                                Available:\n" +
+          "musl-1.2.4-r2                            < 1.2.5-r0\n" +
+          "openssl-3.0.1-r0                         < 3.0.2-r0\n" +
+          "busybox-1.36.0-r0                        < 1.36.1-r0\n", stderr: "" };
       }
       return { ok: false, code: 1, stdout: "", stderr: "" };
     },
@@ -627,7 +872,12 @@ test("security: unreadable nftables without root is 'unknown', not 'no firewall'
     "systemctl is-active firewalld 2>/dev/null": "inactive\n",
     "systemctl is-active ufw 2>/dev/null": "inactive\n",
     "systemctl is-active nftables 2>/dev/null": "inactive\n",
-    // nft list ruleset intentionally unstubbed: fails (permission) without root.
+    // The binary is there; reading the ruleset needs CAP_NET_ADMIN, so the
+    // nft command itself fails. (The probe used to end in `| head -5`, whose
+    // exit code is 0 — so this case used to read as "readable and empty",
+    // i.e. "no firewall".)
+    "command -v nft 2>/dev/null": "/usr/sbin/nft\n",
+    // `nft list ruleset 2>/dev/null` intentionally unstubbed: it fails without root.
     "getenforce 2>/dev/null": "",
     "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
     "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
@@ -640,10 +890,43 @@ test("security: unreadable nftables without root is 'unknown', not 'no firewall'
   assert.ok(!findings.some((f) => f.code === "security/no-firewall"), "must not claim there is no firewall");
 });
 
+test("security: nftables not installed is a determinate 'no firewall', not 'unknown'", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "inactive\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "systemctl is-active nftables 2>/dev/null": "inactive\n",
+    "command -v nft 2>/dev/null": "",
+    "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  assert.ok(findings.some((f) => f.code === "security/no-firewall"), "no nftables and no service is a determinate answer");
+  assert.ok(!findings.some((f) => f.code === "security/firewall-unknown"), "a missing tool is not an unreadable ruleset");
+});
+
+test("security: a readable, non-empty ruleset counts as an active firewall", async () => {
+  const ctx = stubCtx({
+    "systemctl is-active firewalld 2>/dev/null": "inactive\n",
+    "systemctl is-active ufw 2>/dev/null": "inactive\n",
+    "systemctl is-active nftables 2>/dev/null": "inactive\n",
+    "command -v nft 2>/dev/null": "/usr/sbin/nft\n",
+    "nft list ruleset 2>/dev/null": "table inet filter {\n\tchain input {\n\t\ttype filter hook input priority 0; policy drop;\n\t}\n}\n",
+    "getenforce 2>/dev/null": "",
+    "cat /sys/kernel/security/apparmor/profiles 2>/dev/null | head -3": "",
+    "systemctl is-active packagekit 2>/dev/null || systemctl is-active dnf-makecache 2>/dev/null": "inactive\n",
+  });
+  const findings = await security.run(ctx);
+  const fw = findings.find((f) => f.code === "security/firewall");
+  assert.ok(fw, "rules present means the firewall is active");
+  assert.match(fw.evidence, /nftables rules present/);
+});
+
 test("processes: a single app over 20% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // ps -o rss reports KiB: 4000000 KiB ≈ 3.8 GB of 15 GB (~25%).
-    "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       4000000\nfirefox       800000\nplasma        500000\n`,
+    "command -v ps 2>/dev/null": "/usr/bin/ps\n",
+    "ps -eo rss,args 2>/dev/null": `4000000 brave\n800000 firefox\n500000 plasma\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 12000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -655,7 +938,8 @@ test("processes: a single app over 20% of RAM is flagged medium", async () => {
 test("processes: a single app over 40% of RAM is flagged medium", async () => {
   const ctx = stubCtx({
     // 8000000 KiB ≈ 7.6 GB of 15 GB (~50%).
-    "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `brave       8000000\nfirefox       800000\nplasma        500000\n`,
+    "command -v ps 2>/dev/null": "/usr/bin/ps\n",
+    "ps -eo rss,args 2>/dev/null": `8000000 brave\n800000 firefox\n500000 plasma\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360 14000000000   500000000    500000000  4718592000   1500000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -665,7 +949,8 @@ test("processes: a single app over 40% of RAM is flagged medium", async () => {
 
 test("processes: healthy memory usage produces an info finding", async () => {
   const ctx = stubCtx({
-    "ps -eo args=,rss --sort=-rss 2>/dev/null | head -8": `plasma        500000\nfirefox       400000\nbrave         300000\n`,
+    "command -v ps 2>/dev/null": "/usr/bin/ps\n",
+    "ps -eo rss,args 2>/dev/null": `500000 plasma\n400000 firefox\n300000 brave\n`,
     "free -b": `              total        used        free      shared  buff/cache   available\nMem:    16106127360  5000000000 1000000000  300000000  7000000000  11000000000\nSwap:   8267812045         0 8267812045`,
   });
   const findings = await processes.run(ctx);
@@ -1170,6 +1455,7 @@ test("backup: snapper configs count as a snapshot system", async () => {
 
 test("hardware: machine check exceptions are high", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 13 03:11:22 bazzite kernel: mce: [Hardware Error]: Machine check events logged\n",
   });
   const findings = await hardware.run(ctx);
@@ -1184,6 +1470,7 @@ test("hardware: machine check exceptions are high", async () => {
 // as a routine correction. Here the same line must now be high.
 test("hardware: an uncorrected (UE) memory error is high, not medium", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC mc0: UE row 2, channel-a 0\n",
   });
   const findings = await hardware.run(ctx);
@@ -1196,7 +1483,7 @@ test("hardware: an uncorrected (UE) memory error is high, not medium", async () 
 
 test("hardware: clean kernel log is informational", async () => {
   const ctx = stubCtx({
-    'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
@@ -1205,10 +1492,28 @@ test("hardware: clean kernel log is informational", async () => {
   assert.match(findings[0].title, /No hardware errors/);
 });
 
+test("hardware: a readable log with no matches is 'no errors', not silence", async () => {
+  // `journalctl -k ... | grep ...` exits 1 when nothing matches, so `.ok` meant
+  // "grep found nothing", not "I could not read the log". On a healthy machine
+  // with no MCE/EDAC line at all, the check said nothing instead of reporting
+  // "No hardware errors logged". (A benign EDAC banner made grep exit 0 on the
+  // maintainer's box, which hid this.)
+  const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
+    // the grep itself is left unstubbed: it fails with no output, exactly like
+    // the real command when nothing matches
+  });
+  const findings = await hardware.run(ctx);
+  assert.equal(findings.length, 1, `a readable log must produce an answer: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "hardware/ok");
+});
+
 test("hardware: boot separators alone are NOT hardware errors", async () => {
   // journalctl -k -g prints "-- Boot ... --" separators even with no matches.
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "",
   });
   const findings = await hardware.run(ctx);
@@ -1220,6 +1525,7 @@ test("hardware: boot separators alone are NOT hardware errors", async () => {
 // exception, i.e. a permanent high finding on healthy hardware.
 test("hardware: the MCE banks boot line is not a machine check exception", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': [
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
       "Aug 13 03:11:22 bazzite kernel: mce: CPU supports 32 MCE banks",
@@ -1235,6 +1541,7 @@ test("hardware: the MCE banks boot line is not a machine check exception", async
 
 test("hardware: a real EDAC CE error is still reported", async () => {
   const ctx = stubCtx({
+    "command -v journalctl 2>/dev/null": "/usr/bin/journalctl\n",
     'journalctl -k --since "-7 days" --no-pager -o short 2>/dev/null | grep -iE "mce|machine check|hardware error|edac|corrected error|ecc error"': "Aug 14 09:41:05 bazzite kernel: EDAC MC0: 1 CE memory read error on CPU_SrcID#0_MC#0_Chan#0_DIMM#0\n",
   });
   const findings = await hardware.run(ctx);
@@ -1276,6 +1583,7 @@ test("luks: no lsblk stays silent", async () => {
 
 test("network: no default route is medium", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "lo               UNKNOWN        127.0.0.1/8 ::1/128\nwlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "",
   });
@@ -1289,6 +1597,7 @@ test("network: no default route is medium", async () => {
 
 test("network: DNS failure is medium when a route exists", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
     "getent ahostsv4 kernel.org 2>&1 | head -1": "",
@@ -1302,6 +1611,7 @@ test("network: DNS failure is medium when a route exists", async () => {
 
 test("network: route + working DNS is informational", async () => {
   const ctx = stubCtx({
+    "command -v ip 2>/dev/null": "/usr/sbin/ip\n",
     "ip -brief addr show 2>/dev/null": "wlan0            UP             192.168.1.5/24\n",
     "ip route show default 2>/dev/null": "default via 192.168.1.1 dev wlan0 proto dhcp metric 600\n",
     "getent ahostsv4 kernel.org 2>&1 | head -1": "151.101.1.69     STREAM kernel.org\n",
@@ -1509,7 +1819,8 @@ test("timers: non-systemd stays silent", async () => {
     run: async () => ({ ok: false, code: -1, stdout: "", stderr: "", missing: true }),
   };
   const findings = await timers.run(ctx);
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1, `a non-systemd system is an explicit skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "timers/skipped");
 });
 
 test("ntp: synchronized clock is informational", async () => {

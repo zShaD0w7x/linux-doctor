@@ -10,6 +10,14 @@ import { finding } from "../findings.js";
 const APT_NEEDS_ROOT = /are you root|permission denied|could not open lock|unable to acquire/i;
 
 /**
+ * `dnf check` refusing to run without root. Unprivileged dnf cannot create its
+ * cache and exits 1 with "filesystem error: cannot create directories:
+ * Permission denied" — a line that says nothing about dependency health.
+ * Verified in a Fedora container as a non-root user.
+ */
+const DNF_NEEDS_ROOT = /are you root|permission denied|cannot create directories|has to be run with superuser/i;
+
+/**
  * Lock holders that belong to something other than this run.
  *
  * Checks run concurrently (`RUN_CONCURRENCY` in cli.js) and `packages`,
@@ -153,29 +161,38 @@ export const packages = defineCheck({
     // result never used; two full rpmdb verifications were pure dead work
     // that almost always exceeded the timeout.)
     if (pkg === "dnf" || family === "fedora") {
-      const dnfCheck = await ctx.run("dnf check 2>&1 | head -20");
+      // No `| head`: the exit status would belong to head, so the guard below
+      // could never fire and a failed dnf looked successful. Slice in JS.
+      const dnfCheck = await ctx.run("dnf check 2>&1");
+      const out = String(dnfCheck.stdout || "");
+      // An unprivileged dnf cannot create its cache. Its refusal was read as a
+      // broken package database (high) on a healthy machine — the same false
+      // positive the apt lock refusal used to cause. It is "could not check".
+      const needsRoot = DNF_NEEDS_ROOT.test(out);
+      const diag = lines(out).filter((l) => !DNF_NEEDS_ROOT.test(l)).join("\n");
 
-      const dnfOut = (dnfCheck.stdout || "").toLowerCase();
-      if (/error|broken|conflict|missing dependency/i.test(dnfOut) && dnfOut.trim() !== "") {
+      if (!needsRoot && /error|broken|conflict|missing dependency/i.test(diag.toLowerCase()) && diag.trim() !== "") {
         findings.push(finding({
           severity: "high",
           code: "packages/broken",
           title: "Package manager reports problems",
           detail: "`dnf check` reports package problems that may block updates.",
-          evidence: lines(dnfCheck.stdout).slice(0, 3).join("\n"),
+          evidence: lines(diag).slice(0, 3).join("\n"),
           fix: "Check `sudo dnf check` and `sudo dnf distro-sync --assumeno` to see details.",
           confidence: "medium",
         }));
         return findings;
       }
 
-      if (!dnfCheck.ok) return findings;
+      // Only claim health when the check actually ran — or when the reason it
+      // did not is missing root, which the evidence then says out loud.
+      if (!dnfCheck.ok && !needsRoot) return findings;
       findings.push(finding({
         severity: "info",
         code: "packages/ok",
         title: "Package manager is healthy",
         detail: "No package problems were found. dnf/rpm is ready for updates.",
-        evidence: "dnf check: ok",
+        evidence: `dnf check: ${needsRoot ? "skipped (needs root)" : "ok"}`,
         fix: null,
         confidence: "high",
       }));
@@ -184,7 +201,11 @@ export const packages = defineCheck({
 
     // Arch — check pacman DB
     if (pkg === "pacman" || family === "arch") {
-      const pacmanCheck = await ctx.run("pacman -Dk 2>&1 | head -20");
+      // No `| head`: that made `pacmanCheck.ok` the exit status of head, so the
+      // guard below could never fire. `pacman -Dk` does not need root (verified:
+      // it exits 0 unprivileged), which is why the dead gate was harmless here,
+      // but a gate that cannot fail is not a gate. Slice the output in JS.
+      const pacmanCheck = await ctx.run("pacman -Dk 2>&1");
       // `pacman -Dk` prints "No database errors have been found!" when the
       // database is fine. A bare /error/ matched that sentence, so a clean Arch
       // system got a high "Pacman database has errors" whose evidence was the
@@ -198,12 +219,12 @@ export const packages = defineCheck({
         findings.push(finding({
           severity: "high",
           code: "packages/broken",
-          title: "Pacman database has errors",
-          detail: "`pacman -Dk` reports database errors.",
-          evidence: lines(out).slice(0, 3).join("\n"),
-          fix: "Check `pacman -Dk` and `sudo pacman -Syy` to refresh the database.",
-          confidence: "high",
-        }));
+        title: "Pacman database has errors",
+        detail: "`pacman -Dk` reports database errors.",
+        evidence: lines(out).slice(0, 3).join("\n"),
+        fix: "Check `pacman -Dk` and `sudo pacman -Syy` to refresh the database.",
+        confidence: "high",
+      }));
         return findings;
       }
       if (!pacmanCheck.ok) return findings;

@@ -2,6 +2,7 @@
 import { lines, plural, shq } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { pkgInstall } from "../distro.js";
 
 /**
  * TLS certificate expiry: the classic silent outage. ACME automation works
@@ -36,7 +37,18 @@ export const certs = defineCheck({
     const nowMs = Date.now();
 
     const openssl = await ctx.run("command -v openssl 2>/dev/null");
-    if (!openssl.ok || !openssl.stdout.trim()) return findings;
+    if (!openssl.ok || !openssl.stdout.trim()) {
+      findings.push(finding({
+        severity: "info",
+        code: "certs/skipped",
+        title: "Certificate check skipped",
+        detail: "`openssl` is not available on this system, so certificate expiry could not be checked.",
+        evidence: "openssl: not found",
+        fix: `Install openssl (${pkgInstall(ctx.dist, { fedora: "openssl", "*": "openssl" })}) and re-run.`,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     const found = []; // { name, days }
 

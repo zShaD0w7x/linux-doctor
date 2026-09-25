@@ -2,6 +2,7 @@
 import { lines, num } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { detectContainer } from "./shared.js";
 
 /**
  * Swap / zram health. Swappiness over 100 tells the kernel to swap eagerly
@@ -14,6 +15,22 @@ export const zram = defineCheck({
   category: "system",
   async run(ctx) {
     const findings = [];
+
+    // `/proc/swaps` and `swappiness` are not namespaced: in a container they
+    // describe the HOST's swap, not this container's.
+    const { inContainer, virtType } = await detectContainer(ctx);
+    if (inContainer) {
+      findings.push(finding({
+        severity: "info",
+        code: "zram/skipped",
+        title: "Swap check skipped (container)",
+        detail: "Inside a container `/proc/swaps` and `swappiness` describe the HOST's swap, not this container's, so the check stays quiet. Run it on the host for a real number.",
+        evidence: `container detected: ${virtType && virtType !== "none" ? virtType : "container marker"}`,
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     const swappiness = await ctx.run("cat /proc/sys/vm/swappiness");
     const sw = swappiness.ok ? Number(swappiness.stdout.trim()) : null;
@@ -42,14 +59,24 @@ export const zram = defineCheck({
         confidence: "high",
       }));
     } else if (zramTotal > 0) {
+      // High occupancy is not a fault by itself: zram is meant to be used, and
+      // cold pages stay compressed there for days. But calling 60% "healthy"
+      // hides the thing that matters, which is that the kernel is compressing
+      // a lot of memory to keep up. Say what it means and where to look,
+      // without inflating the severity (that would be grading by distance
+      // from normal).
+      const pct = Math.round((zramUsed / zramTotal) * 100);
+      const busy = zramUsed / zramTotal >= 0.5;
       findings.push(finding({
         severity: "info",
         code: "zram/ok",
-        title: "zram swap is healthy",
-        detail: sw !== null && sw > 60
-          ? "Compressed swap has room. Swappiness is above 60, so consider lowering it to keep the kernel in RAM."
-          : "Compressed swap has room and swappiness looks sensible.",
-        evidence: `${fmtMiB(zramUsed)} used of ${fmtMiB(zramTotal)} zram, swappiness ${sw ?? "?"}`,
+        title: busy ? "Compressed swap is doing real work" : "zram swap is healthy",
+        detail: busy
+          ? `Compressed swap is holding ${fmtMiB(zramUsed)} of ${fmtMiB(zramTotal)} (${pct}%). zram is meant to be used and pages stay compressed until something touches them, so this is not a fault by itself. It does mean the kernel is compressing a lot of memory to keep up, so if the machine feels slow, this is why: the processes check names the biggest consumers and cache shows what is reclaimable.`
+          : sw !== null && sw > 60
+            ? "Compressed swap has room. Swappiness is above 60, so consider lowering it to keep the kernel in RAM."
+            : "Compressed swap has room and swappiness looks sensible.",
+        evidence: `${fmtMiB(zramUsed)} used of ${fmtMiB(zramTotal)} zram (${pct}%), swappiness ${sw ?? "?"}`,
         fix: null,
         confidence: "high",
       }));

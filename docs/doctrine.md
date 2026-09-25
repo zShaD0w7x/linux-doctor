@@ -59,6 +59,13 @@ finding. A wrong finding is worse than no finding, because people act on it.
 3. Defaults are conservative and thresholds are tunable
    ([docs/configuration.md](configuration.md)) rather than hard-coded.
 4. If we cannot detect when it is wrong, we do not ship it.
+5. **A probe's exit status means what it says.** Never end a probe you gate on
+   in a pipe: `cmd | head`, `| tail` and `| wc -l` hand the status to the last
+   command, which almost always succeeds, so `.ok` stops meaning "I could read
+   this" and starts meaning nothing. Slice in JS instead, or probe the binary
+   separately. This is not theoretical: it turned unreadable nftables into
+   "no firewall", an unprivileged dnf refusal into a broken package database,
+   and a failed orphan query into "no orphaned packages".
 
 Contributors: this is the same policy stated as a checklist in
 [CONTRIBUTING.md](../CONTRIBUTING.md), and recording a machine fixture is the way

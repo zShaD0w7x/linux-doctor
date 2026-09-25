@@ -55,9 +55,11 @@ export const REGISTRY = {
   "certs/critical": { sev: ["high"], cat: "security" },
   "certs/expiring": { sev: ["medium"], cat: "security" },
   "certs/ok": { sev: ["info"], cat: "security" },
+  "certs/skipped": { sev: ["info"], cat: "security" },
   // ports
   "ports/exposed-risky": { sev: ["medium"], cat: "security" },
   "ports/ok": { sev: ["info"], cat: "security" },
+  "ports/skipped": { sev: ["info"], cat: "security" },
   // fds
   "fds/exhausted": { sev: ["high", "medium"], cat: "system" },
   // battery
@@ -112,10 +114,12 @@ export const REGISTRY = {
   "firmware/pending": { sev: ["medium"], cat: "system" },
   "flatpak/none": { sev: ["info"], cat: "packages" },
   "flatpak/pending": { sev: ["info", "medium"], cat: "packages" },
-  "flatpak/unused-runtimes": { sev: ["info", "medium"], cat: "packages" },
+  // flatpak/unused-runtimes is intentionally absent: the CLI exposes no
+  // read-only way to know which runtimes are unused (see src/checks/flatpak.js).
   "fstrim/disabled": { sev: ["medium"], cat: "storage" },
   "fstrim/ok": { sev: ["info"], cat: "storage" },
   "fstrim/ok-discard": { sev: ["info"], cat: "storage" },
+  "fstrim/skipped": { sev: ["info"], cat: "storage" },
   // gpu
   "gpu/amd": { sev: ["info"], cat: "graphics" },
   "gpu/amd-missing": { sev: ["medium"], cat: "graphics" },
@@ -132,6 +136,7 @@ export const REGISTRY = {
   "hardware/ecc": { sev: ["medium", "high"], cat: "hardware" },
   "hardware/mce": { sev: ["high"], cat: "hardware" },
   "hardware/ok": { sev: ["info"], cat: "hardware" },
+  "hardware/skipped": { sev: ["info"], cat: "hardware" },
   // journald / journal
   "journald/large": { sev: ["medium"], cat: "system" },
   "journald/ok": { sev: ["info"], cat: "system" },
@@ -143,6 +148,7 @@ export const REGISTRY = {
   // load / locales / luks
   "load/busy": { sev: ["info"], cat: "performance" },
   "load/overloaded": { sev: ["medium", "high"], cat: "performance" },
+  "load/skipped": { sev: ["info"], cat: "performance" },
   "locales/broken": { sev: ["medium"], cat: "system" },
   "luks/encrypted": { sev: ["info"], cat: "security" },
   "luks/none": { sev: ["info"], cat: "security" },
@@ -168,6 +174,7 @@ export const REGISTRY = {
   "orphans/some": { sev: ["info"], cat: "system" },
   "processes/high": { sev: ["medium"], cat: "performance" }, // degradation, not data risk — docs/severity.md rule 3
   "processes/ok": { sev: ["info"], cat: "performance" },
+  "processes/skipped": { sev: ["info"], cat: "performance" },
   "processes/warn": { sev: ["medium"], cat: "performance" },
   // packages
   "packages/broken": { sev: ["high"], cat: "system" },
@@ -205,8 +212,10 @@ export const REGISTRY = {
   "thermal/warm": { sev: ["medium"], cat: "hardware" },
   "timers/broken": { sev: ["medium"], cat: "system" },
   "timers/ok": { sev: ["info"], cat: "system" },
+  "timers/skipped": { sev: ["info"], cat: "system" },
   "updates/none": { sev: ["info"], cat: "packages" },
   "updates/pending": { sev: ["info", "medium"], cat: "packages" },
+  "updates/stale": { sev: ["info"], cat: "updates" },
   "updates/skipped": { sev: ["info"], cat: "packages" },
   "wayland/healthy": { sev: ["info"], cat: "desktop" },
   // wifi
@@ -222,6 +231,7 @@ export const REGISTRY = {
   "wayland/x11": { sev: ["info"], cat: "desktop" },
   "zram/full": { sev: ["medium"], cat: "performance" },
   "zram/ok": { sev: ["info"], cat: "performance" },
+  "zram/skipped": { sev: ["info"], cat: "performance" },
   "zram/swappiness": { sev: ["info"], cat: "performance" },
 };
 

@@ -6,6 +6,91 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **`memory`, `zram` and `fstrim` no longer report the HOST's state inside a
+  container.** `/proc/meminfo`, `/proc/swaps` and `lsblk` are not namespaced,
+  so a 256MB-limited container's `free -b` reported the host's 15GB — the same
+  lie `load` used to tell. The container detection is now shared
+  (`detectContainer`) and all four checks skip with an explanation.
+- **`processes` works on Alpine now.** The check asked `ps` for
+  `--sort=-rss`, which busybox does not support, and busybox also ignores the
+  column after `args=`, so the rss number was lost and the empty result read
+  as "no consumers". It uses `ps -eo rss,args` (the one column order that
+  works on both procps and busybox) and sorts in JS.
+- **`timers`, `fstrim` and `hardware` say when they cannot run.** On a
+  non-systemd system, or when lsblk/journalctl is missing, they returned
+  silently, which read as "nothing wrong". They emit an explicit skip now.
+- **Checks that could not run now say so instead of staying silent.** The
+  `missing` flag was only set when the shell itself was absent, which never
+  happens: a missing tool exits 127 through the shell instead. So every check
+  that gated a "could not check" skip on `missing` stayed silent, and a
+  minimal system scored as if those checks had passed. `run()` marks 127 as
+  missing now, which activates the skip findings that were already written
+  (`memory/skipped`, `journald/skipped`, `smart/skipped`, and more), and
+  `processes`, `ports` and `certs` gained the explicit skips they lacked.
+  A score now comes with the list of what could not be checked: on a minimal
+  Debian image that is memory, processes, ports and the systemd checks, each
+  naming the package that would fix it.
+
+- **Three update checks were answering a question no one asked.** Found by
+  running the engine against real package managers, not by reading code.
+  `zypper` counted through `awk`, which is not installed on a minimal openSUSE
+  image: the pipeline produced nothing and Tumbleweed reported "System is up
+  to date" with thirteen lines of updates on screen. `apk info -u` is not a
+  valid command (it exits 1 with "unrecognized option 'u'"), so Alpine
+  silently reported nothing at all. Void had no update branch, so a machine
+  with 54 pending updates was skipped and scored as current. All three read
+  the raw output and parse it in JS now, with no `awk`/`wc` dependency.
+- **apt with an empty package index no longer claims "up to date".** A fresh
+  image, or a machine that never ran `apt update`, answers "0 upgraded" with a
+  zero exit status. That is not being up to date, and reporting it as such is
+  the dangerous direction of being wrong: the check says it could not
+  determine the state and points at `apt update`.
+
+- **The KDE lock screen's retry message is no longer counted as a system error.**
+  `kscreenlocker_greet` logs `Authentication attempt too soon` when you retype a
+  wrong password quickly, and repeats it a few times, so a healthy desktop got a
+  medium "6 recognized errors" worth 8 points of health score. Only the screen
+  locker's copy is noise: the same string from `sshd` stays an error, because
+  that one is worth seeing. Also fixes `scripts/screenshot.mjs`, which waited
+  for a selector that does not exist and therefore never ran.
+- **Flatpak app caches are measured now.** The cache check looked at `~/.cache`
+  and Trash only, so the per-app caches under `~/.var/app/<id>/cache` were
+  invisible, which on a Flatpak-heavy distro is the larger half: on the
+  maintainer's Bazzite box `~/.cache` held 3.5 GB while `~/.var/app` held
+  5.3 GB, and the report said nothing about it. Both are measured and counted
+  toward the same thresholds now, and the biggest offenders are named.
+- **`zram` no longer calls a half-full compressed swap "healthy".** High
+  occupancy is not a fault by itself (zram is meant to be used and cold pages
+  sit there for days), so the severity stays informational. What changed is
+  the wording: it reports how much is compressed, says the kernel is working
+  to keep up, and points at the `processes` and `cache` findings. Inflating it
+  to medium would be grading by distance from normal.
+- **`network` called a missing `iproute2` "no default route".** Minimal
+  Debian, Fedora and Ubuntu images do not ship `ip`, and the probe's failure
+  was read as an empty route table: a medium "No default network route" on a
+  machine with a perfectly good route. The tool's presence is probed
+  separately now, and a missing `ip` is an explicit skip with the install
+  hint.
+- **`load` is skipped inside a container.** `/proc/loadavg` is not namespaced:
+  in a container it is the host's load average while `nproc` reports the
+  container's CPUs, so the ratio invented an overloaded system out of an idle
+  container (all five test images reported it). The check says why it is
+  skipping and stays quiet there.
+- **`hardware` answered "no errors" only by accident.** The check used the
+  exit status of `journalctl ... | grep ...` as its readability gate, but grep
+  exits 1 when nothing matches, so its status meant "found something", not "I
+  could read the log". On a healthy machine with no MCE/EDAC line at all it
+  said nothing instead of "No hardware errors logged". A benign EDAC banner
+  made grep exit 0 on the maintainer's box, which hid it.
+- **`timers` no longer calls a timer with an unmet start condition broken.**
+  `dnf-makecache.timer` is enabled on an immutable system and can never run:
+  its start condition is unmet by design (`systemctl status` says so). The
+  check asked only whether the timer was enabled and had never fired, so it
+  reported a broken schedule the user cannot fix. It consults
+  `ConditionResult` now.
+
 ## [0.7.0] - 2026-09-22
 
 ### Added

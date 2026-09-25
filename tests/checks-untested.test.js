@@ -272,7 +272,7 @@ test("packages: a lock refusal does not mask a genuinely broken dpkg database", 
 // its evidence. Found by the clean-image baseline gate on its first run.
 test("packages: pacman reporting no database errors is informational", async () => {
   const ctx = stubCtx({
-    "pacman -Dk 2>&1 | head -20":
+    "pacman -Dk 2>&1":
       "warning: database file for 'core' does not exist (use '-Sy' to download)\n" +
       "warning: database file for 'extra' does not exist (use '-Sy' to download)\n" +
       "No database errors have been found!\n",
@@ -284,7 +284,7 @@ test("packages: pacman reporting no database errors is informational", async () 
 
 test("packages: a real pacman database error is still high", async () => {
   const ctx = stubCtx({
-    "pacman -Dk 2>&1 | head -20": "error: package libfoo: missing 'libbar' dependency\n",
+    "pacman -Dk 2>&1": "error: package libfoo: missing 'libbar' dependency\n",
   }, { id: "arch" });
   const findings = await packages.run(ctx);
   assert.equal(findings[0].code, "packages/broken");
@@ -419,4 +419,80 @@ test("cache: a small cache is silent (no false positive)", async () => {
   });
   const findings = await cache.run(ctx);
   assert.ok(!findings.some((f) => /medium|high/.test(f.severity)), "a 100 MB cache must not alarm");
+});
+
+// ------------------------------------------------- packages: dnf needs root --
+
+test("packages: dnf without root is 'skipped (needs root)', not a broken database", async () => {
+  // On Fedora an unprivileged `dnf check` cannot create its cache and exits 1
+  // with "filesystem error: cannot create directories: Permission denied".
+  // The old probe piped through `head`, so the exit status belonged to head,
+  // the failure looked successful, the /error/ predicate matched that line and
+  // a healthy machine got a HIGH "package manager reports problems" — the same
+  // false positive the apt lock refusal used to cause. Verified in a Fedora
+  // container as a non-root user.
+  const ctx = stubCtx({
+    "dnf check 2>&1": "filesystem error: cannot create directories: Permission denied [/.local/state]\n",
+  }, { id: "fedora", id_like: "fedora" });
+  const findings = await packages.run(ctx);
+  assert.ok(!findings.some((f) => f.code === "packages/broken"), `a permission refusal is not a broken database: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.equal(findings[0].code, "packages/ok");
+  assert.match(findings[0].evidence, /skipped \(needs root\)/);
+});
+
+test("packages: a failed pacman check stays silent instead of claiming health", async () => {
+  // `pacman -Dk` does not need root (verified: it exits 0 unprivileged), so the
+  // dead exit-status gate here was benign — but a silent guard belongs in the
+  // tests, so a future edit cannot turn a failure into "database is healthy".
+  const ctx = stubCtx({
+  }, { id: "arch", id_like: "arch" });
+  const findings = await packages.run(ctx);
+  assert.deepEqual(findings, []);
+});
+
+// ------------------------------------------------------- orphans: dnf query --
+
+test("orphans: a failed dnf query is not 'no orphaned packages'", async () => {
+  // `dnf repoquery --unneeded | wc -l` always exits 0 (wc's status), so a
+  // failed query printed 0 and the check reported a tidy database. Verified
+  // in a Fedora container: unprivileged dnf exits 1 and prints the same
+  // permission error. "Could not determine" must be silence, not a clean bill.
+  const ctx = stubCtx({
+  }, { id: "fedora", id_like: "fedora" });
+  const findings = await orphans.run(ctx);
+  assert.deepEqual(findings, [], "if neither query ran, say nothing");
+});
+
+// ------------------------------------------------- cache: Flatpak caches -----
+
+test("cache: Flatpak app caches are measured too, not just ~/.cache", async () => {
+  // Seen on a Bazzite box: ~/.cache held 3.7 GB while ~/.var/app held 5 GB of
+  // per-app Flatpak caches (a game launcher at 2.6 GB, a chat app at 1.8 GB)
+  // that the check never looked at. So the report said "cache is getting
+  // large" while the real reclaimable space was invisible.
+  const ctx = stubCtx({
+    'du -sb "$HOME/.cache" 2>/dev/null | cut -f1': String(3 * 1024 ** 3) + "\n",
+    'du -sb "$HOME/.local/share/Trash" 2>/dev/null | cut -f1': "0\n",
+    'du -sb "$HOME/.var/app"/*/cache 2>/dev/null': [
+      `${Math.round(2.6 * 1024 ** 3)}\t/home/u/.var/app/org.vinegarhq.Sober/cache`,
+      `${Math.round(1.8 * 1024 ** 3)}\t/home/u/.var/app/com.ktechpit.whatsie/cache`,
+      "",
+    ].join("\n"),
+  });
+  const findings = await cache.run(ctx);
+  const large = findings.find((f) => f.code === "cache/large");
+  assert.ok(large, `a 4.4 GB Flatpak cache must not be invisible: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.match(large.evidence, /Sober/, "name the biggest offender");
+});
+
+test("cache: Flatpak caches count toward the size thresholds", async () => {
+  // ~/.cache alone is under the warn threshold; with the Flatpak caches it is
+  // over it, so the finding must appear.
+  const ctx = stubCtx({
+    'du -sb "$HOME/.cache" 2>/dev/null | cut -f1': String(1 * 1024 ** 3) + "\n",
+    'du -sb "$HOME/.local/share/Trash" 2>/dev/null | cut -f1': "0\n",
+    'du -sb "$HOME/.var/app"/*/cache 2>/dev/null': `${Math.round(6 * 1024 ** 3)}\t/home/u/.var/app/com.example.App/cache\n`,
+  });
+  const findings = await cache.run(ctx);
+  assert.ok(findings.some((f) => f.code === "cache/large"), "1 GB + 6 GB is over the warn threshold");
 });

@@ -19,7 +19,18 @@ export const timers = defineCheck({
     const findings = [];
 
     const res = await ctx.run("systemctl list-timers --all --no-pager --plain 2>/dev/null");
-    if (res.missing || !res.ok) return findings; // non-systemd — nothing to check
+    if (res.missing || !res.ok) {
+      findings.push(finding({
+        severity: "info",
+        code: "timers/skipped",
+        title: "Timer check skipped",
+        detail: "`systemctl` is not available (this is not a systemd system), so timers could not be checked.",
+        evidence: res.missing ? "systemctl: not found" : "systemctl: failed",
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     const raw = lines(res.stdout);
     if (raw.length < 2) return findings;
@@ -43,7 +54,14 @@ export const timers = defineCheck({
       // Enabled but never fired and not scheduled = broken schedule.
       // (Disabled timers also show "-" and are perfectly fine.)
       const en = await ctx.run(`systemctl is-enabled ${shq(unit)} 2>/dev/null`);
-      if (en.ok && en.stdout.trim() === "enabled") broken.push(unit);
+      if (!en.ok || en.stdout.trim() !== "enabled") continue;
+      // …unless it cannot run at all, by design. dnf-makecache.timer on an
+      // immutable (atomic) system is the common case: systemctl status says
+      // "Condition: start condition unmet", so it will never fire no matter
+      // what the user does. That is not a schedule to repair.
+      const cond = await ctx.run(`systemctl show ${shq(unit)} -p ConditionResult --value 2>/dev/null`);
+      if (cond.ok && cond.stdout.trim() === "no") continue;
+      broken.push(unit);
     }
 
     if (broken.length > 0) {
