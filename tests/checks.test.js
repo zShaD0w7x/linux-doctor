@@ -7,6 +7,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checks } from "../src/checks/index.js";
 import { memory } from "../src/checks/memory.js";
+import { zram } from "../src/checks/zram.js";
+import { fstrim } from "../src/checks/fstrim.js";
 import { load } from "../src/checks/load.js";
 import { disk } from "../src/checks/disk.js";
 import { inodes } from "../src/checks/inodes.js";
@@ -320,6 +322,31 @@ test("memory: a missing free is an explicit skip (the .missing flag now fires)",
   const findings = await memory.run(ctx);
   assert.equal(findings.length, 1, `expected one skip: ${JSON.stringify(findings.map((f) => f.code))}`);
   assert.equal(findings[0].code, "memory/skipped");
+});
+
+
+test("memory: a container is an explicit skip, not the host's RAM", async () => {
+  // /proc/meminfo is not namespaced: a 256MB-limited container's `free -b`
+  // reports the host's 15GB. That is the same lie `load` used to tell.
+  const ctx = stubCtx({
+    "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n",
+    "free -b": "Mem: 16106127360 1000 2000 0 3000 14000000000\n",
+  });
+  const findings = await memory.run(ctx);
+  assert.equal(findings[0].code, "memory/skipped", `expected a container skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+  assert.match(findings[0].title, /container/i);
+});
+
+test("zram: a container is an explicit skip, not the host's swap", async () => {
+  const ctx = stubCtx({ "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n" });
+  const findings = await zram.run(ctx);
+  assert.equal(findings[0].code, "zram/skipped", `expected a container skip: ${JSON.stringify(findings.map((f) => f.code))}`);
+});
+
+test("fstrim: a container is an explicit skip, not the host's disks", async () => {
+  const ctx = stubCtx({ "test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null": "container\n" });
+  const findings = await fstrim.run(ctx);
+  assert.equal(findings[0].code, "fstrim/skipped", `expected a container skip: ${JSON.stringify(findings.map((f) => f.code))}`);
 });
 
 test("journal: known noise is filtered into an informational finding", async () => {

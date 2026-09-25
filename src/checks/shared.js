@@ -98,3 +98,19 @@ export function classifyHardwareLine(line) {
   if (EDC_RE.test(line)) return "ecc";
   return null;
 }
+
+/**
+ * True when the process runs inside a container. Several kernel interfaces are
+ * not namespaced (`/proc/loadavg`, `/proc/meminfo`, `/proc/swaps`, and the
+ * block devices `lsblk` reports): inside a container they describe the HOST,
+ * so a check reading them would report the host's state as this container's.
+ * `systemd-detect-virt --container` is the reliable probe where it exists;
+ * the container marker files cover the rest.
+ */
+export async function detectContainer(ctx) {
+  const virt = await ctx.run("systemd-detect-virt --container 2>/dev/null");
+  const marker = await ctx.run("test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null");
+  const virtType = virt.ok ? virt.stdout.trim() : "";
+  const inContainer = (virtType !== "" && virtType !== "none") || (marker.ok && /container/.test(marker.stdout));
+  return { inContainer, virtType };
+}

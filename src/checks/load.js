@@ -3,6 +3,7 @@ import { lines, num, plural } from "../utils.js";
 
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { detectContainer } from "./shared.js";
 
 export const load = defineCheck({
   id: "load",
@@ -16,10 +17,7 @@ export const load = defineCheck({
     // average, while nproc reports the container's CPUs. Comparing the two
     // invents an overloaded system out of an idle container — all five test
     // images did it — so the check says so and stays quiet there.
-    const virt = await ctx.run("systemd-detect-virt --container 2>/dev/null");
-    const marker = await ctx.run("test -f /.dockerenv -o -f /run/.containerenv && echo container 2>/dev/null");
-    const virtType = virt.ok ? virt.stdout.trim() : "";
-    const inContainer = (virtType !== "" && virtType !== "none") || (marker.ok && /container/.test(marker.stdout));
+    const { inContainer, virtType } = await detectContainer(ctx);
     if (inContainer) {
       findings.push(finding({
         severity: "info",

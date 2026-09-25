@@ -2,6 +2,7 @@
 import { lines, num } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
+import { detectContainer } from "./shared.js";
 
 /**
  * Swap / zram health. Swappiness over 100 tells the kernel to swap eagerly
@@ -14,6 +15,22 @@ export const zram = defineCheck({
   category: "system",
   async run(ctx) {
     const findings = [];
+
+    // `/proc/swaps` and `swappiness` are not namespaced: in a container they
+    // describe the HOST's swap, not this container's.
+    const { inContainer, virtType } = await detectContainer(ctx);
+    if (inContainer) {
+      findings.push(finding({
+        severity: "info",
+        code: "zram/skipped",
+        title: "Swap check skipped (container)",
+        detail: "Inside a container `/proc/swaps` and `swappiness` describe the HOST's swap, not this container's, so the check stays quiet. Run it on the host for a real number.",
+        evidence: `container detected: ${virtType && virtType !== "none" ? virtType : "container marker"}`,
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     const swappiness = await ctx.run("cat /proc/sys/vm/swappiness");
     const sw = swappiness.ok ? Number(swappiness.stdout.trim()) : null;

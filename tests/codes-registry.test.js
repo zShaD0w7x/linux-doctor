@@ -231,6 +231,7 @@ export const REGISTRY = {
   "wayland/x11": { sev: ["info"], cat: "desktop" },
   "zram/full": { sev: ["medium"], cat: "performance" },
   "zram/ok": { sev: ["info"], cat: "performance" },
+  "zram/skipped": { sev: ["info"], cat: "performance" },
   "zram/swappiness": { sev: ["info"], cat: "performance" },
 };
 

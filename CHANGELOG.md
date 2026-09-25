@@ -8,6 +8,11 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ### Fixed
 
+- **`memory`, `zram` and `fstrim` no longer report the HOST's state inside a
+  container.** `/proc/meminfo`, `/proc/swaps` and `lsblk` are not namespaced,
+  so a 256MB-limited container's `free -b` reported the host's 15GB — the same
+  lie `load` used to tell. The container detection is now shared
+  (`detectContainer`) and all four checks skip with an explanation.
 - **`processes` works on Alpine now.** The check asked `ps` for
   `--sort=-rss`, which busybox does not support, and busybox also ignores the
   column after `args=`, so the rss number was lost and the empty result read

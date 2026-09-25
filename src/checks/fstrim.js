@@ -3,6 +3,7 @@ import { lines } from "../utils.js";
 import { defineCheck } from "./define.js";
 import { finding } from "../findings.js";
 import { pkgInstall } from "../distro.js";
+import { detectContainer } from "./shared.js";
 
 /**
  * SSD TRIM health. Without periodic TRIM an SSD slowly loses write
@@ -18,6 +19,22 @@ export const fstrim = defineCheck({
   category: "data",
   async run(ctx) {
     const findings = [];
+
+    // `lsblk` and the fstrim timer describe the HOST's disks inside a
+    // container, not this container's, so the check stays quiet there.
+    const { inContainer, virtType } = await detectContainer(ctx);
+    if (inContainer) {
+      findings.push(finding({
+        severity: "info",
+        code: "fstrim/skipped",
+        title: "TRIM check skipped (container)",
+        detail: "Inside a container `lsblk` and the fstrim timer describe the HOST's disks, not this container's, so the check stays quiet. Run it on the host.",
+        evidence: `container detected: ${virtType && virtType !== "none" ? virtType : "container marker"}`,
+        fix: null,
+        confidence: "high",
+      }));
+      return findings;
+    }
 
     // Only relevant when at least one non-rotational device exists. ROTA=1 is
     // spinning rust; ROTA=0 covers SSDs and NVMe.
