@@ -86,6 +86,9 @@
   </recommends>
 
   <releases>
+    <release version="0.7.1" date="2026-09-26">
+      <url>https://github.com/zShaD0w7x/linux-doctor/releases/tag/v0.7.1</url>
+    </release>
     <release version="0.7.0" date="2026-09-22">
       <url>https://github.com/zShaD0w7x/linux-doctor/releases/tag/v0.7.0</url>
     </release>

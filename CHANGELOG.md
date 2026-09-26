@@ -6,6 +6,8 @@ All notable changes to Linux Doctor are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-26
+
 ### Fixed
 
 - **`memory`, `zram` and `fstrim` no longer report the HOST's state inside a
@@ -885,7 +887,8 @@ All notable changes to Linux Doctor are documented here. The format follows
 - `tests/web.test.js` flaked (server banner corrupted the TAP stream) —
   `startWeb` gained a `quiet` option used by tests.
 
-[Unreleased]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/zShaD0w7x/linux-doctor/compare/v0.5.0...v0.6.0
