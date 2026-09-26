@@ -11,7 +11,9 @@
  *  - src-tauri/tauri.conf.json
  *  - packaging/linux-doctor.1  (.TH date + version)
  *  - packaging/PKGBUILD  (pkgver + sha256sums=SKIP)
- *  - packaging/linux-doctor.spec  (Version + %changelog)
+ *  - packaging/linux-doctor.spec and packaging/obs/linux-doctor.spec  (Version + %changelog)
+ *  - packaging/aur/.SRCINFO  (pkgver + source + sha256sums)
+ *  - packaging/com.zshadow7x.linuxdoctor.metainfo.xml  (AppStream releases)
  * Then regenerates docs/checks.md
  */
 
@@ -90,11 +92,18 @@ bumpText("packaging/aur/.SRCINFO", (s) => {
   let out = s.replace(/^\tpkgver = .*$/m, `\tpkgver = ${version}`);
   out = out.replace(/^\tpkgrel = .*$/m, "\tpkgrel = 1");
   out = out.replace(/^\tsha256sums = .*$/m, "\tsha256sums = SKIP");
+  // The source line embeds the version too. It stayed on the old one, leaving
+  // pkgver 0.7.1 next to a v0.6.0 tarball, which makepkg and the AUR reject.
+  out = out.replace(
+    /^\tsource = .*$/m,
+    `\tsource = linux-doctor-${version}.tar.gz::https://github.com/zShaD0w7x/linux-doctor/archive/refs/tags/v${version}.tar.gz`,
+  );
   return out;
 });
 
-// 7. packaging/linux-doctor.spec -> Version: X.Y.Z + add %changelog entry
-bumpText("packaging/linux-doctor.spec", (s) => {
+// 7. RPM specs (git + OBS) -> Version: X.Y.Z + add %changelog entry. The OBS
+// spec was missed entirely and shipped 0.7.1 with a 0.6.0 Version.
+const specBump = (s) => {
   let out = s.replace(/^Version:\s+.*$/m, `Version:        ${version}`);
   // Add changelog entry if not already present for this version
   const tag = `${version}-1`;
@@ -103,7 +112,9 @@ bumpText("packaging/linux-doctor.spec", (s) => {
     out = out.replace(/^%changelog/m, `%changelog\n${entry}`);
   }
   return out;
-});
+};
+bumpText("packaging/linux-doctor.spec", specBump);
+bumpText("packaging/obs/linux-doctor.spec", specBump);
 
 // 8. packaging/com.zshadow7x.linuxdoctor.metainfo.xml — the AppStream
 // <releases> list is read by app stores and appstreamcli, and it used to drift:

@@ -53,6 +53,26 @@ const RELEASES = `  <releases>
 </component>
 `;
 
+
+test("bump-version: both RPM specs are bumped", () => {
+  // The OBS spec lives under packaging/obs/ and was not in the script's list,
+  // so 0.7.1 shipped with an OBS spec still on 0.6.0.
+  assert.ok(paths.includes("packaging/linux-doctor.spec"), "the git rpm spec");
+  assert.ok(paths.includes("packaging/obs/linux-doctor.spec"), "the OBS spec");
+});
+
+test("bump-version: the AUR .SRCINFO source carries the current version", () => {
+  // pkgver was bumped but the source line stayed on v0.6.0, so pkgver 0.7.1 sat
+  // next to an old tarball — makepkg and the AUR reject the pair.
+  assert.ok(
+    source.includes("source = linux-doctor-${version}.tar.gz::"),
+    "the script must rewrite the .SRCINFO source line, or pkgver and source drift",
+  );
+  const src = readFileSync(join(ROOT, "packaging/aur/.SRCINFO"), "utf8");
+  const pkgver = src.match(/pkgver = ([\d.]+)/)[1];
+  assert.ok(src.includes(`linux-doctor-${pkgver}.tar.gz`), `.SRCINFO source must match pkgver ${pkgver}`);
+});
+
 test("bump-version: the AppStream release list is bumped too", () => {
   // It drifted silently: after 0.6.1 the packaged metadata still advertised
   // 0.6.0, which app stores and appstreamcli read.
